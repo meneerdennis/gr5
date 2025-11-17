@@ -34,7 +34,12 @@ function App() {
           alignContent: "center",
         }}
       >
-        <MapView routePolyline={route.polyline} hikes={hikes} photos={photos} />
+        <MapView
+          routePolyline={route.polyline}
+          hikes={hikes}
+          photos={photos}
+          gpxUrl="src/gr5.gpx"
+        />
       </div>
     </Layout>
   );
