@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { getRouteData } from '../services/routeService';
-import { getStravaHikes } from '../services/stravaService';
-import { getPolarstepsPhotos } from '../services/polarstepsService';
+import { useEffect, useState } from "react";
+import { getRouteData } from "../services/routeService";
+import { getStravaHikes } from "../services/stravaService";
+// import { getPolarstepsPhotos } from '../services/polarstepsService';
 
 export function useHikeData() {
   const [route, setRoute] = useState(null);
@@ -17,7 +17,7 @@ export function useHikeData() {
         const [routeData, hikesData, photosData] = await Promise.all([
           getRouteData(),
           getStravaHikes(),
-          getPolarstepsPhotos(),
+          // getPolarstepsPhotos(),
         ]);
         setRoute(routeData);
         setHikes(hikesData);

@@ -29,7 +29,7 @@ function MapView({ routePolyline = [], hikes = [], photos = [], gpxUrl }) {
       : [50, 4];
 
   return (
-    <div style={{ width: "90%", height: "600px" }}>
+    <div style={{ width: "70%", height: "500px" }}>
       <MapContainer
         center={center}
         zoom={6}
@@ -44,9 +44,9 @@ function MapView({ routePolyline = [], hikes = [], photos = [], gpxUrl }) {
         {gpxUrl && <GpxTrack url={gpxUrl} />}
 
         {/* Primary route display - polyline */}
-        {routePolyline.length > 0 && (
+        {/* {routePolyline.length > 0 && (
           <Polyline positions={routePolyline} color="#ff5722" />
-        )}
+        )} */}
 
         {/* Fotomarkers */}
         {photos.map((photo) => (

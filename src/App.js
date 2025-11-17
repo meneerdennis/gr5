@@ -35,10 +35,9 @@ function App() {
         }}
       >
         <MapView
-          routePolyline={route.polyline}
           hikes={hikes}
           photos={photos}
-          gpxUrl="src/gr5.gpx"
+          gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
         />
       </div>
     </Layout>

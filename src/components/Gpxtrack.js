@@ -1,4 +1,3 @@
-// GpxTrack.js (of in hetzelfde bestand als MapView)
 import { useEffect } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
@@ -10,31 +9,35 @@ function GpxTrack({ url }) {
   useEffect(() => {
     if (!map || !url) return;
 
-    console.log("GpxTrack: Loading GPX from:", url);
-
     const gpxLayer = new L.GPX(url, {
       async: true,
+
+      // 👉 Zorg dat waypoints (wpt) NIET worden geparsed
+      gpx_options: {
+        parseElements: ["track", "route"], // géén 'waypoint'
+      },
+
+      // 👉 Alle interne markers uitschakelen
+      markers: {
+        startIcon: null, // geen startmarker
+        endIcon: null, // geen eindmarker
+        wptIcons: { "": null }, // geen default waypoint-icoon
+        wptTypeIcons: {}, // geen type-specifieke icons
+        pointMatchers: [], // geen named-point icons
+      },
+
       polyline_options: {
         color: "#ff5722",
         weight: 3,
       },
     })
       .on("loaded", (e) => {
-        console.log("GpxTrack: GPX loaded successfully");
-        // Zoom de kaart zodat de hele route zichtbaar is
         map.fitBounds(e.target.getBounds());
-      })
-      .on("error", (e) => {
-        console.error("GpxTrack: GPX loading error:", e);
       })
       .addTo(map);
 
-    // Opruimen als component unmount
     return () => {
-      if (map && gpxLayer) {
-        console.log("GpxTrack: Cleaning up GPX layer");
-        map.removeLayer(gpxLayer);
-      }
+      map.removeLayer(gpxLayer);
     };
   }, [map, url]);
 
