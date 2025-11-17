@@ -1,9 +1,9 @@
-import React from 'react';
-import { useHikeData } from './hooks/useHikeData';
-import Layout from './components/Layout';
-import ElevationProfile from './components/ElevationProfile';
-import ProgressBar from './components/ProgressBar';
-import MapView from './components/MapView';
+import React from "react";
+import { useHikeData } from "./hooks/useHikeData";
+import Layout from "./components/Layout";
+import ElevationProfile from "./components/ElevationProfile";
+import ProgressBar from "./components/ProgressBar";
+import MapView from "./components/MapView";
 
 function App() {
   const { route, hikes, photos, loading, error } = useHikeData();
@@ -16,7 +16,7 @@ function App() {
 
   return (
     <Layout>
-      <div style={{ padding: '1rem' }}>
+      <div style={{ padding: "1rem" }}>
         <h1>GR5 Hoek van Holland → Nice</h1>
         <ProgressBar progress={progress} />
         <ElevationProfile
@@ -25,12 +25,16 @@ function App() {
           totalDistanceKm={route.totalDistanceKm}
         />
       </div>
-      <div style={{ flex: 1, minHeight: '60vh' }}>
-        <MapView
-          routePolyline={route.polyline}
-          hikes={hikes}
-          photos={photos}
-        />
+      <div
+        style={{
+          flex: 1,
+          minHeight: "60vh",
+          display: "flex",
+          justifyContent: "center",
+          alignContent: "center",
+        }}
+      >
+        <MapView routePolyline={route.polyline} hikes={hikes} photos={photos} />
       </div>
     </Layout>
   );
