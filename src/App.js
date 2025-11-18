@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useHikeData } from "./hooks/useHikeData";
 import Layout from "./components/Layout";
 import ElevationProfile from "./components/ElevationProfile";
@@ -7,6 +7,9 @@ import MapView from "./components/MapView";
 
 function App() {
   const { route, hikes, photos, loading, error } = useHikeData();
+  const [hoverPoint, setHoverPoint] = useState(null);
+  // Zoom range state: [startKm, endKm] - null means full range
+  const [zoomRange, setZoomRange] = useState(null);
 
   if (loading) return <div>Data laden…</div>;
   if (error) return <div>Er ging iets mis: {error.message}</div>;
@@ -23,6 +26,10 @@ function App() {
           elevationProfile={route.elevationProfile}
           walkedDistanceKm={route.walkedDistanceKm}
           totalDistanceKm={route.totalDistanceKm}
+          hoverPoint={hoverPoint}
+          onHover={setHoverPoint}
+          zoomRange={zoomRange}
+          onZoomChange={setZoomRange}
         />
       </div>
       <div
@@ -38,6 +45,12 @@ function App() {
           hikes={hikes}
           photos={photos}
           gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
+          elevationProfile={route.elevationProfile}
+          walkedDistanceKm={route.walkedDistanceKm}
+          hoverPoint={hoverPoint}
+          onHover={setHoverPoint}
+          zoomRange={zoomRange}
+          onZoomChange={setZoomRange}
         />
       </div>
     </Layout>
