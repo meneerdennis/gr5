@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
+
+// Import leaflet-gpx plugin properly
 import "leaflet-gpx";
 
 function GpxTrack({ url, elevationProfile, onHover }) {
@@ -9,15 +11,23 @@ function GpxTrack({ url, elevationProfile, onHover }) {
   useEffect(() => {
     if (!map || !url) return;
 
+    // Check if GPX plugin is available
+    if (typeof L.GPX !== "function") {
+      console.warn(
+        "leaflet-gpx plugin not properly loaded, skipping GPX display"
+      );
+      return;
+    }
+
     const gpxLayer = new L.GPX(url, {
       async: true,
 
-      // 👉 Zorg dat waypoints (wpt) NIET worden geparsed
+      // Zorg dat waypoints (wpt) NIET worden geparsed
       gpx_options: {
         parseElements: ["track", "route"], // géén 'waypoint'
       },
 
-      // 👉 Alle interne markers uitschakelen
+      // Alle interne markers uitschakelen
       markers: {
         startIcon: null, // geen startmarker
         endIcon: null, // geen eindmarker
@@ -66,10 +76,15 @@ function GpxTrack({ url, elevationProfile, onHover }) {
           });
         }
       })
+      .on("error", (e) => {
+        console.warn("GPX loading error:", e);
+      })
       .addTo(map);
 
     return () => {
-      map.removeLayer(gpxLayer);
+      if (map && gpxLayer) {
+        map.removeLayer(gpxLayer);
+      }
     };
   }, [map, url, elevationProfile, onHover]);
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useHikeData } from "./hooks/useHikeData";
 import Layout from "./components/Layout";
 import ElevationProfile from "./components/ElevationProfile";
@@ -8,14 +8,26 @@ import MapView from "./components/MapView";
 function App() {
   const { route, hikes, photos, loading, error } = useHikeData();
   const [hoverPoint, setHoverPoint] = useState(null);
-  // Zoom range state: [startKm, endKm] - null means full range
   const [zoomRange, setZoomRange] = useState(null);
+  const [currentWalkedDistance, setCurrentWalkedDistance] = useState(0);
+
+  // Update current walked distance when route changes
+  useEffect(() => {
+    if (route && route.walkedDistanceKm) {
+      setCurrentWalkedDistance(route.walkedDistanceKm);
+    }
+  }, [route]);
 
   if (loading) return <div>Data laden…</div>;
   if (error) return <div>Er ging iets mis: {error.message}</div>;
   if (!route) return <div>Geen routegegevens gevonden.</div>;
 
-  const progress = route.walkedDistanceKm / route.totalDistanceKm;
+  const progress = currentWalkedDistance / route.totalDistanceKm;
+
+  // Handle walked distance changes from MapView
+  const handleWalkedDistanceChange = (newDistance) => {
+    setCurrentWalkedDistance(newDistance);
+  };
 
   return (
     <Layout>
@@ -24,7 +36,7 @@ function App() {
         <ProgressBar progress={progress} />
         <ElevationProfile
           elevationProfile={route.elevationProfile}
-          walkedDistanceKm={route.walkedDistanceKm}
+          walkedDistanceKm={currentWalkedDistance}
           totalDistanceKm={route.totalDistanceKm}
           hoverPoint={hoverPoint}
           onHover={setHoverPoint}
@@ -42,15 +54,17 @@ function App() {
         }}
       >
         <MapView
+          routePolyline={route.polyline}
           hikes={hikes}
           photos={photos}
           gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
           elevationProfile={route.elevationProfile}
-          walkedDistanceKm={route.walkedDistanceKm}
+          walkedDistanceKm={currentWalkedDistance}
           hoverPoint={hoverPoint}
           onHover={setHoverPoint}
           zoomRange={zoomRange}
           onZoomChange={setZoomRange}
+          onWalkedDistanceChange={handleWalkedDistanceChange}
         />
       </div>
     </Layout>

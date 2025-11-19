@@ -10,7 +10,7 @@ function ElevationProfile({
   onZoomChange,
 }) {
   const width = 900;
-  const height = 120;
+  const height = 100;
   const padding = 40;
   const svgRef = useRef(null);
 
@@ -232,7 +232,7 @@ function ElevationProfile({
         <circle cx={startX} cy={height - padding} r="4" fill="#4CAF50" />
         <text
           x={startX}
-          y={height + 25}
+          y={height}
           textAnchor="middle"
           fontSize="14"
           fontWeight="bold"
@@ -272,8 +272,8 @@ function ElevationProfile({
           </g>
         </g>
         <text
-          x={width - 60}
-          y={height + 25}
+          x={width - 10}
+          y={height}
           textAnchor="end"
           fontSize="14"
           fontWeight="bold"
@@ -302,9 +302,9 @@ function ElevationProfile({
             {/* Current position text */}
             <text
               x={markerX}
-              y={height + 40}
+              y={20}
               textAnchor="middle"
-              fontSize="16"
+              fontSize="14"
               fontWeight="bold"
               fill="#e91e63"
             >

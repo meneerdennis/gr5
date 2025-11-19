@@ -13,6 +13,11 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+import {
+  getHikesFromFirebase,
+  calculateTotalWalkedDistance,
+} from "./firebaseService";
+
 export async function getRouteData() {
   const polyline = [
     [51.979, 4.133],
@@ -68,7 +73,10 @@ export async function getRouteData() {
 
     const totalDistanceKm =
       elevationProfile[elevationProfile.length - 1].distanceKm;
-    const walkedDistanceKm = 320;
+
+    // Calculate walked distance from Firebase hikes
+    const hikes = await getHikesFromFirebase();
+    const walkedDistanceKm = calculateTotalWalkedDistance(hikes);
 
     return {
       polyline,
@@ -78,6 +86,20 @@ export async function getRouteData() {
     };
   } catch (error) {
     console.error("Error loading GPX data:", error);
+
+    // Calculate walked distance from Firebase hikes even in error case
+    let walkedDistanceKm = 0;
+    try {
+      const hikes = await getHikesFromFirebase();
+      walkedDistanceKm = calculateTotalWalkedDistance(hikes);
+    } catch (firebaseError) {
+      console.error(
+        "Error fetching hikes for walked distance calculation:",
+        firebaseError
+      );
+      walkedDistanceKm = 0;
+    }
+
     // Fallback to sample data if GPX loading fails
     const elevationProfile = [
       { distanceKm: 0, elevationM: 0, lat: 51.979, lon: 4.133 },
@@ -92,7 +114,7 @@ export async function getRouteData() {
       polyline,
       elevationProfile,
       totalDistanceKm: 1000,
-      walkedDistanceKm: 320,
+      walkedDistanceKm,
     };
   }
 }

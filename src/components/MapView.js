@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -330,33 +330,74 @@ function MapView({
   onHover,
   zoomRange,
   onZoomChange,
+  onWalkedDistanceChange,
 }) {
-  // Helper function to find current hiker position based on walked distance
+  const [currentPosition, setCurrentPosition] = useState(null);
+
+  // Helper function to find current hiker position based on last hike end position
   const findCurrentPosition = () => {
-    if (
-      !elevationProfile ||
-      elevationProfile.length === 0 ||
-      !walkedDistanceKm
-    ) {
+    if (!hikes || hikes.length === 0 || !elevationProfile.length) {
       return null;
     }
 
-    // Find the closest point to the walked distance
-    let closestPoint = null;
-    let minDifference = Infinity;
+    // Sort hikes by startDate to get the most recent hike
+    const sortedHikes = [...hikes].sort((a, b) => {
+      const dateA = new Date(a.startDate);
+      const dateB = new Date(b.startDate);
+      return dateB - dateA; // Most recent first
+    });
+
+    const lastHike = sortedHikes[0];
+    if (!lastHike) {
+      return null;
+    }
+
+    // Get positions from the last hike
+    let positions = [];
+
+    if (lastHike.polyline && Array.isArray(lastHike.polyline)) {
+      positions = lastHike.polyline;
+    } else if (lastHike.latlng && Array.isArray(lastHike.latlng)) {
+      positions = lastHike.latlng;
+    }
+
+    if (positions.length === 0) {
+      return null;
+    }
+
+    // Get the end position (last point) of the last hike
+    const endPosition = positions[positions.length - 1];
+    const [lat, lon] = endPosition;
+
+    // Find the corresponding elevation point from the elevation profile
+    // by finding the closest point to this lat/lon
+    let closestElevationPoint = null;
+    let minDistance = Infinity;
 
     elevationProfile.forEach((point) => {
-      const difference = Math.abs(point.distanceKm - walkedDistanceKm);
-      if (difference < minDifference) {
-        minDifference = difference;
-        closestPoint = point;
+      if (!point.lat || !point.lon) return;
+      const distance = Math.sqrt(
+        Math.pow(point.lat - lat, 2) + Math.pow(point.lon - lon, 2)
+      );
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestElevationPoint = point;
       }
     });
 
-    return closestPoint;
+    return closestElevationPoint || null;
   };
 
-  const currentPosition = findCurrentPosition();
+  // Update current position when hikes or elevation profile changes
+  useEffect(() => {
+    const position = findCurrentPosition();
+    setCurrentPosition(position);
+
+    // Update walked distance if we have a valid position
+    if (position && position.distanceKm && onWalkedDistanceChange) {
+      onWalkedDistanceChange(position.distanceKm);
+    }
+  }, [hikes, elevationProfile, onWalkedDistanceChange]);
 
   // fallback center
   const center =
@@ -376,21 +417,67 @@ function MapView({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* GPX-route (als gpxUrl is meegegeven) */}
-        {gpxUrl && (
+        {/* GPX-route (temporarily disabled due to plugin issues) */}
+        {/* {gpxUrl && (
           <GpxTrack
             url={gpxUrl}
             elevationProfile={elevationProfile}
             onHover={onHover}
           />
-        )}
-
-        {/* Primary route display - polyline */}
-        {/* {routePolyline.length > 0 && (
-          <Polyline positions={routePolyline} color="#ff5722" />
         )} */}
 
-        {/* Fotomarkers */}
+        {/* Primary route display - GR5.gpx track (rendered first, below) */}
+        {elevationProfile.length > 0 && (
+          <Polyline
+            positions={elevationProfile
+              .map((p) => [p.lat, p.lon])
+              .filter((pos) => pos[0] && pos[1])}
+            color="#ff5722"
+            weight={3}
+            opacity={0.8}
+            zIndex={300}
+          />
+        )}
+
+        {/* Firebase Hikes GPX Polylines (rendered last, on top) */}
+        {hikes.map((hike) => {
+          // Handle both array format and polyline string format
+          let positions = [];
+
+          if (hike.polyline && Array.isArray(hike.polyline)) {
+            positions = hike.polyline;
+          } else if (hike.latlng && Array.isArray(hike.latlng)) {
+            positions = hike.latlng;
+          }
+
+          if (positions.length === 0) return null;
+
+          return (
+            <Polyline
+              key={hike.id}
+              positions={positions}
+              color="#4caf50"
+              weight={5}
+              opacity={0.9}
+              zIndex={1000}
+            >
+              <Popup>
+                <div>
+                  <strong>{hike.name || "GR5 Hike"}</strong>
+                  <br />
+                  <strong>Distance:</strong>{" "}
+                  {hike.distanceKm?.toFixed(1) || "N/A"} km
+                  <br />
+                  <strong>Date:</strong> {hike.startDate || "N/A"}
+                  <br />
+                  <strong>Type:</strong> {hike.type || "N/A"}
+                </div>
+              </Popup>
+            </Polyline>
+          );
+        })}
+
+        {/* Photo markers */}
         {photos.map((photo) => (
           <Marker
             key={photo.id}
@@ -413,10 +500,11 @@ function MapView({
               <div>
                 <strong>Current Position</strong>
                 <br />
-                <strong>Distance:</strong> {walkedDistanceKm.toFixed(1)} km
+                <strong>Distance:</strong>{" "}
+                {currentPosition.distanceKm?.toFixed(1) || "0.0"} km
                 <br />
                 <strong>Elevation:</strong>{" "}
-                {currentPosition.elevationM.toFixed(0)} m
+                {currentPosition.elevationM?.toFixed(0) || "0"} m
               </div>
             </Popup>
           </Marker>
