@@ -23,27 +23,16 @@ const photoIcon = new L.Icon({
   popupAnchor: [1, -34],
 });
 
-// Custom hiker icon using DivIcon
-const hikerIcon = new L.DivIcon({
-  html: `
-    <div style="
-      background: #e91e63;
-      border: 3px solid white;
-      border-radius: 50%;
-      width: 30px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-      transform: translate(-50%, -50%);
-    ">🚶‍➡️</div>
-  `,
-  className: "custom-hiker-icon",
-  iconSize: [30, 30],
-  iconAnchor: [15, 15],
-  popupAnchor: [0, -15],
+// Custom hiker icon using the hikersmall.png image
+const hikerIcon = new L.Icon({
+  iconUrl: process.env.PUBLIC_URL + "/hikersmall.png",
+  iconRetinaUrl: process.env.PUBLIC_URL + "/hikersmall.png",
+  iconSize: [45, 45],
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -16],
+  shadowUrl: null,
+  shadowSize: null,
+  shadowAnchor: null,
 });
 
 // Component to handle hover marker
@@ -541,13 +530,6 @@ function MapView({
 
   return (
     <div className="map-container fade-in">
-      <div className="p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <h2 className="text-2xl font-semibold text-gray-900">Trail Map</h2>
-          <div className="badge">🗺️ Interactive</div>
-        </div>
-      </div>
-
       <div style={{ width: "100%", aspectRatio: "16/9" }}>
         <MapContainer
           center={center}

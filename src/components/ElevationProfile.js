@@ -10,8 +10,8 @@ function ElevationProfile({
   onZoomChange,
   hikes = [],
 }) {
-  const [smoothingEnabled, setSmoothingEnabled] = useState(false);
-  const [smoothingWindow, setSmoothingWindow] = useState(5);
+  const [smoothingEnabled, setSmoothingEnabled] = useState(true);
+  const [smoothingWindow, setSmoothingWindow] = useState(15);
 
   // Moving average smoothing function
   const applySmoothing = (data, windowSize) => {
@@ -297,17 +297,10 @@ function ElevationProfile({
   }
 
   return (
-    <div className="elevation-chart mb-6 fade-in">
+    <div className="elevation-chart mb-2 fade-in">
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-semibold text-gray-900">
-            Elevation Profile
-          </h2>
-          <div className="badge">Interactive</div>
-        </div>
-
         {zoomRange ? (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 p-2">
             <span className="text-sm text-gray-600">
               Viewing: {visibleStartKm.toFixed(1)} - {visibleEndKm.toFixed(1)}{" "}
               km
@@ -328,43 +321,6 @@ function ElevationProfile({
         )}
       </div>
 
-      {/* Smoothing controls */}
-      <div className="flex items-center justify-between mb-6 p-4 bg-gray-50 rounded-lg">
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={smoothingEnabled}
-              onChange={(e) => setSmoothingEnabled(e.target.checked)}
-              className="rounded"
-            />
-            <span className="text-sm font-medium">Enable Smoothing</span>
-          </label>
-
-          {smoothingEnabled && (
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Window:</label>
-              <select
-                value={smoothingWindow}
-                onChange={(e) => setSmoothingWindow(Number(e.target.value))}
-                className="input text-sm w-20"
-              >
-                <option value={3}>3</option>
-                <option value={5}>5</option>
-                <option value={7}>7</option>
-                <option value={9}>9</option>
-                <option value={11}>11</option>
-              </select>
-              <span className="text-sm text-gray-600">points</span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          <span>🗻</span>
-          <span>Elevation data with gradient visualization</span>
-        </div>
-      </div>
       <div className="relative">
         <svg
           ref={svgRef}
@@ -567,15 +523,15 @@ function ElevationProfile({
                 strokeWidth="2"
               />
 
-              {/* Hiker emoji icon */}
-              <text
-                x={markerX}
-                y={height - 25}
-                textAnchor="middle"
-                fontSize="20"
-              >
-                🚶‍➡️
-              </text>
+              {/* Hiker icon */}
+              <image
+                href={process.env.PUBLIC_URL + "/hikersmall.png"}
+                x={markerX - 16}
+                y={height - 45}
+                width="45"
+                height="45"
+                clipPath="circle(50% at 50%)"
+              />
 
               {/* Current position text */}
               <text

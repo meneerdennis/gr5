@@ -34,8 +34,8 @@ function ActivitySwiper({ hikes, selectedHikeId, onSelectHike }) {
   };
 
   return (
-    <div className="glass-card p-6 mb-6 fade-in">
-      <div className="flex items-center gap-2 mb-6">
+    <div className="glass-card p-6  fade-in">
+      <div className="flex items-center gap-2 ">
         <h2 className="text-2xl font-semibold text-gray-900">
           Hiking Adventures
         </h2>
