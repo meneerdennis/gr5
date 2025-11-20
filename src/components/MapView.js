@@ -72,8 +72,12 @@ function ZoomToHike({ bounds }) {
   const map = useMap();
 
   useEffect(() => {
-    if (bounds) {
-      map.fitBounds(bounds, { padding: [50, 50] });
+    if (bounds && map && map.getContainer()) {
+      try {
+        map.fitBounds(bounds, { padding: [50, 50] });
+      } catch (error) {
+        console.warn("Error fitting bounds:", error);
+      }
     }
   }, [bounds, map]);
 
@@ -93,42 +97,73 @@ function MapInteraction({
   const isUserZooming = useRef(false);
   const lastMapUpdate = useRef(0);
   const isInitialLoad = useRef(true);
+  const isMapReady = useRef(false);
+
+  // Ensure map is ready before any operations
+  useEffect(() => {
+    if (map && map.getContainer && !isMapReady.current) {
+      try {
+        // Test if map is fully initialized
+        map.getZoom();
+        isMapReady.current = true;
+      } catch (error) {
+        console.warn("Map not ready yet:", error);
+      }
+    }
+  }, [map]);
 
   // Check if current map view matches the zoom range
   const doesMapViewMatchZoomRange = (range) => {
-    if (!range || !map || !elevationProfile || elevationProfile.length === 0)
+    if (
+      !range ||
+      !map ||
+      !map.getContainer() ||
+      !elevationProfile ||
+      elevationProfile.length === 0
+    )
       return true;
 
-    const bounds = map.getBounds();
-    const pointsInRange = elevationProfile.filter(
-      (p) =>
-        p.lat && p.lon && p.distanceKm >= range[0] && p.distanceKm <= range[1]
-    );
+    try {
+      const bounds = map.getBounds();
+      const pointsInRange = elevationProfile.filter(
+        (p) =>
+          p.lat && p.lon && p.distanceKm >= range[0] && p.distanceKm <= range[1]
+      );
 
-    if (pointsInRange.length === 0) return false;
+      if (pointsInRange.length === 0) return false;
 
-    const rangeBounds = L.latLngBounds(
-      pointsInRange.map((p) => [p.lat, p.lon])
-    );
+      const rangeBounds = L.latLngBounds(
+        pointsInRange.map((p) => [p.lat, p.lon])
+      );
 
-    // Check if the map bounds are approximately equal to the range bounds
-    const mapSw = bounds.getSouthWest();
-    const mapNe = bounds.getNorthEast();
-    const rangeSw = rangeBounds.getSouthWest();
-    const rangeNe = rangeBounds.getNorthEast();
+      // Check if the map bounds are approximately equal to the range bounds
+      const mapSw = bounds.getSouthWest();
+      const mapNe = bounds.getNorthEast();
+      const rangeSw = rangeBounds.getSouthWest();
+      const rangeNe = rangeBounds.getNorthEast();
 
-    const tolerance = 0.01; // Approximately 1km tolerance
-    const latDiff =
-      Math.abs(mapSw.lat - rangeSw.lat) + Math.abs(mapNe.lat - rangeNe.lat);
-    const lngDiff =
-      Math.abs(mapSw.lng - rangeSw.lng) + Math.abs(mapNe.lng - rangeNe.lng);
+      const tolerance = 0.01; // Approximately 1km tolerance
+      const latDiff =
+        Math.abs(mapSw.lat - rangeSw.lat) + Math.abs(mapNe.lat - rangeNe.lat);
+      const lngDiff =
+        Math.abs(mapSw.lng - rangeSw.lng) + Math.abs(mapNe.lng - rangeNe.lng);
 
-    return latDiff < tolerance && lngDiff < tolerance;
+      return latDiff < tolerance && lngDiff < tolerance;
+    } catch (error) {
+      console.warn("Error checking map view bounds:", error);
+      return true;
+    }
   };
 
   // Sync map bounds with elevation profile zoom range
   useEffect(() => {
-    if (!map || !elevationProfile || elevationProfile.length === 0) return;
+    if (
+      !map ||
+      !map.getContainer() ||
+      !elevationProfile ||
+      elevationProfile.length === 0
+    )
+      return;
 
     // Check if zoom range actually changed
     const rangeChanged =
@@ -157,29 +192,35 @@ function MapInteraction({
 
     isUpdatingFromZoomRange.current = true;
 
-    if (zoomRange) {
-      // Find points within the zoom range
-      const pointsInRange = elevationProfile.filter(
-        (p) =>
-          p.lat &&
-          p.lon &&
-          p.distanceKm >= zoomRange[0] &&
-          p.distanceKm <= zoomRange[1]
-      );
+    try {
+      if (zoomRange) {
+        // Find points within the zoom range
+        const pointsInRange = elevationProfile.filter(
+          (p) =>
+            p.lat &&
+            p.lon &&
+            p.distanceKm >= zoomRange[0] &&
+            p.distanceKm <= zoomRange[1]
+        );
 
-      if (pointsInRange.length > 0) {
-        const bounds = L.latLngBounds(pointsInRange.map((p) => [p.lat, p.lon]));
-        // Use very minimal padding and preserve current zoom
-        map.fitBounds(bounds, { padding: [5, 5], maxZoom: map.getZoom() });
+        if (pointsInRange.length > 0) {
+          const bounds = L.latLngBounds(
+            pointsInRange.map((p) => [p.lat, p.lon])
+          );
+          // Use very minimal padding and preserve current zoom
+          map.fitBounds(bounds, { padding: [5, 5], maxZoom: map.getZoom() });
+        }
+      } else {
+        // Reset to full route bounds
+        const allPoints = elevationProfile.filter((p) => p.lat && p.lon);
+        if (allPoints.length > 0) {
+          const bounds = L.latLngBounds(allPoints.map((p) => [p.lat, p.lon]));
+          // Use very minimal padding
+          map.fitBounds(bounds, { padding: [5, 5] });
+        }
       }
-    } else {
-      // Reset to full route bounds
-      const allPoints = elevationProfile.filter((p) => p.lat && p.lon);
-      if (allPoints.length > 0) {
-        const bounds = L.latLngBounds(allPoints.map((p) => [p.lat, p.lon]));
-        // Use very minimal padding
-        map.fitBounds(bounds, { padding: [5, 5] });
-      }
+    } catch (error) {
+      console.warn("Error updating map bounds:", error);
     }
 
     isInitialLoad.current = false;
@@ -192,7 +233,13 @@ function MapInteraction({
 
   // Handle map interactions (zoom and pan) to update elevation profile zoom range
   useEffect(() => {
-    if (!map || !elevationProfile || elevationProfile.length === 0) return;
+    if (
+      !map ||
+      !isMapReady.current ||
+      !elevationProfile ||
+      elevationProfile.length === 0
+    )
+      return;
 
     let interactionTimeout = null;
 
@@ -210,9 +257,13 @@ function MapInteraction({
       }
 
       interactionTimeout = setTimeout(() => {
-        lastMapUpdate.current = Date.now();
-        const bounds = map.getBounds();
-        updateElevationProfileFromBounds(bounds, false);
+        try {
+          lastMapUpdate.current = Date.now();
+          const bounds = map.getBounds();
+          updateElevationProfileFromBounds(bounds, false);
+        } catch (error) {
+          console.warn("Error handling move end:", error);
+        }
       }, 400); // Wait 400ms after user stops panning
     };
 
@@ -229,10 +280,15 @@ function MapInteraction({
       }
 
       interactionTimeout = setTimeout(() => {
-        lastMapUpdate.current = Date.now();
-        const bounds = map.getBounds();
-        updateElevationProfileFromBounds(bounds, true);
-        isUserZooming.current = false;
+        try {
+          lastMapUpdate.current = Date.now();
+          const bounds = map.getBounds();
+          updateElevationProfileFromBounds(bounds, true);
+          isUserZooming.current = false;
+        } catch (error) {
+          console.warn("Error handling zoom end:", error);
+          isUserZooming.current = false;
+        }
       }, 600); // Wait 600ms after user stops zooming
     };
 
@@ -294,7 +350,13 @@ function MapInteraction({
 
   // Handle map click for hover
   useEffect(() => {
-    if (!map || !elevationProfile || elevationProfile.length === 0) return;
+    if (
+      !map ||
+      !isMapReady.current ||
+      !elevationProfile ||
+      elevationProfile.length === 0
+    )
+      return;
 
     const handleMapClick = (e) => {
       const clickedLat = e.latlng.lat;
@@ -347,6 +409,7 @@ function MapView({
   selectedHikeId,
 }) {
   const [currentPosition, setCurrentPosition] = useState(null);
+  const [mapReady, setMapReady] = useState(false);
 
   // Helper function to find current hiker position based on last hike end position
   const findCurrentPosition = () => {
@@ -431,11 +494,16 @@ function MapView({
     if (positions.length === 0) return;
 
     // Create bounds from the hike positions
-    const bounds = L.latLngBounds(positions);
+    try {
+      const bounds = L.latLngBounds(positions);
 
-    // We need to access the map instance to fit bounds
-    // This will be handled by a new component
-    setSelectedHikeBounds(bounds);
+      // We need to access the map instance to fit bounds
+      // This will be handled by a new component
+      setSelectedHikeBounds(bounds);
+    } catch (error) {
+      console.warn("Error creating bounds for selected hike:", error);
+      setSelectedHikeBounds(null);
+    }
   }, [selectedHikeId, hikes]);
 
   const [selectedHikeBounds, setSelectedHikeBounds] = useState(null);
@@ -446,20 +514,58 @@ function MapView({
       ? routePolyline[Math.floor(routePolyline.length / 2)]
       : [50, 4];
 
-  return (
-    <div style={{ width: "70%", aspectRatio: "width/height" }}>
-      <MapContainer
-        center={center}
-        zoom={6}
-        style={{ width: "100%", height: "100%" }}
-      >
-        <TileLayer
-          attribution="&copy; OpenStreetMap-bijdragers"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+  // Component to handle map initialization
+  function MapInitializer({ onReady }) {
+    const map = useMap();
 
-        {/* GPX-route (temporarily disabled due to plugin issues) */}
-        {/* {gpxUrl && (
+    useEffect(() => {
+      if (map) {
+        const timer = setTimeout(() => {
+          onReady();
+        }, 100); // Small delay to ensure map is fully initialized
+
+        return () => clearTimeout(timer);
+      }
+    }, [map, onReady]);
+
+    return null;
+  }
+
+  const handleMapReady = () => {
+    setMapReady(true);
+  };
+
+  if (!routePolyline.length && !elevationProfile.length) {
+    return <div>Geen kaartgegevens beschikbaar</div>;
+  }
+
+  return (
+    <div className="map-container fade-in">
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="text-2xl font-semibold text-gray-900">Trail Map</h2>
+          <div className="badge">🗺️ Interactive</div>
+        </div>
+      </div>
+
+      <div style={{ width: "100%", aspectRatio: "16/9" }}>
+        <MapContainer
+          center={center}
+          zoom={6}
+          style={{
+            width: "100%",
+            height: "100%",
+            borderRadius: "var(--radius-xl)",
+          }}
+          whenReady={handleMapReady}
+        >
+          <TileLayer
+            attribution="&copy; OpenStreetMap-bijdragers"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+
+          {/* GPX-route (temporarily disabled due to plugin issues) */}
+          {/* {gpxUrl && (
           <GpxTrack
             url={gpxUrl}
             elevationProfile={elevationProfile}
@@ -467,126 +573,130 @@ function MapView({
           />
         )} */}
 
-        {/* Primary route display - GR5.gpx track (rendered first, below) */}
-        {elevationProfile.length > 0 && (
-          <Polyline
-            positions={elevationProfile
-              .map((p) => [p.lat, p.lon])
-              .filter((pos) => pos[0] && pos[1])}
-            color="#ff5722"
-            weight={3}
-            opacity={0.8}
-            zIndex={300}
-          />
-        )}
-
-        {/* Firebase Hikes GPX Polylines (rendered last, on top) */}
-        {hikes.map((hike, index) => {
-          // Handle both array format and polyline string format
-          let positions = [];
-
-          if (hike.polyline && Array.isArray(hike.polyline)) {
-            positions = hike.polyline;
-          } else if (hike.latlng && Array.isArray(hike.latlng)) {
-            positions = hike.latlng;
-          }
-
-          if (positions.length === 0) return null;
-
-          // Assign a unique color to each hike - smooth gradient flow (starting with lime)
-          const colorPalette = [
-            "#84cc16", // Lime
-            "#10b981", // Emerald
-            "#14b8a6", // Teal
-            "#06b6d4", // Cyan
-            "#0ea5e9", // Sky Blue
-            "#3b82f6", // Blue
-            "#6366f1", // Indigo
-            "#8b5cf6", // Violet
-            "#a855f7", // Purple
-            "#c026d3", // Fuchsia
-            "#ec4899", // Pink
-            "#ef4444", // Red
-            "#f97316", // Orange
-            "#f59e0b", // Amber
-            "#eab308", // Yellow
-          ];
-
-          const hikeColor = colorPalette[index % colorPalette.length];
-          const isSelected = hike.id === selectedHikeId;
-
-          return (
+          {/* Primary route display - GR5.gpx track (rendered first, below) */}
+          {elevationProfile.length > 0 && (
             <Polyline
-              key={hike.id}
-              positions={positions}
-              color={hikeColor}
-              weight={isSelected ? 6 : 4}
-              opacity={isSelected ? 1 : 0.9}
-              zIndex={isSelected ? 2000 : 1000}
+              positions={elevationProfile
+                .map((p) => [p.lat, p.lon])
+                .filter((pos) => pos[0] && pos[1])}
+              color="#ff5722"
+              weight={3}
+              opacity={0.8}
+              zIndex={300}
+            />
+          )}
+
+          {/* Firebase Hikes GPX Polylines (rendered last, on top) */}
+          {hikes.map((hike, index) => {
+            // Handle both array format and polyline string format
+            let positions = [];
+
+            if (hike.polyline && Array.isArray(hike.polyline)) {
+              positions = hike.polyline;
+            } else if (hike.latlng && Array.isArray(hike.latlng)) {
+              positions = hike.latlng;
+            }
+
+            if (positions.length === 0) return null;
+
+            // Assign a unique color to each hike - smooth gradient flow (starting with lime)
+            const colorPalette = [
+              "#84cc16", // Lime
+              "#10b981", // Emerald
+              "#14b8a6", // Teal
+              "#06b6d4", // Cyan
+              "#0ea5e9", // Sky Blue
+              "#3b82f6", // Blue
+              "#6366f1", // Indigo
+              "#8b5cf6", // Violet
+              "#a855f7", // Purple
+              "#c026d3", // Fuchsia
+              "#ec4899", // Pink
+              "#ef4444", // Red
+              "#f97316", // Orange
+              "#f59e0b", // Amber
+              "#eab308", // Yellow
+            ];
+
+            const hikeColor = colorPalette[index % colorPalette.length];
+            const isSelected = hike.id === selectedHikeId;
+
+            return (
+              <Polyline
+                key={hike.id}
+                positions={positions}
+                color={hikeColor}
+                weight={isSelected ? 6 : 4}
+                opacity={isSelected ? 1 : 0.9}
+                zIndex={isSelected ? 2000 : 1000}
+              >
+                <Popup>
+                  <div>
+                    <strong>{hike.name || "GR5 Hike"}</strong>
+                    <br />
+                    <strong>Distance:</strong>{" "}
+                    {hike.distanceKm?.toFixed(1) || "N/A"} km
+                    <br />
+                    <strong>Date:</strong> {hike.startDate || "N/A"}
+                    <br />
+                    <strong>Type:</strong> {hike.type || "N/A"}
+                  </div>
+                </Popup>
+              </Polyline>
+            );
+          })}
+
+          {/* Photo markers */}
+          {photos.map((photo) => (
+            <Marker
+              key={photo.id}
+              position={[photo.lat, photo.lng]}
+              icon={photoIcon}
+            >
+              <Popup>
+                <PhotoMarkerPopup photo={photo} />
+              </Popup>
+            </Marker>
+          ))}
+
+          {/* Hiker marker - shows current position */}
+          {currentPosition && currentPosition.lat && currentPosition.lon && (
+            <Marker
+              position={[currentPosition.lat, currentPosition.lon]}
+              icon={hikerIcon}
             >
               <Popup>
                 <div>
-                  <strong>{hike.name || "GR5 Hike"}</strong>
+                  <strong>Current Position</strong>
                   <br />
                   <strong>Distance:</strong>{" "}
-                  {hike.distanceKm?.toFixed(1) || "N/A"} km
+                  {currentPosition.distanceKm?.toFixed(1) || "0.0"} km
                   <br />
-                  <strong>Date:</strong> {hike.startDate || "N/A"}
-                  <br />
-                  <strong>Type:</strong> {hike.type || "N/A"}
+                  <strong>Elevation:</strong>{" "}
+                  {currentPosition.elevationM?.toFixed(0) || "0"} m
                 </div>
               </Popup>
-            </Polyline>
-          );
-        })}
+            </Marker>
+          )}
 
-        {/* Photo markers */}
-        {photos.map((photo) => (
-          <Marker
-            key={photo.id}
-            position={[photo.lat, photo.lng]}
-            icon={photoIcon}
-          >
-            <Popup>
-              <PhotoMarkerPopup photo={photo} />
-            </Popup>
-          </Marker>
-        ))}
+          {/* Hover marker */}
+          <HoverMarker hoverPoint={hoverPoint} />
 
-        {/* Hiker marker - shows current position */}
-        {currentPosition && currentPosition.lat && currentPosition.lon && (
-          <Marker
-            position={[currentPosition.lat, currentPosition.lon]}
-            icon={hikerIcon}
-          >
-            <Popup>
-              <div>
-                <strong>Current Position</strong>
-                <br />
-                <strong>Distance:</strong>{" "}
-                {currentPosition.distanceKm?.toFixed(1) || "0.0"} km
-                <br />
-                <strong>Elevation:</strong>{" "}
-                {currentPosition.elevationM?.toFixed(0) || "0"} m
-              </div>
-            </Popup>
-          </Marker>
-        )}
+          {/* Zoom to selected hike */}
+          <ZoomToHike bounds={selectedHikeBounds} />
 
-        {/* Hover marker */}
-        <HoverMarker hoverPoint={hoverPoint} />
+          {/* Map interaction handler */}
+          <MapInteraction
+            elevationProfile={elevationProfile}
+            onHover={onHover}
+            zoomRange={zoomRange}
+            onZoomChange={onZoomChange}
+          />
 
-        {/* Zoom to selected hike */}
-        <ZoomToHike bounds={selectedHikeBounds} />
-
-        {/* Map interaction handler */}
-        <MapInteraction
-          elevationProfile={elevationProfile}
-          onHover={onHover}
-          zoomRange={zoomRange}
-          onZoomChange={onZoomChange}
-        />
-      </MapContainer>
+          {/* Map initializer */}
+          <MapInitializer onReady={handleMapReady} />
+        </MapContainer>
+      </div>
     </div>
   );
 }

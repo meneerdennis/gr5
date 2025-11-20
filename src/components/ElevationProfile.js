@@ -297,51 +297,57 @@ function ElevationProfile({
   }
 
   return (
-    <div style={{ position: "relative", width: "100%" }}>
-      <div
-        style={{
-          marginBottom: "0px",
-          fontSize: "12px",
-          color: "#666",
-          display: "flex",
-          alignItems: "center",
-          gap: "15px",
-        }}
-      >
+    <div className="elevation-chart mb-6 fade-in">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-semibold text-gray-900">
+            Elevation Profile
+          </h2>
+          <div className="badge">Interactive</div>
+        </div>
+
         {zoomRange ? (
-          <span>
-            Viewing: {visibleStartKm.toFixed(1)} - {visibleEndKm.toFixed(1)} km
-            |{" "}
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600">
+              Viewing: {visibleStartKm.toFixed(1)} - {visibleEndKm.toFixed(1)}{" "}
+              km
+            </span>
             <button
               onClick={() => onZoomChange(null)}
-              style={{ cursor: "pointer", padding: "2px 8px" }}
+              className="btn btn-secondary text-xs px-3 py-1"
             >
               Reset Zoom
             </button>
-          </span>
+          </div>
         ) : (
-          <span>Scroll wheel to zoom | Double-click to reset</span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600">
+              Scroll to zoom | Double-click to reset
+            </span>
+          </div>
         )}
+      </div>
 
-        {/* Smoothing controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+      {/* Smoothing controls */}
+      <div className="flex items-center justify-between mb-6 p-4 bg-gray-50 rounded-lg">
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
               checked={smoothingEnabled}
               onChange={(e) => setSmoothingEnabled(e.target.checked)}
-              style={{ cursor: "pointer" }}
+              className="rounded"
             />
-            Smooth
+            <span className="text-sm font-medium">Enable Smoothing</span>
           </label>
 
           {smoothingEnabled && (
-            <>
-              <label style={{ marginLeft: "8px" }}>Window:</label>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Window:</label>
               <select
                 value={smoothingWindow}
                 onChange={(e) => setSmoothingWindow(Number(e.target.value))}
-                style={{ padding: "2px 4px", fontSize: "12px" }}
+                className="input text-sm w-20"
               >
                 <option value={3}>3</option>
                 <option value={5}>5</option>
@@ -349,250 +355,268 @@ function ElevationProfile({
                 <option value={9}>9</option>
                 <option value={11}>11</option>
               </select>
-              <span>points</span>
-            </>
+              <span className="text-sm text-gray-600">points</span>
+            </div>
           )}
         </div>
+
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <span>🗻</span>
+          <span>Elevation data with gradient visualization</span>
+        </div>
       </div>
-      <svg
-        ref={svgRef}
-        width="100%"
-        viewBox={`0 0 ${width} ${height}`}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        onDoubleClick={handleDoubleClick}
-        onWheel={handleWheel}
-        style={{ cursor: "crosshair" }}
-      >
-        {/* Define gradient for mountain silhouette */}
-        <defs>
-          <linearGradient
-            id="elevationGradient"
-            x1="0%"
-            y1="0%"
-            x2="0%"
-            y2="100%"
-          >
-            <stop
-              offset="0%"
-              style={{ stopColor: "#fc0000ff", stopOpacity: 0.8 }}
-            />
-            <stop
-              offset="50%"
-              style={{ stopColor: "#f1e100ff", stopOpacity: 0.4 }}
-            />
-            <stop
-              offset="200%"
-              style={{ stopColor: "#00a716ff", stopOpacity: 0.1 }}
-            />
-          </linearGradient>
-
-          {/* Sky gradient */}
-          <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop
-              offset="0%"
-              style={{ stopColor: "#95b1ffff", stopOpacity: 1 }}
-            />
-            <stop
-              offset="30%"
-              style={{ stopColor: "rgba(208, 226, 255, 1)", stopOpacity: 1 }}
-            />
-            <stop
-              offset="60%"
-              style={{ stopColor: "#ffffff", stopOpacity: 1 }}
-            />
-          </linearGradient>
-        </defs>
-
-        {/* Sky background with gradient */}
-        <rect
-          x="0"
-          y="0"
-          width={width}
-          height={height}
-          fill="url(#skyGradient)"
-        />
-
-        {/* Filled area under elevation line (mountain silhouette) */}
-        <polygon
-          points={`${-width},${height} ${points} ${width * 2},${height}`}
-          fill="url(#elevationGradient)"
-          stroke="none"
-        />
-
-        {/* Green progress fill - shows completed portion */}
-        {markerX !== null && (
-          <rect
-            width={Math.max(0, markerX)}
-            height={height}
-            fill="#4caf50"
-            opacity="0.6"
-            style={{ transition: "width 0.2s ease" }}
-            z-index="19"
-          />
-        )}
-
-        {/* Elevation line */}
-        <polyline points={points} fill="none" stroke="orange" strokeWidth="2" />
-
-        {/* Colored segments for each hike */}
-        {hikesWithDistances.map((hike, index) => {
-          // Get hike distance range
-          const hikeStartKm = hike.startDistanceKm || 0;
-          const hikeEndKm = hike.endDistanceKm || 0;
-
-          // Skip if hike is outside visible range
-          if (hikeEndKm < visibleStartKm || hikeStartKm > visibleEndKm) {
-            return null;
-          }
-
-          // Filter points within this hike's range and visible range
-          const hikePoints = validData.filter(
-            (p) => p.distanceKm >= hikeStartKm && p.distanceKm <= hikeEndKm
-          );
-
-          if (hikePoints.length < 2) return null;
-
-          // Create polyline points for this hike segment
-          const hikePolylinePoints = hikePoints
-            .map((p) => {
-              const x =
-                padding +
-                ((p.distanceKm - visibleStartKm) / visibleDistanceKm) *
-                  (width - 2 * padding);
-              const y =
-                height -
-                padding -
-                (p.elevationM / maxElevation) * (height - 2 * padding);
-              return `${x},${y}`;
-            })
-            .join(" ");
-
-          const hikeColor = colorPalette[index % colorPalette.length];
-
-          return (
-            <polyline
-              key={hike.id || index}
-              points={hikePolylinePoints}
-              fill="none"
-              stroke={hikeColor}
-              strokeWidth="2"
-              opacity="0.9"
-              z-index="20"
-            />
-          );
-        })}
-
-        {/* Start marker */}
-        <circle cx={startX} cy={height - padding} r="4" fill="#4CAF50" />
-        <text
-          x={startX + 10}
-          y={height}
-          textAnchor="middle"
-          fontSize="14"
-          fontWeight="bold"
-          fill="#333"
+      <div className="relative">
+        <svg
+          ref={svgRef}
+          width="100%"
+          viewBox={`0 0 ${width} ${height}`}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          onDoubleClick={handleDoubleClick}
+          onWheel={handleWheel}
+          className="cursor-crosshair rounded-lg"
+          style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))" }}
         >
-          {visibleStartKm.toFixed(0)} km
-        </text>
-        {/* Finish marker with checkered flag */}
-        <g transform={`translate(${endX}, ${height - padding})`}>
-          {/* Flag pole */}
-          <line
-            x1="0"
-            y1="-20"
-            x2="0"
-            y2="5"
-            stroke="#8B4513"
-            strokeWidth="3"
-          />
-          {/* Checkered flag */}
+          {/* Define gradient for mountain silhouette */}
+          <defs>
+            <linearGradient
+              id="elevationGradient"
+              x1="0%"
+              y1="0%"
+              x2="0%"
+              y2="100%"
+            >
+              <stop
+                offset="0%"
+                style={{ stopColor: "#fc0000ff", stopOpacity: 0.8 }}
+              />
+              <stop
+                offset="50%"
+                style={{ stopColor: "#f1e100ff", stopOpacity: 0.4 }}
+              />
+              <stop
+                offset="200%"
+                style={{ stopColor: "#00a716ff", stopOpacity: 0.1 }}
+              />
+            </linearGradient>
+
+            {/* Sky gradient */}
+            <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop
+                offset="0%"
+                style={{ stopColor: "#95b1ffff", stopOpacity: 1 }}
+              />
+              <stop
+                offset="30%"
+                style={{ stopColor: "rgba(208, 226, 255, 1)", stopOpacity: 1 }}
+              />
+              <stop
+                offset="60%"
+                style={{ stopColor: "#ffffff", stopOpacity: 1 }}
+              />
+            </linearGradient>
+          </defs>
+
+          {/* Sky background with gradient */}
           <rect
             x="0"
-            y="-20"
-            width="20"
-            height="15"
-            fill="white"
-            stroke="#000"
-            strokeWidth="1"
+            y="0"
+            width={width}
+            height={height}
+            fill="url(#skyGradient)"
           />
-          {/* Checkered pattern */}
-          <g transform="translate(0, -20)">
-            <rect x="0" y="0" width="5" height="5" fill="#000" />
-            <rect x="10" y="0" width="5" height="5" fill="#000" />
-            <rect x="5" y="5" width="5" height="5" fill="#000" />
-            <rect x="15" y="5" width="5" height="5" fill="#000" />
-            <rect x="0" y="10" width="5" height="5" fill="#000" />
-            <rect x="10" y="10" width="5" height="5" fill="#000" />
-          </g>
-        </g>
-        <text
-          x={width - 10}
-          y={height}
-          textAnchor="end"
-          fontSize="14"
-          fontWeight="bold"
-          fill="#333"
-        >
-          {visibleEndKm.toFixed(0)} km
-        </text>
-        {/* Progress line */}
-        {markerX !== null && (
-          <>
-            <line
-              x1={markerX}
-              y1={padding}
-              x2={markerX}
-              y2={height - padding}
-              stroke="#e91e63"
-              strokeDasharray="4 4"
-              strokeWidth="2"
+
+          {/* Filled area under elevation line (mountain silhouette) */}
+          <polygon
+            points={`${-width},${height} ${points} ${width * 2},${height}`}
+            fill="url(#elevationGradient)"
+            stroke="none"
+          />
+
+          {/* Green progress fill - shows completed portion */}
+          {markerX !== null && (
+            <rect
+              width={Math.max(0, markerX)}
+              height={height}
+              fill="#4caf50"
+              opacity="0.6"
+              style={{ transition: "width 0.2s ease" }}
+              z-index="19"
             />
+          )}
 
-            {/* Hiker emoji icon */}
-            <text x={markerX} y={height - 25} textAnchor="middle" fontSize="20">
-              🚶‍➡️
-            </text>
+          {/* Elevation line */}
+          <polyline
+            points={points}
+            fill="none"
+            stroke="orange"
+            strokeWidth="2"
+          />
 
-            {/* Current position text */}
-            <text
-              x={markerX}
-              y={20}
-              textAnchor="middle"
-              fontSize="14"
-              fontWeight="bold"
-              fill="#e91e63"
-            >
-              {Math.round(walkedDistanceKm)} km
-            </text>
-          </>
-        )}
-        {/* Hover indicator */}
-        {hoverPoint && hoverX !== null && hoverY !== null && (
-          <g>
+          {/* Colored segments for each hike */}
+          {hikesWithDistances.map((hike, index) => {
+            // Get hike distance range
+            const hikeStartKm = hike.startDistanceKm || 0;
+            const hikeEndKm = hike.endDistanceKm || 0;
+
+            // Skip if hike is outside visible range
+            if (hikeEndKm < visibleStartKm || hikeStartKm > visibleEndKm) {
+              return null;
+            }
+
+            // Filter points within this hike's range and visible range
+            const hikePoints = validData.filter(
+              (p) => p.distanceKm >= hikeStartKm && p.distanceKm <= hikeEndKm
+            );
+
+            if (hikePoints.length < 2) return null;
+
+            // Create polyline points for this hike segment
+            const hikePolylinePoints = hikePoints
+              .map((p) => {
+                const x =
+                  padding +
+                  ((p.distanceKm - visibleStartKm) / visibleDistanceKm) *
+                    (width - 2 * padding);
+                const y =
+                  height -
+                  padding -
+                  (p.elevationM / maxElevation) * (height - 2 * padding);
+                return `${x},${y}`;
+              })
+              .join(" ");
+
+            const hikeColor = colorPalette[index % colorPalette.length];
+
+            return (
+              <polyline
+                key={hike.id || index}
+                points={hikePolylinePoints}
+                fill="none"
+                stroke={hikeColor}
+                strokeWidth="2"
+                opacity="0.9"
+                z-index="20"
+              />
+            );
+          })}
+
+          {/* Start marker */}
+          <circle cx={startX} cy={height - padding} r="4" fill="#4CAF50" />
+          <text
+            x={startX + 10}
+            y={height}
+            textAnchor="middle"
+            fontSize="14"
+            fontWeight="bold"
+            fill="#333"
+          >
+            {visibleStartKm.toFixed(0)} km
+          </text>
+          {/* Finish marker with checkered flag */}
+          <g transform={`translate(${endX}, ${height - padding})`}>
+            {/* Flag pole */}
             <line
-              x1={hoverX}
-              y1={padding}
-              x2={hoverX}
-              y2={height - padding}
-              stroke="#666"
-              strokeDasharray="2 2"
+              x1="0"
+              y1="-20"
+              x2="0"
+              y2="5"
+              stroke="#8B4513"
+              strokeWidth="3"
+            />
+            {/* Checkered flag */}
+            <rect
+              x="0"
+              y="-20"
+              width="20"
+              height="15"
+              fill="white"
+              stroke="#000"
               strokeWidth="1"
             />
-            <circle cx={hoverX} cy={hoverY} r="5" fill="#666" />
-            <text
-              x={hoverX}
-              y={padding - 10}
-              textAnchor="middle"
-              fontSize="12"
-              fill="#666"
-            >
-              {hoverPoint.distanceKm.toFixed(1)} km |{" "}
-              {hoverPoint.elevationM.toFixed(0)} m
-            </text>
+            {/* Checkered pattern */}
+            <g transform="translate(0, -20)">
+              <rect x="0" y="0" width="5" height="5" fill="#000" />
+              <rect x="10" y="0" width="5" height="5" fill="#000" />
+              <rect x="5" y="5" width="5" height="5" fill="#000" />
+              <rect x="15" y="5" width="5" height="5" fill="#000" />
+              <rect x="0" y="10" width="5" height="5" fill="#000" />
+              <rect x="10" y="10" width="5" height="5" fill="#000" />
+            </g>
           </g>
-        )}
-      </svg>
+          <text
+            x={width - 10}
+            y={height}
+            textAnchor="end"
+            fontSize="14"
+            fontWeight="bold"
+            fill="#333"
+          >
+            {visibleEndKm.toFixed(0)} km
+          </text>
+          {/* Progress line */}
+          {markerX !== null && (
+            <>
+              <line
+                x1={markerX}
+                y1={padding}
+                x2={markerX}
+                y2={height - padding}
+                stroke="#e91e63"
+                strokeDasharray="4 4"
+                strokeWidth="2"
+              />
+
+              {/* Hiker emoji icon */}
+              <text
+                x={markerX}
+                y={height - 25}
+                textAnchor="middle"
+                fontSize="20"
+              >
+                🚶‍➡️
+              </text>
+
+              {/* Current position text */}
+              <text
+                x={markerX}
+                y={20}
+                textAnchor="middle"
+                fontSize="14"
+                fontWeight="bold"
+                fill="#e91e63"
+              >
+                {Math.round(walkedDistanceKm)} km
+              </text>
+            </>
+          )}
+          {/* Hover indicator */}
+          {hoverPoint && hoverX !== null && hoverY !== null && (
+            <g>
+              <line
+                x1={hoverX}
+                y1={padding}
+                x2={hoverX}
+                y2={height - padding}
+                stroke="#666"
+                strokeDasharray="2 2"
+                strokeWidth="1"
+              />
+              <circle cx={hoverX} cy={hoverY} r="5" fill="#666" />
+              <text
+                x={hoverX}
+                y={padding - 10}
+                textAnchor="middle"
+                fontSize="12"
+                fill="#666"
+              >
+                {hoverPoint.distanceKm.toFixed(1)} km |{" "}
+                {hoverPoint.elevationM.toFixed(0)} m
+              </text>
+            </g>
+          )}
+        </svg>
+      </div>
     </div>
   );
 }

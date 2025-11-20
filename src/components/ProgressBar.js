@@ -1,29 +1,44 @@
-import React from 'react';
+import React from "react";
 
-function ProgressBar({ progress }) {
+function ProgressBar({ progress, compact = false, position = "normal" }) {
   const percentage = Math.min(100, Math.max(0, Math.round(progress * 100)));
 
+  if (compact && position === "top-right") {
+    return (
+      <div className="fixed top-6 right-6 z-50 glass-card p-4">
+        <div className="modern-progress w-32">
+          <div
+            className="modern-progress-fill"
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+        <div className="text-center mt-2">
+          <span className="text-sm font-semibold text-gray-700">
+            {percentage}%
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ margin: '1rem 0' }}>
-      <div
-        style={{
-          background: '#eee',
-          borderRadius: '999px',
-          overflow: 'hidden',
-          height: '16px',
-        }}
-      >
+    <div
+      className="p-5 mb-6 fade-in"
+      style={{ width: "100%", justifyContent: "center", alignSelf: "center" }}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xl font-semibold text-gray-900">Trail Progress</h3>
+      </div>
+
+      <div className="modern-progress mb-4" style={{ height: "12px" }}>
         <div
-          style={{
-            width: `${percentage}%`,
-            background: '#4caf50',
-            height: '100%',
-            transition: 'width 0.3s ease',
-          }}
+          className="modern-progress-fill"
+          style={{ width: `${percentage}%` }}
         />
       </div>
-      <div style={{ marginTop: '0.25rem', fontSize: '0.9rem' }}>
-        {percentage}% van de GR5 gewandeld
+
+      <div className="flex items-center justify-between text-sm text-gray-600">
+        <span className="font-medium">{percentage}% of GR5 completed</span>
       </div>
     </div>
   );

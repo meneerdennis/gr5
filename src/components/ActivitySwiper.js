@@ -34,19 +34,17 @@ function ActivitySwiper({ hikes, selectedHikeId, onSelectHike }) {
   };
 
   return (
-    <div style={{ padding: "0.5rem 0", width: "100%" }}>
-      <h2
-        style={{
-          marginBottom: "0.5rem",
-          fontSize: "1.1rem",
-          paddingLeft: "1rem",
-        }}
-      >
-        Activities
-      </h2>
+    <div className="glass-card p-6 mb-6 fade-in">
+      <div className="flex items-center gap-2 mb-6">
+        <h2 className="text-2xl font-semibold text-gray-900">
+          Hiking Adventures
+        </h2>
+        <div className="badge">{sortedHikes.length} hikes</div>
+      </div>
+
       <Swiper
         modules={[Navigation, Pagination]}
-        spaceBetween={20}
+        spaceBetween={24}
         slidesPerView={1}
         navigation
         pagination={{ clickable: true }}
@@ -61,117 +59,68 @@ function ActivitySwiper({ hikes, selectedHikeId, onSelectHike }) {
           },
           1024: {
             slidesPerView: 4,
-            spaceBetween: 30,
+            spaceBetween: 24,
           },
         }}
-        style={{ padding: "0 2rem 1.5rem 2rem" }}
+        className="pb-4"
       >
         {sortedHikes.map((hike) => (
           <SwiperSlide key={hike.id}>
             <div
               onClick={() => onSelectHike(hike.id)}
-              style={{
-                padding: "0.6rem",
-                border:
-                  selectedHikeId === hike.id
-                    ? "2px solid #1976d2"
-                    : "1px solid #e0e0e0",
-                borderRadius: "8px",
-                cursor: "pointer",
-                backgroundColor:
-                  selectedHikeId === hike.id ? "#e3f2fd" : "white",
-                transition: "all 0.3s",
-                boxShadow:
-                  selectedHikeId === hike.id
-                    ? "0 3px 8px rgba(25, 118, 210, 0.3)"
-                    : "0 2px 4px rgba(0,0,0,0.1)",
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                minHeight: "70px",
-              }}
-              onMouseEnter={(e) => {
-                if (selectedHikeId !== hike.id) {
-                  e.currentTarget.style.transform = "translateY(-2px)";
-                  e.currentTarget.style.boxShadow =
-                    "0 3px 8px rgba(0,0,0,0.15)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (selectedHikeId !== hike.id) {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-                }
-              }}
+              className={`activity-card h-full ${
+                selectedHikeId === hike.id ? "selected" : ""
+              }`}
+              style={{ minHeight: "120px" }}
             >
-              <div
-                style={{
-                  fontWeight: "600",
-                  marginBottom: "0.3rem",
-                  color: "#333",
-                  fontSize: "0.9rem",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-                title={hike.name || "Unnamed Activity"}
-              >
-                {hike.name || "Unnamed Activity"}
-              </div>
-              <div
-                style={{
-                  fontSize: "0.75rem",
-                  color: "#666",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.3rem",
-                  }}
-                >
-                  <span>📅</span>
-                  <span>{formatDate(hike.startDate)}</span>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.3rem",
-                  }}
-                >
-                  <span>📏</span>
-                  <span>{hike.distanceKm?.toFixed(1) || "0"} km</span>
-                </div>
-                {hike.photos && hike.photos.length > 0 && (
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (hike.photos[0]) {
-                        window.open(hike.photos[0], "_blank");
-                      }
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.3rem",
-                      color: "#1976d2",
-                      cursor: "pointer",
-                      textDecoration: "underline",
-                    }}
+              <div className="flex flex-col h-full">
+                <div className="flex items-center justify-between mb-2">
+                  <h3
+                    className="text-sm font-semibold text-gray-900 line-clamp-1 flex-1"
+                    title={hike.name || "Unnamed Activity"}
                   >
-                    <span>📷</span>
-                    <span>
-                      {hike.photos.length} photo
-                      {hike.photos.length !== 1 ? "s" : ""}
-                    </span>
+                    {hike.name || "Unnamed Activity"}
+                  </h3>
+                  {selectedHikeId === hike.id && (
+                    <div className="badge text-xs px-2 py-1 ml-2 flex-shrink-0">
+                      Active
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="flex items-center gap-3 text-xs">
+                    <div className="flex items-center gap-1">
+                      <span>📅</span>
+                      <span className="text-gray-700">
+                        {formatDate(hike.startDate)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span>📏</span>
+                      <span className="text-gray-700">
+                        {hike.distanceKm?.toFixed(1) || "0"} km
+                      </span>
+                    </div>
+                    {hike.photos && hike.photos.length > 0 && (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (hike.photos[0]) {
+                            window.open(hike.photos[0], "_blank");
+                          }
+                        }}
+                        className="flex items-center gap-1 text-primary hover:text-primary-dark cursor-pointer transition-colors"
+                      >
+                        <span>📷</span>
+                        <span className="font-medium">
+                          {hike.photos.length} photo
+                          {hike.photos.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </SwiperSlide>

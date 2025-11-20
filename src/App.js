@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useHikeData } from "./hooks/useHikeData";
 import Layout from "./components/Layout";
 import ElevationProfile from "./components/ElevationProfile";
-import ProgressBar from "./components/ProgressBar";
 import MapView from "./components/MapView";
 import ActivitySwiper from "./components/ActivitySwiper";
 
@@ -20,11 +19,68 @@ function App() {
     }
   }, [route]);
 
-  if (loading) return <div>Data laden…</div>;
-  if (error) return <div>Er ging iets mis: {error.message}</div>;
-  if (!route) return <div>Geen routegegevens gevonden.</div>;
+  if (loading)
+    return (
+      <Layout>
+        <div className="glass-card p-8 text-center">
+          <div className="bounce-in">
+            <div className="text-6xl mb-4">🥾</div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+              Loading Trail Data
+            </h2>
+            <p className="text-gray-600">Preparing your GR5 adventure...</p>
+            <div className="mt-4">
+              <div className="modern-progress w-64 mx-auto">
+                <div className="modern-progress-fill w-full animate-pulse" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
 
-  const progress = currentWalkedDistance / route.totalDistanceKm;
+  if (error)
+    return (
+      <Layout>
+        <div className="glass-card p-8 text-center">
+          <div className="bounce-in">
+            <div className="text-6xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-semibold text-red-600 mb-2">
+              Oops! Something went wrong
+            </h2>
+            <p className="text-gray-600 mb-4">Error: {error.message}</p>
+            <button
+              className="btn btn-primary"
+              onClick={() => window.location.reload()}
+            >
+              🔄 Try Again
+            </button>
+          </div>
+        </div>
+      </Layout>
+    );
+
+  if (!route)
+    return (
+      <Layout>
+        <div className="glass-card p-8 text-center">
+          <div className="bounce-in">
+            <div className="text-6xl mb-4">🗺️</div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+              No Route Data Found
+            </h2>
+            <p className="text-gray-600">
+              We couldn't find any GR5 route information.
+            </p>
+          </div>
+        </div>
+      </Layout>
+    );
+
+  const progress =
+    route.totalDistanceKm > 0
+      ? currentWalkedDistance / route.totalDistanceKm
+      : 0;
 
   // Handle walked distance changes from MapView
   const handleWalkedDistanceChange = (newDistance) => {
@@ -37,49 +93,49 @@ function App() {
   };
 
   return (
-    <Layout>
-      <div style={{ padding: "1rem" }}>
-        <h1>GR5 Hoek van Holland → Nice</h1>
-        <ProgressBar progress={progress} />
-        <ElevationProfile
-          elevationProfile={route.elevationProfile}
-          walkedDistanceKm={currentWalkedDistance}
-          totalDistanceKm={route.totalDistanceKm}
-          hoverPoint={hoverPoint}
-          onHover={setHoverPoint}
-          zoomRange={zoomRange}
-          onZoomChange={setZoomRange}
-          hikes={hikes}
-        />
-      </div>
-      <ActivitySwiper
-        hikes={hikes}
-        selectedHikeId={selectedHikeId}
-        onSelectHike={handleSelectHike}
-      />
-      <div
-        style={{
-          flex: 1,
-          minHeight: "60vh",
-          display: "flex",
-          justifyContent: "center",
-          alignContent: "center",
-        }}
-      >
-        <MapView
-          routePolyline={route.polyline}
-          hikes={hikes}
-          photos={photos}
-          gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
-          elevationProfile={route.elevationProfile}
-          walkedDistanceKm={currentWalkedDistance}
-          hoverPoint={hoverPoint}
-          onHover={setHoverPoint}
-          zoomRange={zoomRange}
-          onZoomChange={setZoomRange}
-          onWalkedDistanceChange={handleWalkedDistanceChange}
-          selectedHikeId={selectedHikeId}
-        />
+    <Layout progress={progress}>
+      {/* Main Dashboard Grid */}
+      <div className="grid grid-cols-1 gap-6">
+        {/* Hiking Activities Section */}
+        <div className="slide-up">
+          <ActivitySwiper
+            hikes={hikes}
+            selectedHikeId={selectedHikeId}
+            onSelectHike={handleSelectHike}
+          />
+        </div>
+
+        {/* Elevation Profile Section */}
+        <div className="slide-up">
+          <ElevationProfile
+            elevationProfile={route.elevationProfile}
+            walkedDistanceKm={currentWalkedDistance}
+            totalDistanceKm={route.totalDistanceKm}
+            hoverPoint={hoverPoint}
+            onHover={setHoverPoint}
+            zoomRange={zoomRange}
+            onZoomChange={setZoomRange}
+            hikes={hikes}
+          />
+        </div>
+
+        {/* Map Section */}
+        <div className="slide-up">
+          <MapView
+            routePolyline={route.polyline}
+            hikes={hikes}
+            photos={photos}
+            gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
+            elevationProfile={route.elevationProfile}
+            walkedDistanceKm={currentWalkedDistance}
+            hoverPoint={hoverPoint}
+            onHover={setHoverPoint}
+            zoomRange={zoomRange}
+            onZoomChange={setZoomRange}
+            onWalkedDistanceChange={handleWalkedDistanceChange}
+            selectedHikeId={selectedHikeId}
+          />
+        </div>
       </div>
     </Layout>
   );
