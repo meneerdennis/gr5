@@ -174,10 +174,16 @@ async function fetchPhotos(activityId, accessToken) {
         const urls = p.urls || {};
         const url600 = urls["600"] || urls["0"] || null;
 
+        // Extract location if available
+        const lat = p.location ? p.location[0] : p.lat || null;
+        const lng = p.location ? p.location[1] : p.lng || null;
+
         return {
           id: p.id || p.unique_id || null,
           url: url600,
           caption: p.caption || null,
+          lat: lat,
+          lng: lng,
         };
       })
       .filter((p) => !!p.url); // alleen foto's met een bruikbare URL

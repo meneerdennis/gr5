@@ -42,6 +42,40 @@ export function calculateTotalWalkedDistance(hikes) {
   }, 0);
 }
 
+// Extract all photos from hikes
+export function getPhotosFromHikes(hikes) {
+  const photos = [];
+
+  console.log("getPhotosFromHikes called with hikes:", hikes);
+
+  hikes.forEach((hike) => {
+    console.log(`Processing hike ${hike.id}, photos:`, hike.photos);
+    if (hike.photos && Array.isArray(hike.photos)) {
+      hike.photos.forEach((photo) => {
+        console.log("Processing photo:", photo);
+        // Ensure photo has required properties for map markers
+        if (photo.lat && photo.lng) {
+          photos.push({
+            id: photo.id || `${hike.id}-${photo.lat}-${photo.lng}`,
+            lat: photo.lat,
+            lng: photo.lng,
+            url: photo.url || photo.photoUrl || "",
+            caption: photo.caption || photo.description || "",
+            date: photo.date || hike.startDate,
+            hikeId: hike.id,
+            hikeName: hike.name,
+          });
+        } else {
+          console.log("Photo missing lat/lng:", photo);
+        }
+      });
+    }
+  });
+
+  console.log("Total photos extracted:", photos.length, photos);
+  return photos;
+}
+
 // Convert polyline string to array of coordinates (if needed)
 export function decodePolyline(polylineStr) {
   if (!polylineStr) return [];

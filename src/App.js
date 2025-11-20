@@ -90,6 +90,16 @@ function App() {
   // Handle activity selection
   const handleSelectHike = (hikeId) => {
     setSelectedHikeId(hikeId);
+
+    // Auto-scroll to map when activity is selected
+    const mapSection = document.getElementById("map-section");
+    if (mapSection) {
+      mapSection.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+        inline: "nearest",
+      });
+    }
   };
 
   return (
@@ -120,7 +130,7 @@ function App() {
         </div>
 
         {/* Map Section */}
-        <div className="slide-up">
+        <div id="map-section" className="slide-up">
           <MapView
             routePolyline={route.polyline}
             hikes={hikes}
