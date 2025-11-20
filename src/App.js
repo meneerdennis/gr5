@@ -4,12 +4,14 @@ import Layout from "./components/Layout";
 import ElevationProfile from "./components/ElevationProfile";
 import ProgressBar from "./components/ProgressBar";
 import MapView from "./components/MapView";
+import ActivitySwiper from "./components/ActivitySwiper";
 
 function App() {
   const { route, hikes, photos, loading, error } = useHikeData();
   const [hoverPoint, setHoverPoint] = useState(null);
   const [zoomRange, setZoomRange] = useState(null);
   const [currentWalkedDistance, setCurrentWalkedDistance] = useState(0);
+  const [selectedHikeId, setSelectedHikeId] = useState(null);
 
   // Update current walked distance when route changes
   useEffect(() => {
@@ -29,6 +31,11 @@ function App() {
     setCurrentWalkedDistance(newDistance);
   };
 
+  // Handle activity selection
+  const handleSelectHike = (hikeId) => {
+    setSelectedHikeId(hikeId);
+  };
+
   return (
     <Layout>
       <div style={{ padding: "1rem" }}>
@@ -42,8 +49,14 @@ function App() {
           onHover={setHoverPoint}
           zoomRange={zoomRange}
           onZoomChange={setZoomRange}
+          hikes={hikes}
         />
       </div>
+      <ActivitySwiper
+        hikes={hikes}
+        selectedHikeId={selectedHikeId}
+        onSelectHike={handleSelectHike}
+      />
       <div
         style={{
           flex: 1,
@@ -65,6 +78,7 @@ function App() {
           zoomRange={zoomRange}
           onZoomChange={setZoomRange}
           onWalkedDistanceChange={handleWalkedDistanceChange}
+          selectedHikeId={selectedHikeId}
         />
       </div>
     </Layout>

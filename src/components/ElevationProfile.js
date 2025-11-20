@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 
 function ElevationProfile({
   elevationProfile,
@@ -8,11 +8,116 @@ function ElevationProfile({
   onHover,
   zoomRange,
   onZoomChange,
+  hikes = [],
 }) {
+  const [smoothingEnabled, setSmoothingEnabled] = useState(false);
+  const [smoothingWindow, setSmoothingWindow] = useState(5);
+
+  // Moving average smoothing function
+  const applySmoothing = (data, windowSize) => {
+    if (!data || data.length === 0 || windowSize <= 1) return data;
+
+    const smoothed = [];
+    const halfWindow = Math.floor(windowSize / 2);
+
+    for (let i = 0; i < data.length; i++) {
+      let sum = 0;
+      let count = 0;
+
+      // Average points within the window
+      for (
+        let j = Math.max(0, i - halfWindow);
+        j <= Math.min(data.length - 1, i + halfWindow);
+        j++
+      ) {
+        sum += data[j].elevationM;
+        count++;
+      }
+
+      smoothed.push({
+        ...data[i],
+        elevationM: sum / count,
+      });
+    }
+
+    return smoothed;
+  };
+
+  // Apply smoothing if enabled
+  const processedProfile = smoothingEnabled
+    ? applySmoothing(elevationProfile, smoothingWindow)
+    : elevationProfile;
   const width = 900;
-  const height = 100;
-  const padding = 40;
+  const height = 80;
+  const padding = 20;
   const svgRef = useRef(null);
+
+  // Color palette - smooth gradient flow through spectrum (starting with lime)
+  const colorPalette = [
+    "#84cc16", // Lime
+    "#10b981", // Emerald
+    "#14b8a6", // Teal
+    "#06b6d4", // Cyan
+    "#0ea5e9", // Sky Blue
+    "#3b82f6", // Blue
+    "#6366f1", // Indigo
+    "#8b5cf6", // Violet
+    "#a855f7", // Purple
+    "#c026d3", // Fuchsia
+    "#ec4899", // Pink
+    "#ef4444", // Red
+    "#f97316", // Orange
+    "#f59e0b", // Amber
+    "#eab308", // Yellow
+  ];
+
+  // Calculate distance ranges for each hike by matching coordinates
+  const hikesWithDistances = hikes.map((hike) => {
+    let positions = [];
+    if (hike.polyline && Array.isArray(hike.polyline)) {
+      positions = hike.polyline;
+    } else if (hike.latlng && Array.isArray(hike.latlng)) {
+      positions = hike.latlng;
+    }
+
+    if (positions.length === 0) {
+      return { ...hike, startDistanceKm: 0, endDistanceKm: 0 };
+    }
+
+    // Find closest elevation profile points to start and end of hike
+    const startPos = positions[0];
+    const endPos = positions[positions.length - 1];
+
+    let startDistanceKm = 0;
+    let endDistanceKm = 0;
+    let minStartDist = Infinity;
+    let minEndDist = Infinity;
+
+    processedProfile.forEach((point) => {
+      if (!point.lat || !point.lon) return;
+
+      // Check distance to start position
+      const startDist = Math.sqrt(
+        Math.pow(point.lat - startPos[0], 2) +
+          Math.pow(point.lon - startPos[1], 2)
+      );
+      if (startDist < minStartDist) {
+        minStartDist = startDist;
+        startDistanceKm = point.distanceKm;
+      }
+
+      // Check distance to end position
+      const endDist = Math.sqrt(
+        Math.pow(point.lat - endPos[0], 2) + Math.pow(point.lon - endPos[1], 2)
+      );
+      if (endDist < minEndDist) {
+        minEndDist = endDist;
+        endDistanceKm = point.distanceKm;
+      }
+    });
+
+    return { ...hike, startDistanceKm, endDistanceKm };
+  });
 
   // Handle empty or invalid data
   if (
@@ -48,7 +153,7 @@ function ElevationProfile({
   const visibleDistanceKm = visibleEndKm - visibleStartKm;
 
   // Filter data to visible range
-  const validData = elevationProfile.filter(
+  const validData = processedProfile.filter(
     (p) =>
       p &&
       typeof p.distanceKm === "number" &&
@@ -193,7 +298,16 @@ function ElevationProfile({
 
   return (
     <div style={{ position: "relative", width: "100%" }}>
-      <div style={{ marginBottom: "10px", fontSize: "12px", color: "#666" }}>
+      <div
+        style={{
+          marginBottom: "0px",
+          fontSize: "12px",
+          color: "#666",
+          display: "flex",
+          alignItems: "center",
+          gap: "15px",
+        }}
+      >
         {zoomRange ? (
           <span>
             Viewing: {visibleStartKm.toFixed(1)} - {visibleEndKm.toFixed(1)} km
@@ -208,30 +322,171 @@ function ElevationProfile({
         ) : (
           <span>Scroll wheel to zoom | Double-click to reset</span>
         )}
+
+        {/* Smoothing controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <input
+              type="checkbox"
+              checked={smoothingEnabled}
+              onChange={(e) => setSmoothingEnabled(e.target.checked)}
+              style={{ cursor: "pointer" }}
+            />
+            Smooth
+          </label>
+
+          {smoothingEnabled && (
+            <>
+              <label style={{ marginLeft: "8px" }}>Window:</label>
+              <select
+                value={smoothingWindow}
+                onChange={(e) => setSmoothingWindow(Number(e.target.value))}
+                style={{ padding: "2px 4px", fontSize: "12px" }}
+              >
+                <option value={3}>3</option>
+                <option value={5}>5</option>
+                <option value={7}>7</option>
+                <option value={9}>9</option>
+                <option value={11}>11</option>
+              </select>
+              <span>points</span>
+            </>
+          )}
+        </div>
       </div>
       <svg
         ref={svgRef}
         width="100%"
-        viewBox={`0 0 ${width} ${height + 60}`}
+        viewBox={`0 0 ${width} ${height}`}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         onDoubleClick={handleDoubleClick}
         onWheel={handleWheel}
         style={{ cursor: "crosshair" }}
       >
-        {/* Background */}
-        <rect x="0" y="0" width={width} height={height} fill="#fafafa" />
-        {/* Elevation line */}
-        <polyline
-          points={points}
-          fill="none"
-          stroke="#8884d8"
-          strokeWidth="2"
+        {/* Define gradient for mountain silhouette */}
+        <defs>
+          <linearGradient
+            id="elevationGradient"
+            x1="0%"
+            y1="0%"
+            x2="0%"
+            y2="100%"
+          >
+            <stop
+              offset="0%"
+              style={{ stopColor: "#fc0000ff", stopOpacity: 0.8 }}
+            />
+            <stop
+              offset="50%"
+              style={{ stopColor: "#f1e100ff", stopOpacity: 0.4 }}
+            />
+            <stop
+              offset="200%"
+              style={{ stopColor: "#00a716ff", stopOpacity: 0.1 }}
+            />
+          </linearGradient>
+
+          {/* Sky gradient */}
+          <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop
+              offset="0%"
+              style={{ stopColor: "#95b1ffff", stopOpacity: 1 }}
+            />
+            <stop
+              offset="30%"
+              style={{ stopColor: "rgba(208, 226, 255, 1)", stopOpacity: 1 }}
+            />
+            <stop
+              offset="60%"
+              style={{ stopColor: "#ffffff", stopOpacity: 1 }}
+            />
+          </linearGradient>
+        </defs>
+
+        {/* Sky background with gradient */}
+        <rect
+          x="0"
+          y="0"
+          width={width}
+          height={height}
+          fill="url(#skyGradient)"
         />
+
+        {/* Filled area under elevation line (mountain silhouette) */}
+        <polygon
+          points={`${-width},${height} ${points} ${width * 2},${height}`}
+          fill="url(#elevationGradient)"
+          stroke="none"
+        />
+
+        {/* Green progress fill - shows completed portion */}
+        {markerX !== null && (
+          <rect
+            width={Math.max(0, markerX)}
+            height={height}
+            fill="#4caf50"
+            opacity="0.6"
+            style={{ transition: "width 0.2s ease" }}
+            z-index="19"
+          />
+        )}
+
+        {/* Elevation line */}
+        <polyline points={points} fill="none" stroke="orange" strokeWidth="2" />
+
+        {/* Colored segments for each hike */}
+        {hikesWithDistances.map((hike, index) => {
+          // Get hike distance range
+          const hikeStartKm = hike.startDistanceKm || 0;
+          const hikeEndKm = hike.endDistanceKm || 0;
+
+          // Skip if hike is outside visible range
+          if (hikeEndKm < visibleStartKm || hikeStartKm > visibleEndKm) {
+            return null;
+          }
+
+          // Filter points within this hike's range and visible range
+          const hikePoints = validData.filter(
+            (p) => p.distanceKm >= hikeStartKm && p.distanceKm <= hikeEndKm
+          );
+
+          if (hikePoints.length < 2) return null;
+
+          // Create polyline points for this hike segment
+          const hikePolylinePoints = hikePoints
+            .map((p) => {
+              const x =
+                padding +
+                ((p.distanceKm - visibleStartKm) / visibleDistanceKm) *
+                  (width - 2 * padding);
+              const y =
+                height -
+                padding -
+                (p.elevationM / maxElevation) * (height - 2 * padding);
+              return `${x},${y}`;
+            })
+            .join(" ");
+
+          const hikeColor = colorPalette[index % colorPalette.length];
+
+          return (
+            <polyline
+              key={hike.id || index}
+              points={hikePolylinePoints}
+              fill="none"
+              stroke={hikeColor}
+              strokeWidth="2"
+              opacity="0.9"
+              z-index="20"
+            />
+          );
+        })}
+
         {/* Start marker */}
         <circle cx={startX} cy={height - padding} r="4" fill="#4CAF50" />
         <text
-          x={startX}
+          x={startX + 10}
           y={height}
           textAnchor="middle"
           fontSize="14"
@@ -308,7 +563,7 @@ function ElevationProfile({
               fontWeight="bold"
               fill="#e91e63"
             >
-              {walkedDistanceKm} km
+              {Math.round(walkedDistanceKm)} km
             </text>
           </>
         )}

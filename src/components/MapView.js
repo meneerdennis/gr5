@@ -67,6 +67,19 @@ function HoverMarker({ hoverPoint }) {
   );
 }
 
+// Component to handle zooming to selected hike
+function ZoomToHike({ bounds }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [bounds, map]);
+
+  return null;
+}
+
 // Component to handle map interactions and zoom synchronization
 function MapInteraction({
   elevationProfile,
@@ -331,6 +344,7 @@ function MapView({
   zoomRange,
   onZoomChange,
   onWalkedDistanceChange,
+  selectedHikeId,
 }) {
   const [currentPosition, setCurrentPosition] = useState(null);
 
@@ -399,6 +413,33 @@ function MapView({
     }
   }, [hikes, elevationProfile, onWalkedDistanceChange]);
 
+  // Zoom to selected hike when selectedHikeId changes
+  useEffect(() => {
+    if (!selectedHikeId) return;
+
+    const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
+    if (!selectedHike) return;
+
+    // Get positions from the selected hike
+    let positions = [];
+    if (selectedHike.polyline && Array.isArray(selectedHike.polyline)) {
+      positions = selectedHike.polyline;
+    } else if (selectedHike.latlng && Array.isArray(selectedHike.latlng)) {
+      positions = selectedHike.latlng;
+    }
+
+    if (positions.length === 0) return;
+
+    // Create bounds from the hike positions
+    const bounds = L.latLngBounds(positions);
+
+    // We need to access the map instance to fit bounds
+    // This will be handled by a new component
+    setSelectedHikeBounds(bounds);
+  }, [selectedHikeId, hikes]);
+
+  const [selectedHikeBounds, setSelectedHikeBounds] = useState(null);
+
   // fallback center
   const center =
     routePolyline.length > 0
@@ -406,7 +447,7 @@ function MapView({
       : [50, 4];
 
   return (
-    <div style={{ width: "70%", height: "500px" }}>
+    <div style={{ width: "70%", aspectRatio: "width/height" }}>
       <MapContainer
         center={center}
         zoom={6}
@@ -440,7 +481,7 @@ function MapView({
         )}
 
         {/* Firebase Hikes GPX Polylines (rendered last, on top) */}
-        {hikes.map((hike) => {
+        {hikes.map((hike, index) => {
           // Handle both array format and polyline string format
           let positions = [];
 
@@ -452,14 +493,36 @@ function MapView({
 
           if (positions.length === 0) return null;
 
+          // Assign a unique color to each hike - smooth gradient flow (starting with lime)
+          const colorPalette = [
+            "#84cc16", // Lime
+            "#10b981", // Emerald
+            "#14b8a6", // Teal
+            "#06b6d4", // Cyan
+            "#0ea5e9", // Sky Blue
+            "#3b82f6", // Blue
+            "#6366f1", // Indigo
+            "#8b5cf6", // Violet
+            "#a855f7", // Purple
+            "#c026d3", // Fuchsia
+            "#ec4899", // Pink
+            "#ef4444", // Red
+            "#f97316", // Orange
+            "#f59e0b", // Amber
+            "#eab308", // Yellow
+          ];
+
+          const hikeColor = colorPalette[index % colorPalette.length];
+          const isSelected = hike.id === selectedHikeId;
+
           return (
             <Polyline
               key={hike.id}
               positions={positions}
-              color="#4caf50"
-              weight={5}
-              opacity={0.9}
-              zIndex={1000}
+              color={hikeColor}
+              weight={isSelected ? 6 : 4}
+              opacity={isSelected ? 1 : 0.9}
+              zIndex={isSelected ? 2000 : 1000}
             >
               <Popup>
                 <div>
@@ -512,6 +575,9 @@ function MapView({
 
         {/* Hover marker */}
         <HoverMarker hoverPoint={hoverPoint} />
+
+        {/* Zoom to selected hike */}
+        <ZoomToHike bounds={selectedHikeBounds} />
 
         {/* Map interaction handler */}
         <MapInteraction
