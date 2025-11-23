@@ -530,15 +530,11 @@ function MapView({
 
   return (
     <div className="map-container fade-in">
-      <div style={{ width: "100%", aspectRatio: "16/9" }}>
+      <div className="map-view-container">
         <MapContainer
           center={center}
           zoom={6}
-          style={{
-            width: "100%",
-            height: "100%",
-            borderRadius: "var(--radius-xl)",
-          }}
+          className="map-container-leaflet"
           whenReady={handleMapReady}
         >
           <TileLayer

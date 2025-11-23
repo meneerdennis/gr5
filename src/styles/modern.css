@@ -93,7 +93,7 @@
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
   --space-md: 1rem;
-  --space-lg: 1.5rem;
+  --space-lg: 0.5rem;
   --space-xl: 2rem;
   --space-2xl: 3rem;
 
@@ -488,6 +488,33 @@ body {
   box-shadow: var(--shadow-lg);
 }
 
+.map-view-container {
+  width: 100%;
+  aspect-ratio: 16/9;
+  position: relative;
+}
+
+.map-container-leaflet {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: var(--radius-xl);
+}
+
+/* Responsive design for map - larger on mobile */
+@media (max-width: 768px) {
+  .map-view-container {
+    aspect-ratio: 4/3; /* Shorter ratio for mobile */
+    min-height: 300px; /* Ensure minimum height */
+  }
+}
+
+@media (max-width: 640px) {
+  .map-view-container {
+    aspect-ratio: 3/2; /* Even more compact for small screens */
+    min-height: 250px;
+  }
+}
+
 /* Modern Popup */
 .modern-popup {
   background: var(--glass-bg);
@@ -557,6 +584,32 @@ body {
 
   .elevation-chart {
     padding: var(--space-md);
+  }
+
+  /* Larger elevation profile on mobile - properly sized */
+  .elevation-chart svg {
+    height: 120px !important;
+    min-height: 120px;
+    max-height: 150px;
+    width: 100% !important;
+  }
+
+  /* Better spacing for mobile */
+  .elevation-chart .flex {
+    gap: var(--space-sm);
+  }
+
+  /* Make elevation chart fit properly on mobile */
+  .elevation-chart {
+    padding: var(--space-md) !important;
+    margin: var(--space-sm) 0;
+    overflow: hidden;
+  }
+
+  /* Ensure no horizontal overflow */
+  .elevation-chart svg {
+    max-width: 100%;
+    overflow: hidden;
   }
 }
 

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 
 function ElevationProfile({
   elevationProfile,
@@ -47,10 +47,43 @@ function ElevationProfile({
   const processedProfile = smoothingEnabled
     ? applySmoothing(elevationProfile, smoothingWindow)
     : elevationProfile;
-  const width = 900;
-  const height = 80;
-  const padding = 20;
+
+  // Responsive dimensions - larger on mobile
+  const [dimensions, setDimensions] = useState({ width: 900, height: 80 });
   const svgRef = useRef(null);
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      const screenWidth = window.innerWidth;
+      const isMobile = screenWidth < 768;
+      const isSmallMobile = screenWidth < 480;
+
+      if (isMobile) {
+        // Responsive dimensions for mobile
+        const maxWidth = isSmallMobile
+          ? screenWidth * 0.98
+          : screenWidth * 0.95;
+        setDimensions({
+          width: Math.min(maxWidth, 400), // Reduced max width to prevent overflow
+          height: isSmallMobile ? 100 : 110, // Conservative height
+        });
+      } else {
+        // Desktop dimensions
+        setDimensions({
+          width: 900,
+          height: 80,
+        });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
+    return () => window.removeEventListener("resize", updateDimensions);
+  }, []);
+
+  const width = dimensions.width;
+  const height = dimensions.height;
+  const padding = Math.max(20, Math.floor(width * 0.02)); // Responsive padding
 
   // Color palette - smooth gradient flow through spectrum (starting with lime)
   const colorPalette = [
@@ -384,7 +417,9 @@ function ElevationProfile({
 
           {/* Filled area under elevation line (mountain silhouette) */}
           <polygon
-            points={`${-width},${height} ${points} ${width * 2},${height}`}
+            points={`${padding},${height} ${points} ${
+              width - padding
+            },${height}`}
             fill="url(#elevationGradient)"
             stroke="none"
           />
@@ -470,7 +505,7 @@ function ElevationProfile({
             {visibleStartKm.toFixed(0)} km
           </text>
           {/* Finish marker with checkered flag */}
-          <g transform={`translate(${endX}, ${height - padding})`}>
+          <g transform={`translate(${endX - 5}, ${height - padding})`}>
             {/* Flag pole */}
             <line
               x1="0"

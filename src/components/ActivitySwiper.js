@@ -34,9 +34,12 @@ function ActivitySwiper({ hikes, selectedHikeId, onSelectHike }) {
   };
 
   return (
-    <div className="glass-card p-6  fade-in">
+    <div className="glass-card p-2  fade-in">
       <div className="flex items-center gap-2 ">
-        <h2 className="text-2xl font-semibold text-gray-900">
+        <h2
+          className="text-2xl p-0 font-semibold text-gray-900"
+          style={{ marginTop: "5px", marginBottom: "10px" }}
+        >
           Hiking Adventures
         </h2>
         <div className="badge">{sortedHikes.length} hikes</div>
@@ -68,57 +71,36 @@ function ActivitySwiper({ hikes, selectedHikeId, onSelectHike }) {
           <SwiperSlide key={hike.id}>
             <div
               onClick={() => onSelectHike(hike.id)}
-              className={`activity-card h-full ${
+              className={`activity-card ${
                 selectedHikeId === hike.id ? "selected" : ""
               }`}
-              style={{ minHeight: "120px" }}
+              style={{ maxHeight: "100px", margin: "0" }}
             >
-              <div className="flex flex-col h-full">
-                <div className="flex items-center justify-between mb-2">
+              <div className="flex justify-between items-center ">
+                <div className="flex items-center justify-between">
                   <h3
-                    className="text-sm font-semibold text-gray-900 line-clamp-1 flex-1"
+                    className="text-gray-700 font-semibold "
                     title={hike.name || "Unnamed Activity"}
+                    style={{ margin: "0" }}
                   >
                     {hike.name || "Unnamed Activity"}
                   </h3>
-                  {selectedHikeId === hike.id && (
-                    <div className="badge text-xs px-2 py-1 ml-2 flex-shrink-0">
-                      Active
-                    </div>
-                  )}
+                  {selectedHikeId === hike.id}
                 </div>
-
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="flex items-center gap-3 text-xs">
-                    <div className="flex items-center gap-1">
-                      <span>📅</span>
-                      <span className="text-gray-700">
-                        {formatDate(hike.startDate)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span>📏</span>
-                      <span className="text-gray-700">
-                        {hike.distanceKm?.toFixed(1) || "0"} km
-                      </span>
-                    </div>
-                    {hike.photos && hike.photos.length > 0 && (
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (hike.photos[0]) {
-                            window.open(hike.photos[0], "_blank");
-                          }
-                        }}
-                        className="flex items-center gap-1 text-primary hover:text-primary-dark cursor-pointer transition-colors"
-                      >
-                        <span>📷</span>
-                        <span className="font-medium">
-                          {hike.photos.length} photo
-                          {hike.photos.length !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-                    )}
+              </div>
+              <div className="flex flex-col justify-center">
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-1">
+                    <span>📅</span>
+                    <span className="text-gray-700">
+                      {formatDate(hike.startDate)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span>📏</span>
+                    <span className="text-gray-700">
+                      {hike.distanceKm?.toFixed(1) || "0"} km
+                    </span>
                   </div>
                 </div>
               </div>

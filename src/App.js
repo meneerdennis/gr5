@@ -116,7 +116,7 @@ function App() {
         </div>
 
         {/* Elevation Profile Section */}
-        <div className="slide-up">
+        <div className="slide-up ">
           <ElevationProfile
             elevationProfile={route.elevationProfile}
             walkedDistanceKm={currentWalkedDistance}
@@ -130,7 +130,7 @@ function App() {
         </div>
 
         {/* Map Section */}
-        <div id="map-section" className="slide-up">
+        <div id="map-section" className="slide-up p-0 m-0">
           <MapView
             routePolyline={route.polyline}
             hikes={hikes}
