@@ -34,7 +34,7 @@ function ActivitySwiper({ hikes, selectedHikeId, onSelectHike }) {
   };
 
   return (
-    <div className="glass-card p-2  fade-in">
+    <div className="glass-card p-2 fade-in">
       <div className="flex items-center gap-2 ">
         <h2
           className="text-2xl p-0 font-semibold text-gray-900"
@@ -45,12 +45,20 @@ function ActivitySwiper({ hikes, selectedHikeId, onSelectHike }) {
         <div className="badge">{sortedHikes.length} hikes</div>
       </div>
 
+      {/* ⬇️ pagination-bullets komen hier te staan */}
+
       <Swiper
+        className="my-swiper"
         modules={[Navigation, Pagination]}
         spaceBetween={24}
         slidesPerView={1}
         navigation
-        pagination={{ clickable: true }}
+        pagination={{
+          clickable: true,
+          el: ".hike-swiper__pagination", // stuur bullets naar de div hierboven
+          renderBullet: (index, className) =>
+            `<span class="${className}"></span>`,
+        }}
         breakpoints={{
           640: {
             slidesPerView: 2,
@@ -65,7 +73,6 @@ function ActivitySwiper({ hikes, selectedHikeId, onSelectHike }) {
             spaceBetween: 24,
           },
         }}
-        className="pb-4"
       >
         {sortedHikes.map((hike) => (
           <SwiperSlide key={hike.id}>
@@ -108,6 +115,7 @@ function ActivitySwiper({ hikes, selectedHikeId, onSelectHike }) {
           </SwiperSlide>
         ))}
       </Swiper>
+      <div className="hike-swiper__pagination" />
     </div>
   );
 }

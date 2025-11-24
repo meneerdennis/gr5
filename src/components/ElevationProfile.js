@@ -364,7 +364,10 @@ function ElevationProfile({
           onDoubleClick={handleDoubleClick}
           onWheel={handleWheel}
           className="cursor-crosshair rounded-lg"
-          style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))" }}
+          style={{
+            filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))",
+            borderRadius: "5px",
+          }}
         >
           {/* Define gradient for mountain silhouette */}
           <defs>
@@ -496,7 +499,7 @@ function ElevationProfile({
           <circle cx={startX} cy={height - padding} r="4" fill="#4CAF50" />
           <text
             x={startX + 10}
-            y={height}
+            y={height - 3}
             textAnchor="middle"
             fontSize="14"
             fontWeight="bold"
@@ -537,7 +540,7 @@ function ElevationProfile({
           </g>
           <text
             x={width - 10}
-            y={height}
+            y={height - 3}
             textAnchor="end"
             fontSize="14"
             fontWeight="bold"

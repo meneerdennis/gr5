@@ -44,4 +44,14 @@ Thumbs.db
 /functions
 
 .firebaserc
+storage.rules
 
+PHOTO_UPLOAD_GUIDE.md
+PHOTO_UPLOAD_FIX.md
+
+cors.json 
+FIREBASE_FIX_GUIDE.md 
+firebase.json 
+firestore.rules 
+package-lock.json 
+package.json

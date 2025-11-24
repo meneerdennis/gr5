@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getRouteData } from "../services/routeService";
 import { getStravaHikes } from "../services/stravaService";
-import { getPhotosFromHikes } from "../services/firebaseService";
+import { getAllPhotosWithHikes } from "../services/firebaseService";
 
 export function useHikeData() {
   const [route, setRoute] = useState(null);
@@ -20,10 +20,11 @@ export function useHikeData() {
         ]);
         setRoute(routeData);
         setHikes(hikesData);
-        // Extract photos from hikes
-        const photosData = getPhotosFromHikes(hikesData);
+
+        // Extract photos from both hikes and standalone photos collection
+        const photosData = await getAllPhotosWithHikes();
         console.log("Hikes data:", hikesData);
-        console.log("Extracted photos:", photosData);
+        console.log("Extracted photos (including standalone):", photosData);
         setPhotos(photosData);
       } catch (e) {
         console.error(e);

@@ -1,5 +1,6 @@
 import { db } from "./firebase";
 import { collection, query, orderBy, getDocs } from "firebase/firestore";
+import { getAllPhotos } from "./photoService";
 
 export async function getHikesFromFirebase() {
   try {
@@ -42,7 +43,7 @@ export function calculateTotalWalkedDistance(hikes) {
   }, 0);
 }
 
-// Extract all photos from hikes
+// Extract all photos from hikes with enhanced functionality
 export function getPhotosFromHikes(hikes) {
   const photos = [];
 
@@ -72,8 +73,44 @@ export function getPhotosFromHikes(hikes) {
     }
   });
 
-  console.log("Total photos extracted:", photos.length, photos);
+  console.log("Total photos extracted from hikes:", photos.length, photos);
   return photos;
+}
+
+// Enhanced photo function that combines hike photos and standalone photos
+export async function getAllPhotosWithHikes() {
+  try {
+    // Get photos from hikes
+    const hikes = await getHikesFromFirebase();
+    const hikePhotos = getPhotosFromHikes(hikes);
+
+    // Get photos from the standalone photos collection
+    const standalonePhotos = await getAllPhotos();
+
+    // Convert standalone photos to the same format as hike photos
+    const formattedStandalonePhotos = standalonePhotos
+      .map((photo) => ({
+        id: photo.id,
+        lat: photo.lat,
+        lng: photo.lng,
+        url: photo.url,
+        caption: photo.caption || "",
+        date: photo.date || photo.uploadedAt,
+        hikeId: photo.hikeId,
+        hikeName:
+          hikes.find((h) => h.id === photo.hikeId)?.name || "Unknown Hike",
+      }))
+      .filter((photo) => photo.lat && photo.lng);
+
+    // Combine both sources
+    const allPhotos = [...hikePhotos, ...formattedStandalonePhotos];
+
+    console.log("Total photos (including standalone):", allPhotos.length);
+    return allPhotos;
+  } catch (error) {
+    console.error("Error getting all photos:", error);
+    return getPhotosFromHikes([]);
+  }
 }
 
 // Convert polyline string to array of coordinates (if needed)

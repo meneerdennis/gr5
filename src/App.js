@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import { useHikeData } from "./hooks/useHikeData";
 import Layout from "./components/Layout";
 import ElevationProfile from "./components/ElevationProfile";
 import MapView from "./components/MapView";
 import ActivitySwiper from "./components/ActivitySwiper";
+import AdminUploadPage from "./components/AdminUploadPage";
 
 function App() {
   const { route, hikes, photos, loading, error } = useHikeData();
@@ -102,52 +109,72 @@ function App() {
     }
   };
 
+  // Main app component with routes
   return (
-    <Layout progress={progress}>
-      {/* Main Dashboard Grid */}
-      <div className="grid grid-cols-1 gap-6">
-        {/* Hiking Activities Section */}
-        <div className="slide-up">
-          <ActivitySwiper
-            hikes={hikes}
-            selectedHikeId={selectedHikeId}
-            onSelectHike={handleSelectHike}
-          />
-        </div>
+    <Router>
+      <Routes>
+        {/* Hidden admin route */}
+        <Route
+          path="/admin-upload-photos-secret-2025"
+          element={<AdminUploadPage />}
+        />
 
-        {/* Elevation Profile Section */}
-        <div className="slide-up ">
-          <ElevationProfile
-            elevationProfile={route.elevationProfile}
-            walkedDistanceKm={currentWalkedDistance}
-            totalDistanceKm={route.totalDistanceKm}
-            hoverPoint={hoverPoint}
-            onHover={setHoverPoint}
-            zoomRange={zoomRange}
-            onZoomChange={setZoomRange}
-            hikes={hikes}
-          />
-        </div>
+        {/* Main application route */}
+        <Route
+          path="/"
+          element={
+            <Layout progress={progress}>
+              {/* Main Dashboard Grid */}
+              <div className="grid grid-cols-1 gap-6">
+                {/* Hiking Activities Section */}
+                <div className="slide-up">
+                  <ActivitySwiper
+                    hikes={hikes}
+                    selectedHikeId={selectedHikeId}
+                    onSelectHike={handleSelectHike}
+                  />
+                </div>
 
-        {/* Map Section */}
-        <div id="map-section" className="slide-up p-0 m-0">
-          <MapView
-            routePolyline={route.polyline}
-            hikes={hikes}
-            photos={photos}
-            gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
-            elevationProfile={route.elevationProfile}
-            walkedDistanceKm={currentWalkedDistance}
-            hoverPoint={hoverPoint}
-            onHover={setHoverPoint}
-            zoomRange={zoomRange}
-            onZoomChange={setZoomRange}
-            onWalkedDistanceChange={handleWalkedDistanceChange}
-            selectedHikeId={selectedHikeId}
-          />
-        </div>
-      </div>
-    </Layout>
+                {/* Elevation Profile Section */}
+                <div className="slide-up ">
+                  <ElevationProfile
+                    elevationProfile={route.elevationProfile}
+                    walkedDistanceKm={currentWalkedDistance}
+                    totalDistanceKm={route.totalDistanceKm}
+                    hoverPoint={hoverPoint}
+                    onHover={setHoverPoint}
+                    zoomRange={zoomRange}
+                    onZoomChange={setZoomRange}
+                    hikes={hikes}
+                  />
+                </div>
+
+                {/* Map Section */}
+                <div id="map-section" className="slide-up p-0 m-0">
+                  <MapView
+                    routePolyline={route.polyline}
+                    hikes={hikes}
+                    photos={photos}
+                    gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
+                    elevationProfile={route.elevationProfile}
+                    walkedDistanceKm={currentWalkedDistance}
+                    hoverPoint={hoverPoint}
+                    onHover={setHoverPoint}
+                    zoomRange={zoomRange}
+                    onZoomChange={setZoomRange}
+                    onWalkedDistanceChange={handleWalkedDistanceChange}
+                    selectedHikeId={selectedHikeId}
+                  />
+                </div>
+              </div>
+            </Layout>
+          }
+        />
+
+        {/* Redirect unknown routes to main page */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Router>
   );
 }
 
