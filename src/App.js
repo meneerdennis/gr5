@@ -11,6 +11,7 @@ import ElevationProfile from "./components/ElevationProfile";
 import MapView from "./components/MapView";
 import ActivitySwiper from "./components/ActivitySwiper";
 import AdminUploadPage from "./components/AdminUploadPage";
+import AdminPhotoManager from "./components/AdminPhotoManager";
 import AdminRoute from "./components/AdminRoute";
 
 function App() {
@@ -114,12 +115,28 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Protected admin route */}
+        {/* Protected admin routes */}
         <Route
           path="/admin"
           element={
             <AdminRoute>
+              <Navigate to="/admin/manage" replace />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/upload"
+          element={
+            <AdminRoute>
               <AdminUploadPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/manage"
+          element={
+            <AdminRoute>
+              <AdminPhotoManager />
             </AdminRoute>
           }
         />

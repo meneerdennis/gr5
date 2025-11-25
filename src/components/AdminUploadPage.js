@@ -192,11 +192,11 @@ function AdminUploadPage() {
   return (
     <div className="p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
+        <div className="glass-card p-4 sm:p-6 mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-100 mb-4">
             📸 Smart Photo Upload
           </h1>
-          <p className="text-gray-700 mb-6">
+          <p className="text-gray-300 mb-6">
             Upload multiple photos at once. Location and date are automatically
             extracted from photo metadata (EXIF data).
           </p>
@@ -206,26 +206,21 @@ function AdminUploadPage() {
             {/* Left Column - Form */}
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-gray-200 mb-2">
                   Select Hike/Activity
                 </label>
                 <select
                   value={selectedHike}
                   onChange={(e) => setSelectedHike(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
+                  className="input"
                 >
-                  <option
-                    value=""
-                    className="text-black"
-                    style={{ color: "black" }}
-                  >
+                  <option value="" style={{ color: "black" }}>
                     Choose a hike...
                   </option>
                   {hikes.map((hike) => (
                     <option
                       key={hike.id}
                       value={hike.id}
-                      className="text-black"
                       style={{ color: "black" }}
                     >
                       {hike.name} ({formatDate(hike.startDate)}) -{" "}
@@ -236,7 +231,7 @@ function AdminUploadPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-gray-200 mb-2">
                   Caption (optional - applies to all photos)
                 </label>
                 <input
@@ -245,13 +240,13 @@ function AdminUploadPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, caption: e.target.value })
                   }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-500"
+                  className="input"
                   placeholder="Caption for all photos..."
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-gray-200 mb-2">
                   Select Photos
                 </label>
                 <input
@@ -259,19 +254,19 @@ function AdminUploadPage() {
                   multiple
                   accept="image/*"
                   onChange={handleFileSelection}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  className="input"
                   disabled={uploading}
                 />
               </div>
 
               {selectedFiles.length > 0 && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-blue-700 text-sm mb-2">
+                <div className="p-3 bg-blue-900 bg-opacity-30 border border-blue-500 border-opacity-30 rounded-lg">
+                  <p className="text-blue-300 text-sm mb-2">
                     📁 {selectedFiles.length} photo(s) selected
                   </p>
 
                   {exifPreview.length > 0 && (
-                    <div className="text-xs text-blue-600">
+                    <div className="text-xs text-blue-200">
                       <p className="font-medium mb-1">Metadata Preview:</p>
                       {exifPreview.map((preview, index) => (
                         <div key={index} className="mb-1">
@@ -283,7 +278,7 @@ function AdminUploadPage() {
                         </div>
                       ))}
                       {selectedFiles.length > 3 && (
-                        <p className="text-xs text-blue-500">
+                        <p className="text-xs text-blue-300">
                           ... and {selectedFiles.length - 3} more
                         </p>
                       )}
@@ -296,10 +291,10 @@ function AdminUploadPage() {
                 <div
                   className={`p-3 rounded-lg ${
                     uploadStatus.type === "success"
-                      ? "bg-green-50 text-green-700 border border-green-200"
+                      ? "bg-green-900 bg-opacity-30 text-green-300 border border-green-500 border-opacity-30"
                       : uploadStatus.type === "warning"
-                      ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
-                      : "bg-red-50 text-red-700 border border-red-200"
+                      ? "bg-yellow-900 bg-opacity-30 text-yellow-300 border border-yellow-500 border-opacity-30"
+                      : "bg-red-900 bg-opacity-30 text-red-300 border border-red-500 border-opacity-30"
                   }`}
                 >
                   <p>{uploadStatus.message}</p>
@@ -318,7 +313,7 @@ function AdminUploadPage() {
                 disabled={
                   !selectedHike || selectedFiles.length === 0 || uploading
                 }
-                className="w-full py-3 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+                className="w-full btn btn-primary"
               >
                 {uploading
                   ? "⏳ Uploading Photos..."
@@ -329,7 +324,7 @@ function AdminUploadPage() {
             {/* Right Column - Map & Info */}
             <div className="mt-6 xl:mt-0">
               <div className="mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-lg font-semibold text-gray-100 mb-2">
                   🗺️ Route Overview
                 </h3>
                 <div className="h-64 sm:h-80 lg:h-96">
@@ -337,7 +332,7 @@ function AdminUploadPage() {
                     center={getMapCenter()}
                     zoom={8}
                     style={{ height: "100%", width: "100%" }}
-                    className="rounded-lg"
+                    className="rounded-lg map-container"
                   >
                     <TileLayer
                       attribution="&copy; OpenStreetMap contributors"
@@ -395,16 +390,16 @@ function AdminUploadPage() {
         </div>
 
         {/* Instructions */}
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-semibold text-gray-100 mb-4">
             📋 Smart Upload Instructions
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h3 className="font-medium text-gray-900 mb-2">
+              <h3 className="font-medium text-gray-100 mb-2">
                 ✨ Automatic Metadata Extraction
               </h3>
-              <div className="space-y-2 text-gray-700 text-sm">
+              <div className="space-y-2 text-gray-300 text-sm">
                 <p>
                   📍 <strong>Location:</strong> GPS coordinates are
                   automatically read from your photos
@@ -418,6 +413,10 @@ function AdminUploadPage() {
                   at once
                 </p>
                 <p>
+                  🖼️ <strong>Auto Thumbnails:</strong> 200x200 thumbnails
+                  created automatically for fast loading
+                </p>
+                <p>
                   📋 <strong>Global Caption:</strong> One caption applies to all
                   selected photos
                 </p>
@@ -425,8 +424,8 @@ function AdminUploadPage() {
             </div>
 
             <div>
-              <h3 className="font-medium text-gray-900 mb-2">🚀 How to Use</h3>
-              <div className="space-y-2 text-gray-700 text-sm">
+              <h3 className="font-medium text-gray-100 mb-2">🚀 How to Use</h3>
+              <div className="space-y-2 text-gray-300 text-sm">
                 <p>
                   1. <strong>Select hike</strong> from the dropdown
                 </p>
@@ -443,8 +442,8 @@ function AdminUploadPage() {
             </div>
           </div>
 
-          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-green-700 text-sm">
+          <div className="mt-4 p-3 bg-green-900 bg-opacity-30 border border-green-500 border-opacity-30 rounded-lg">
+            <p className="text-green-300 text-sm">
               <strong>💡 Pro Tip:</strong> Make sure your phone's camera has
               location services enabled when taking photos for automatic GPS
               tagging!

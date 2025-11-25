@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../services/firebase";
+import { Link, useLocation } from "react-router-dom";
 import LoginPage from "./LoginPage";
 
 function AdminRoute({ children }) {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [initialized, setInitialized] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -33,10 +35,16 @@ function AdminRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-sm sm:text-base">
+      <div
+        className="flex items-center justify-center p-4"
+        style={{
+          background: "var(--gradient-background)",
+          minHeight: "100vh",
+        }}
+      >
+        <div className="text-center glass-card p-8">
+          <div className="animate-spin rounded-full mx-auto mb-4 border-b-2 border-blue-400 h-10 w-10 sm:h-12 sm:w-12"></div>
+          <p className="text-gray-200 text-sm sm:text-base">
             Checking authentication...
           </p>
         </div>
@@ -50,58 +58,136 @@ function AdminRoute({ children }) {
 
   // User is authenticated, render the protected content
   return (
-    <div className="relative min-h-screen bg-gray-50">
+    <div
+      className="relative flex flex-col items-center"
+      style={{
+        background: "var(--gradient-background)",
+        minHeight: "100vh",
+      }}
+    >
       {/* Admin Header */}
-      <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
-          <div className="flex items-center justify-between h-14 sm:h-16">
-            {/* Left side - Logo and Title */}
-            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
-              <span className="text-lg sm:text-2xl flex-shrink-0">🛡️</span>
-              <div className="hidden md:block min-w-0">
-                <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
-                  Admin Panel
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 truncate max-w-xs">
-                  Welcome, {user.displayName || user.email}
-                </p>
+      <div className="admin-header w-full">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-6">
+          <div className="flex  h-14 sm:h-16">
+            {/* Centered Logo and Title */}
+            <div className="flex  flex-1 min-w-0" style={{ gap: "0.75rem" }}>
+              <div
+                className="rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg"
+                style={{
+                  width: "2.5rem",
+                  height: "2.5rem",
+                  background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                }}
+              >
+                <span className="text-white text-lg sm:text-xl">🛡️</span>
               </div>
-              {/* Mobile title */}
-              <div className="md:hidden">
-                <h1 className="text-base sm:text-lg font-semibold text-gray-900">
-                  Admin
-                </h1>
+              <div className="text-center">
+                <div className="hidden md:block">
+                  <h1
+                    className="font-bold truncate"
+                    style={{
+                      fontSize: "1.25rem",
+                      background: "linear-gradient(135deg, #60a5fa, #a855f7)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      backgroundClip: "text",
+                    }}
+                  >
+                    Admin Panel
+                  </h1>
+                  <p
+                    className="text-xs sm:text-sm text-gray-400 truncate mt-1"
+                    style={{ maxWidth: "20rem" }}
+                  >
+                    Welcome, {user.displayName || user.email}
+                  </p>
+                </div>
+                {/* Mobile title */}
+                <div className="md:hidden">
+                  <h1
+                    className="font-bold"
+                    style={{
+                      fontSize: "1.125rem",
+                      background: "linear-gradient(135deg, #60a5fa, #a855f7)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      backgroundClip: "text",
+                    }}
+                  >
+                    Admin
+                  </h1>
+                </div>
               </div>
             </div>
 
-            {/* Right side - User Info and Actions */}
-            <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+            {/* User Info and Actions - positioned to the right */}
+            <div
+              className="flex items-center flex-shrink-0 ml-auto"
+              style={{ gap: "0.5rem" }}
+            >
               {/* User Avatar */}
               {user.photoURL && (
                 <img
                   src={user.photoURL}
                   alt="Profile"
-                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-gray-200"
+                  className="rounded-full border-2 border-blue-400"
+                  style={{ width: "1.75rem", height: "1.75rem" }}
                 />
               )}
 
               {/* Sign Out Button */}
               <button
                 onClick={() => auth.signOut()}
-                className="inline-flex items-center px-2.5 py-1.5 sm:px-3 sm:py-2 border border-transparent text-xs sm:text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-200"
+                className="btn btn-secondary text-sm"
               >
-                <span className="hidden lg:inline" style={{ color: "black" }}>
-                  Sign Out
-                </span>
+                <span className="hidden lg:inline">Sign Out</span>
                 <span className="lg:hidden">Out</span>
               </button>
             </div>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div
+            className="border-t"
+            style={{
+              borderColor: "rgba(148, 163, 184, 0.3)",
+              marginTop: "10px",
+            }}
+          >
+            <nav
+              className="flex overflow-x-auto py-2"
+              style={{ gap: "0.25rem" }}
+            >
+              <Link
+                to="/admin/upload"
+                className={`admin-nav-tab ${
+                  location.pathname === "/admin/upload" ||
+                  location.pathname === "/admin"
+                    ? "active"
+                    : ""
+                }`}
+              >
+                <span className="text-base">📤</span>
+                <span>Upload Photos</span>
+              </Link>
+              <Link
+                to="/admin/manage"
+                className={`admin-nav-tab ${
+                  location.pathname === "/admin/manage" ? "active" : ""
+                }`}
+              >
+                <span className="text-base">📸</span>
+                <span>Manage Photos</span>
+              </Link>
+            </nav>
           </div>
         </div>
       </div>
 
       {/* Protected Content */}
-      <div className="flex-1">{children}</div>
+      <div className="flex-1 w-full max-w-4xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        {children}
+      </div>
     </div>
   );
 }
