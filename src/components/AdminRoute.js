@@ -67,7 +67,7 @@ function AdminRoute({ children }) {
     >
       {/* Admin Header */}
       <div className="admin-header w-full">
-        <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-6">
+        <div className="w-full mx-auto px-3 sm:px-4 lg:px-6 max-w-none sm:max-w-4xl">
           <div className="flex  h-14 sm:h-16">
             {/* Centered Logo and Title */}
             <div className="flex  flex-1 min-w-0" style={{ gap: "0.75rem" }}>
@@ -185,7 +185,7 @@ function AdminRoute({ children }) {
       </div>
 
       {/* Protected Content */}
-      <div className="flex-1 w-full max-w-4xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+      <div className="flex-1 w-full mx-auto px-3 sm:px-4 lg:px-6 py-6 max-w-none sm:max-w-4xl">
         {children}
       </div>
     </div>

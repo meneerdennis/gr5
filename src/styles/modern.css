@@ -1017,6 +1017,22 @@ body.modal-open {
     padding: 0.5rem 0.75rem;
     font-size: 0.75rem;
   }
+
+  /* Mobile table improvements */
+  .table-mobile-responsive {
+    font-size: 0.75rem;
+  }
+
+  .table-mobile-responsive th,
+  .table-mobile-responsive td {
+    padding: 0.5rem 0.25rem;
+    min-width: 60px;
+  }
+
+  .table-mobile-responsive .photo-thumbnail {
+    width: 40px;
+    height: 40px;
+  }
 }
 
 @media (min-width: 768px) {
@@ -1157,4 +1173,20 @@ body.modal-open {
 
 .bg-red-500 {
   background-color: #ef4444;
+}
+
+.bg-green-500 {
+  background-color: #10b981;
+}
+
+.bg-gray-500 {
+  background-color: #6b7280;
+}
+
+.hover\:bg-green-600:hover {
+  background-color: #059669;
+}
+
+.hover\:bg-gray-600:hover {
+  background-color: #4b5563;
 }

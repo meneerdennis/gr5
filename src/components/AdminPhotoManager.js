@@ -46,7 +46,7 @@ function AdminPhotoManager() {
   const [deletingPhoto, setDeletingPhoto] = useState(null);
   const [filterRoute, setFilterRoute] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [showMap, setShowMap] = useState(false);
+  const [showMap, setShowMap] = useState(false); // Start with map hidden for better mobile performance
   const [showFullImage, setShowFullImage] = useState(null); // For full-size image modal
   const [mapCenter, setMapCenter] = useState([46.8182, 8.2275]); // Switzerland center
   const [creatingThumbnails, setCreatingThumbnails] = useState(false);
@@ -301,6 +301,12 @@ function AdminPhotoManager() {
               </p>
             </div>
             <div className="mt-4 sm:mt-0 flex space-x-2">
+              <button
+                onClick={() => setShowMap(!showMap)}
+                className="btn btn-secondary"
+              >
+                🗺️ {showMap ? "Hide" : "Show"} Map
+              </button>
               <button onClick={loadData} className="btn btn-secondary">
                 🔄 Refresh
               </button>
@@ -308,7 +314,7 @@ function AdminPhotoManager() {
           </div>
 
           {/* Filters */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-200 mb-2">
                 Filter by Route
@@ -360,7 +366,7 @@ function AdminPhotoManager() {
             <h2 className="text-xl font-semibold text-gray-100 mb-4">
               🗺️ Photo Locations
             </h2>
-            <div className="h-64 sm:h-80 lg:h-96">
+            <div className="h-48 sm:h-64 lg:h-80 xl:h-96">
               <MapContainer
                 center={getMapCenterFromPhotos()}
                 zoom={8}
@@ -484,11 +490,14 @@ function AdminPhotoManager() {
           ) : (
             /* Table View */
             <div className="overflow-x-auto">
-              <table className="min-w-full">
+              <table className="min-w-full table-mobile-responsive">
                 <thead>
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       Thumbnail
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Location
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       Name
@@ -527,6 +536,24 @@ function AdminPhotoManager() {
                             e.target.src = photo.url; // Fallback to original
                           }}
                         />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        {photo.lat &&
+                        photo.lng &&
+                        !isNaN(photo.lat) &&
+                        !isNaN(photo.lng) ? (
+                          <div
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-500 text-white text-xs font-bold hover:bg-green-600 cursor-pointer"
+                            title={`Location: ${photo.lat.toFixed(
+                              4
+                            )}, ${photo.lng.toFixed(4)}`}
+                          ></div>
+                        ) : (
+                          <div
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-500 text-white text-xs font-bold hover:bg-gray-600 cursor-pointer"
+                            title="No location data"
+                          ></div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-100">
