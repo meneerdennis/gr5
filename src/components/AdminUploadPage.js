@@ -106,7 +106,7 @@ function AdminUploadPage() {
       );
 
       if (result.success) {
-        const { successful, failed, summary } = result;
+        const { uploaded, failed, summary } = result;
 
         let message = `✅ Successfully uploaded ${summary.successful} photo(s)!`;
         if (summary.withExif > 0) {
@@ -123,7 +123,7 @@ function AdminUploadPage() {
 
         // Show details about each uploaded photo
         const details = [];
-        successful.forEach((photo) => {
+        uploaded.forEach((photo) => {
           details.push(
             `📸 ${photo.fileName} ${photo.exifExtracted ? "📍" : ""}`
           );
@@ -190,33 +190,44 @@ function AdminUploadPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+    <div className="p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
             📸 Smart Photo Upload
           </h1>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-700 mb-6">
             Upload multiple photos at once. Location and date are automatically
             extracted from photo metadata (EXIF data).
           </p>
 
           {/* Upload Form */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {/* Left Column - Form */}
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   Select Hike/Activity
                 </label>
                 <select
                   value={selectedHike}
                   onChange={(e) => setSelectedHike(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
                 >
-                  <option value="">Choose a hike...</option>
+                  <option
+                    value=""
+                    className="text-black"
+                    style={{ color: "black" }}
+                  >
+                    Choose a hike...
+                  </option>
                   {hikes.map((hike) => (
-                    <option key={hike.id} value={hike.id}>
+                    <option
+                      key={hike.id}
+                      value={hike.id}
+                      className="text-black"
+                      style={{ color: "black" }}
+                    >
                       {hike.name} ({formatDate(hike.startDate)}) -{" "}
                       {hike.distanceKm?.toFixed(1)}km
                     </option>
@@ -225,7 +236,7 @@ function AdminUploadPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   Caption (optional - applies to all photos)
                 </label>
                 <input
@@ -234,13 +245,13 @@ function AdminUploadPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, caption: e.target.value })
                   }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-500"
                   placeholder="Caption for all photos..."
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   Select Photos
                 </label>
                 <input
@@ -248,7 +259,7 @@ function AdminUploadPage() {
                   multiple
                   accept="image/*"
                   onChange={handleFileSelection}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   disabled={uploading}
                 />
               </div>
@@ -316,66 +327,68 @@ function AdminUploadPage() {
             </div>
 
             {/* Right Column - Map & Info */}
-            <div className="h-96 lg:h-full">
-              <div className="h-full mb-4">
-                <h3 className="text-lg font-semibold mb-2">
+            <div className="mt-6 xl:mt-0">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   🗺️ Route Overview
                 </h3>
-                <MapContainer
-                  center={getMapCenter()}
-                  zoom={8}
-                  style={{ height: "100%", width: "100%" }}
-                  className="rounded-lg"
-                >
-                  <TileLayer
-                    attribution="&copy; OpenStreetMap contributors"
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
+                <div className="h-64 sm:h-80 lg:h-96">
+                  <MapContainer
+                    center={getMapCenter()}
+                    zoom={8}
+                    style={{ height: "100%", width: "100%" }}
+                    className="rounded-lg"
+                  >
+                    <TileLayer
+                      attribution="&copy; OpenStreetMap contributors"
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
 
-                  {/* Show existing hike tracks */}
-                  {hikes
-                    .filter(
-                      (hike) =>
-                        hike.polyline &&
-                        Array.isArray(hike.polyline) &&
-                        hike.polyline.length > 0
-                    )
-                    .map((hike) => {
-                      // Filter out invalid coordinates
-                      const validPolyline = hike.polyline.filter(
-                        (point) =>
-                          point &&
-                          Array.isArray(point) &&
-                          point.length >= 2 &&
-                          !isNaN(parseFloat(point[0])) &&
-                          !isNaN(parseFloat(point[1]))
-                      );
+                    {/* Show existing hike tracks */}
+                    {hikes
+                      .filter(
+                        (hike) =>
+                          hike.polyline &&
+                          Array.isArray(hike.polyline) &&
+                          hike.polyline.length > 0
+                      )
+                      .map((hike) => {
+                        // Filter out invalid coordinates
+                        const validPolyline = hike.polyline.filter(
+                          (point) =>
+                            point &&
+                            Array.isArray(point) &&
+                            point.length >= 2 &&
+                            !isNaN(parseFloat(point[0])) &&
+                            !isNaN(parseFloat(point[1]))
+                        );
 
-                      if (validPolyline.length === 0) return null;
+                        if (validPolyline.length === 0) return null;
 
-                      return (
-                        <div key={hike.id}>
-                          <Polyline
-                            positions={validPolyline}
-                            color="#3b82f6"
-                            weight={2}
-                            opacity={0.7}
-                          />
-                          <Marker
-                            position={validPolyline[0]}
-                            icon={L.divIcon({
-                              html: `<div style="background: #3b82f6; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;">${
-                                hike.name || "Hike"
-                              }</div>`,
-                              className: "custom-div-icon",
-                              iconSize: [80, 20],
-                              iconAnchor: [40, 10],
-                            })}
-                          />
-                        </div>
-                      );
-                    })}
-                </MapContainer>
+                        return (
+                          <div key={hike.id}>
+                            <Polyline
+                              positions={validPolyline}
+                              color="#3b82f6"
+                              weight={2}
+                              opacity={0.7}
+                            />
+                            <Marker
+                              position={validPolyline[0]}
+                              icon={L.divIcon({
+                                html: `<div style="background: #3b82f6; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;">${
+                                  hike.name || "Hike"
+                                }</div>`,
+                                className: "custom-div-icon",
+                                iconSize: [80, 20],
+                                iconAnchor: [40, 10],
+                              })}
+                            />
+                          </div>
+                        );
+                      })}
+                  </MapContainer>
+                </div>
               </div>
             </div>
           </div>
@@ -391,7 +404,7 @@ function AdminUploadPage() {
               <h3 className="font-medium text-gray-900 mb-2">
                 ✨ Automatic Metadata Extraction
               </h3>
-              <div className="space-y-2 text-gray-600 text-sm">
+              <div className="space-y-2 text-gray-700 text-sm">
                 <p>
                   📍 <strong>Location:</strong> GPS coordinates are
                   automatically read from your photos
@@ -413,7 +426,7 @@ function AdminUploadPage() {
 
             <div>
               <h3 className="font-medium text-gray-900 mb-2">🚀 How to Use</h3>
-              <div className="space-y-2 text-gray-600 text-sm">
+              <div className="space-y-2 text-gray-700 text-sm">
                 <p>
                   1. <strong>Select hike</strong> from the dropdown
                 </p>

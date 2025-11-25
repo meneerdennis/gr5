@@ -133,6 +133,34 @@ export async function uploadPhoto(file, hikeId, photoData) {
     const snapshot = await uploadBytes(storageRef, file);
     const downloadURL = await getDownloadURL(snapshot.ref);
 
+    // Sanitize EXIF data to remove incompatible objects for Firestore
+    const sanitizeExifData = (exifObj) => {
+      if (!exifObj || typeof exifObj !== "object") return {};
+
+      const sanitized = {};
+      for (const [key, value] of Object.entries(exifObj)) {
+        // Only include primitive types and simple arrays
+        if (
+          value === null ||
+          value === undefined ||
+          typeof value === "string" ||
+          typeof value === "number" ||
+          typeof value === "boolean" ||
+          (Array.isArray(value) &&
+            value.every(
+              (item) =>
+                typeof item === "string" ||
+                typeof item === "number" ||
+                typeof item === "boolean"
+            ))
+        ) {
+          sanitized[key] = value;
+        }
+        // Skip complex objects, functions, and custom Number objects
+      }
+      return sanitized;
+    };
+
     // Save photo metadata to Firestore
     const photoMetadata = {
       url: downloadURL,
@@ -148,7 +176,7 @@ export async function uploadPhoto(file, hikeId, photoData) {
       type: file.type,
       uploadedAt: new Date().toISOString(),
       hasExifData: !!(exifData.lat && exifData.lng),
-      exifData: exifData.exifData,
+      exifData: sanitizeExifData(exifData.exifData),
       ...photoData,
     };
 

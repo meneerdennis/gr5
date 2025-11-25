@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
-  BrowserRouter as Router,
+  HashRouter as Router,
   Routes,
   Route,
   Navigate,
@@ -11,6 +11,7 @@ import ElevationProfile from "./components/ElevationProfile";
 import MapView from "./components/MapView";
 import ActivitySwiper from "./components/ActivitySwiper";
 import AdminUploadPage from "./components/AdminUploadPage";
+import AdminRoute from "./components/AdminRoute";
 
 function App() {
   const { route, hikes, photos, loading, error } = useHikeData();
@@ -113,10 +114,14 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Hidden admin route */}
+        {/* Protected admin route */}
         <Route
-          path="/admin-upload-photos-secret-2025"
-          element={<AdminUploadPage />}
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminUploadPage />
+            </AdminRoute>
+          }
         />
 
         {/* Main application route */}
