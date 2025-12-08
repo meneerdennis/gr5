@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   getAllPhotos,
   updatePhoto,
@@ -50,6 +50,7 @@ function AdminPhotoManager() {
   const [showFullImage, setShowFullImage] = useState(null); // For full-size image modal
   const [mapCenter, setMapCenter] = useState([46.8182, 8.2275]); // Switzerland center
   const [creatingThumbnails, setCreatingThumbnails] = useState(false);
+  const tableContainerRef = useRef(null);
 
   useEffect(() => {
     loadData();
@@ -200,6 +201,41 @@ function AdminPhotoManager() {
     return matchesRoute && matchesSearch;
   });
 
+  // Fix iOS Safari horizontal scroll position bug
+  useEffect(() => {
+    const fixScrollPosition = () => {
+      if (tableContainerRef.current) {
+        console.log("Fixing scroll position to 0");
+        // Multiple approaches to ensure scroll position is 0
+        tableContainerRef.current.scrollLeft = 0;
+
+        // Force a reflow
+        tableContainerRef.current.style.transform = "translateX(0)";
+        tableContainerRef.current.style.marginLeft = "0";
+
+        // Try scrolling again after a short delay
+        setTimeout(() => {
+          if (tableContainerRef.current) {
+            tableContainerRef.current.scrollLeft = 0;
+            console.log(
+              "Applied secondary scroll fix, scrollLeft:",
+              tableContainerRef.current.scrollLeft
+            );
+          }
+        }, 50);
+      }
+    };
+
+    // Fix immediately
+    fixScrollPosition();
+
+    // Fix after component renders
+    setTimeout(fixScrollPosition, 200);
+
+    // Fix after images/resources load
+    setTimeout(fixScrollPosition, 500);
+  }, [filteredPhotos]); // Re-run when photos load/filter
+
   const openFullImage = (photo) => {
     console.log("Opening full image modal for photo:", photo);
     console.log("Photo URL:", photo.url);
@@ -286,10 +322,13 @@ function AdminPhotoManager() {
   }
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="p-2 sm:p-4 lg:p-6">
+      <div className="w-full mx-auto max-w-none sm:max-w-4xl lg:max-w-6xl xl:max-w-7xl">
         {/* Header */}
-        <div className="glass-card p-4 sm:p-6 mb-6">
+        <div
+          className="glass-card p-4 sm:p-6 mb-6"
+          style={{ marginBottom: "10px" }}
+        >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-100 mb-2">
@@ -301,12 +340,6 @@ function AdminPhotoManager() {
               </p>
             </div>
             <div className="mt-4 sm:mt-0 flex space-x-2">
-              <button
-                onClick={() => setShowMap(!showMap)}
-                className="btn btn-secondary"
-              >
-                🗺️ {showMap ? "Hide" : "Show"} Map
-              </button>
               <button onClick={loadData} className="btn btn-secondary">
                 🔄 Refresh
               </button>
@@ -360,115 +393,6 @@ function AdminPhotoManager() {
           </div>
         </div>
 
-        {/* Map View */}
-        {showMap && (
-          <div className="glass-card p-4 sm:p-6 mb-6">
-            <h2 className="text-xl font-semibold text-gray-100 mb-4">
-              🗺️ Photo Locations
-            </h2>
-            <div className="h-48 sm:h-64 lg:h-80 xl:h-96">
-              <MapContainer
-                center={getMapCenterFromPhotos()}
-                zoom={8}
-                style={{ height: "100%", width: "100%" }}
-                className="rounded-lg map-container"
-              >
-                <TileLayer
-                  attribution="&copy; OpenStreetMap contributors"
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-
-                {/* Show route polylines */}
-                {hikes
-                  .filter(
-                    (hike) =>
-                      hike.polyline &&
-                      Array.isArray(hike.polyline) &&
-                      hike.polyline.length > 0
-                  )
-                  .map((hike) => {
-                    const validPolyline = hike.polyline.filter(
-                      (point) =>
-                        point &&
-                        Array.isArray(point) &&
-                        point.length >= 2 &&
-                        !isNaN(parseFloat(point[0])) &&
-                        !isNaN(parseFloat(point[1]))
-                    );
-
-                    if (validPolyline.length === 0) return null;
-
-                    return (
-                      <div key={hike.id}>
-                        <Polyline
-                          positions={validPolyline}
-                          color="#3b82f6"
-                          weight={2}
-                          opacity={0.7}
-                        />
-                        <Marker
-                          position={validPolyline[0]}
-                          icon={L.divIcon({
-                            html: `<div style="background: #3b82f6; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;">${
-                              hike.name || "Hike"
-                            }</div>`,
-                            className: "custom-div-icon",
-                            iconSize: [80, 20],
-                            iconAnchor: [40, 10],
-                          })}
-                        />
-                      </div>
-                    );
-                  })}
-
-                {/* Show photo markers */}
-                {filteredPhotos
-                  .filter((photo) => photo.lat && photo.lng)
-                  .map((photo) => (
-                    <Marker
-                      key={photo.id}
-                      position={[photo.lat, photo.lng]}
-                      icon={photoIcon}
-                    >
-                      <Popup>
-                        <div className="p-2 max-w-xs">
-                          <img
-                            src={photo.thumbnail}
-                            alt={photo.caption || "Photo"}
-                            className="w-full h-24 object-cover rounded mb-2 cursor-pointer"
-                            onClick={() => openFullImage(photo)}
-                            onError={(e) => {
-                              console.warn(
-                                "Map thumbnail failed to load:",
-                                photo.url
-                              );
-                              e.target.src = photo.url; // Fallback to original
-                            }}
-                          />
-                          <p className="font-semibold text-sm">
-                            {photo.caption || "No caption"}
-                          </p>
-                          <p className="text-xs text-gray-600">
-                            {getHikeName(photo.hikeId)}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {formatDate(photo.date)}
-                          </p>
-                          <p
-                            className="text-xs text-blue-600 cursor-pointer hover:underline"
-                            onClick={() => openFullImage(photo)}
-                          >
-                            Click to view full size
-                          </p>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
-              </MapContainer>
-            </div>
-          </div>
-        )}
-
         {/* Photos Table */}
         <div className="glass-card p-4 sm:p-6">
           <h2 className="text-xl font-semibold text-gray-100 mb-4">
@@ -489,7 +413,10 @@ function AdminPhotoManager() {
             </div>
           ) : (
             /* Table View */
-            <div className="overflow-x-auto">
+            <div
+              className="overflow-x-auto table-scroll-container"
+              ref={tableContainerRef}
+            >
               <table className="min-w-full table-mobile-responsive">
                 <thead>
                   <tr>

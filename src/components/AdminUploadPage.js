@@ -192,7 +192,10 @@ function AdminUploadPage() {
   return (
     <div className="p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="glass-card p-4 sm:p-6 mb-6">
+        <div
+          className="glass-card p-4 sm:p-6 mb-6 p-4"
+          style={{ marginBottom: "10px" }}
+        >
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-100 mb-4">
             📸 Smart Photo Upload
           </h1>
@@ -322,70 +325,6 @@ function AdminUploadPage() {
             </div>
 
             {/* Right Column - Map & Info */}
-            <div className="mt-6 xl:mt-0">
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-gray-100 mb-2">
-                  🗺️ Route Overview
-                </h3>
-                <div className="h-64 sm:h-80 lg:h-96">
-                  <MapContainer
-                    center={getMapCenter()}
-                    zoom={8}
-                    style={{ height: "100%", width: "100%" }}
-                    className="rounded-lg map-container"
-                  >
-                    <TileLayer
-                      attribution="&copy; OpenStreetMap contributors"
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-
-                    {/* Show existing hike tracks */}
-                    {hikes
-                      .filter(
-                        (hike) =>
-                          hike.polyline &&
-                          Array.isArray(hike.polyline) &&
-                          hike.polyline.length > 0
-                      )
-                      .map((hike) => {
-                        // Filter out invalid coordinates
-                        const validPolyline = hike.polyline.filter(
-                          (point) =>
-                            point &&
-                            Array.isArray(point) &&
-                            point.length >= 2 &&
-                            !isNaN(parseFloat(point[0])) &&
-                            !isNaN(parseFloat(point[1]))
-                        );
-
-                        if (validPolyline.length === 0) return null;
-
-                        return (
-                          <div key={hike.id}>
-                            <Polyline
-                              positions={validPolyline}
-                              color="#3b82f6"
-                              weight={2}
-                              opacity={0.7}
-                            />
-                            <Marker
-                              position={validPolyline[0]}
-                              icon={L.divIcon({
-                                html: `<div style="background: #3b82f6; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;">${
-                                  hike.name || "Hike"
-                                }</div>`,
-                                className: "custom-div-icon",
-                                iconSize: [80, 20],
-                                iconAnchor: [40, 10],
-                              })}
-                            />
-                          </div>
-                        );
-                      })}
-                  </MapContainer>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 

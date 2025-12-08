@@ -59,7 +59,7 @@ function AdminRoute({ children }) {
   // User is authenticated, render the protected content
   return (
     <div
-      className="relative flex flex-col items-center"
+      className="relative flex flex-col items-center admin-route-container"
       style={{
         background: "var(--gradient-background)",
         minHeight: "100vh",

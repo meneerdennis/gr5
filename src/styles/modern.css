@@ -115,6 +115,16 @@
   box-sizing: border-box;
 }
 
+/* Improve mobile touch and zoom interactions */
+html {
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+body {
+  -webkit-overflow-scrolling: touch;
+}
+
 html {
   font-family: var(--font-sans);
   line-height: 1.6;
@@ -1021,17 +1031,131 @@ body.modal-open {
   /* Mobile table improvements */
   .table-mobile-responsive {
     font-size: 0.75rem;
+    min-width: 600px; /* Ensure table doesn't collapse too much */
   }
 
   .table-mobile-responsive th,
   .table-mobile-responsive td {
     padding: 0.5rem 0.25rem;
     min-width: 60px;
+    white-space: nowrap;
   }
 
   .table-mobile-responsive .photo-thumbnail {
     width: 40px;
     height: 40px;
+  }
+
+  /* Force horizontal scroll on mobile - fix iOS Safari initial position bug */
+  .overflow-x-auto {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+    scroll-behavior: smooth;
+    /* Force left alignment */
+    text-align: left !important;
+  }
+
+  /* Force initial scroll position to 0 on iOS */
+  .overflow-x-auto {
+    /* iOS Safari fix: force scroll position to left */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    /* Additional left alignment */
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+  }
+
+  /* Additional iOS fix - ensure scroll starts at beginning */
+  .table-mobile-responsive {
+    /* Force scroll position to start at 0 */
+    scroll-margin-left: 0 !important;
+    /* Force table to start from left edge */
+    margin-left: 0 !important;
+    margin-right: auto !important;
+  }
+
+  /* Force table content to align left */
+  .table-mobile-responsive table {
+    margin-left: 0 !important;
+    margin-right: auto !important;
+  }
+
+  /* Override container centering for admin pages on mobile */
+  @media (max-width: 640px) {
+    /* Override Layout container centering for admin routes */
+    .admin-route-container {
+      margin-left: 0 !important;
+      margin-right: auto !important;
+      text-align: left !important;
+    }
+
+    /* Force admin table container to not be centered */
+    .admin-route-container .container {
+      margin-left: 0 !important;
+      margin-right: auto !important;
+      text-align: left !important;
+      max-width: none !important;
+      padding-left: 0.5rem !important;
+      padding-right: 0.5rem !important;
+    }
+
+    /* Override Tailwind's mx-auto specifically */
+    .admin-route-container .mx-auto {
+      margin-left: 0 !important;
+      margin-right: auto !important;
+      text-align: left !important;
+    }
+  }
+
+  /* Ensure no centering on mobile */
+  @media (max-width: 640px) {
+    .overflow-x-auto {
+      justify-content: flex-start !important;
+      align-items: flex-start !important;
+    }
+
+    .overflow-x-auto > * {
+      margin-left: 0 !important;
+      margin-right: auto !important;
+    }
+  }
+
+  /* Better mobile scrolling indicator */
+  .overflow-x-auto::after {
+    content: "→";
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 1rem;
+    pointer-events: none;
+  }
+
+  /* Hide scroll indicator on larger screens */
+  @media (min-width: 768px) {
+    .overflow-x-auto::after {
+      display: none;
+    }
+  }
+
+  /* Force left alignment for table container */
+  .table-scroll-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+  }
+
+  /* Prevent any centering from parent elements */
+  .table-scroll-container * {
+    text-align: left !important;
+    justify-content: flex-start !important;
   }
 }
 
