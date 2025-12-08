@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   HashRouter as Router,
   Routes,
@@ -20,6 +20,32 @@ function App() {
   const [zoomRange, setZoomRange] = useState(null);
   const [currentWalkedDistance, setCurrentWalkedDistance] = useState(0);
   const [selectedHikeId, setSelectedHikeId] = useState(null);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+
+  // Sort photos by distance along the route
+  const sortedPhotos = useMemo(() => {
+    return [...photos].sort(
+      (a, b) => (a.distanceKm || 0) - (b.distanceKm || 0)
+    );
+  }, [photos]);
+
+  // Navigation functions - memoized to prevent hook ordering issues
+  const goToPreviousPhoto = useCallback(() => {
+    if (selectedPhotoIndex > 0) {
+      const newIndex = selectedPhotoIndex - 1;
+      setSelectedPhotoIndex(newIndex);
+      setSelectedPhoto(sortedPhotos[newIndex]);
+    }
+  }, [selectedPhotoIndex, sortedPhotos]);
+
+  const goToNextPhoto = useCallback(() => {
+    if (selectedPhotoIndex < sortedPhotos.length - 1) {
+      const newIndex = selectedPhotoIndex + 1;
+      setSelectedPhotoIndex(newIndex);
+      setSelectedPhoto(sortedPhotos[newIndex]);
+    }
+  }, [selectedPhotoIndex, sortedPhotos]);
 
   // Update current walked distance when route changes
   useEffect(() => {
@@ -27,6 +53,42 @@ function App() {
       setCurrentWalkedDistance(route.walkedDistanceKm);
     }
   }, [route]);
+
+  // Keyboard navigation for modal - always called to maintain hook order
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!selectedPhoto) return;
+
+      switch (e.key) {
+        case "ArrowLeft":
+          e.preventDefault();
+          goToPreviousPhoto();
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          goToNextPhoto();
+          break;
+        case "Escape":
+          e.preventDefault();
+          setSelectedPhoto(null);
+          break;
+        default:
+          break;
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [
+    selectedPhoto,
+    selectedPhotoIndex,
+    sortedPhotos,
+    goToPreviousPhoto,
+    goToNextPhoto,
+  ]);
 
   if (loading)
     return (
@@ -111,6 +173,19 @@ function App() {
     }
   };
 
+  // Handle photo click for modal
+  const handlePhotoClick = (photoData) => {
+    setSelectedPhoto(photoData);
+    // Find the index of this photo in the sorted photos array
+    const index = sortedPhotos.findIndex(
+      (p) =>
+        p.url === photoData.url &&
+        p.caption === photoData.caption &&
+        p.date === photoData.date
+    );
+    setSelectedPhotoIndex(index >= 0 ? index : 0);
+  };
+
   // Main app component with routes
   return (
     <Router>
@@ -186,9 +261,110 @@ function App() {
                     onZoomChange={setZoomRange}
                     onWalkedDistanceChange={handleWalkedDistanceChange}
                     selectedHikeId={selectedHikeId}
+                    onPhotoClick={handlePhotoClick}
                   />
                 </div>
               </div>
+
+              {/* Photo Modal - rendered at app level */}
+              {selectedPhoto && (
+                <div
+                  className="full-image-modal"
+                  onClick={(e) => {
+                    // Only close if clicking the backdrop, not the content
+                    if (e.target === e.currentTarget) {
+                      setSelectedPhoto(null);
+                    }
+                  }}
+                >
+                  <div className="full-image-container">
+                    {/* Close button - subtle design */}
+                    <button
+                      className="close-button"
+                      onClick={() => setSelectedPhoto(null)}
+                      title="Close (Esc)"
+                      style={{
+                        background: "rgba(0, 0, 0, 0.5)",
+                        color: "white",
+                        border: "1px solid rgba(255, 255, 255, 0.3)",
+                        fontSize: "18px",
+                        fontWeight: "normal",
+                        width: "32px",
+                        height: "32px",
+                        borderRadius: "4px",
+                        position: "absolute",
+                        top: "10px",
+                        right: "10px",
+                        zIndex: 1002,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "background-color 0.2s",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.background = "rgba(0, 0, 0, 0.7)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.background = "rgba(0, 0, 0, 0.5)")
+                      }
+                    >
+                      ×
+                    </button>
+
+                    {/* Previous button */}
+                    {selectedPhotoIndex > 0 && (
+                      <button
+                        className="nav-button nav-prev"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          goToPreviousPhoto();
+                        }}
+                        title="Previous photo"
+                      >
+                        ‹
+                      </button>
+                    )}
+
+                    {/* Next button */}
+                    {selectedPhotoIndex < sortedPhotos.length - 1 && (
+                      <button
+                        className="nav-button nav-next"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          goToNextPhoto();
+                        }}
+                        title="Next photo"
+                      >
+                        ›
+                      </button>
+                    )}
+
+                    <img
+                      src={selectedPhoto.url}
+                      alt={selectedPhoto.caption || "Polarsteps foto"}
+                    />
+
+                    {/* Photo counter */}
+                    <div className="photo-counter">
+                      {selectedPhotoIndex + 1} / {sortedPhotos.length}
+                    </div>
+
+                    {(selectedPhoto.caption || selectedPhoto.date) && (
+                      <div className="full-image-caption">
+                        {selectedPhoto.caption && (
+                          <div>{selectedPhoto.caption}</div>
+                        )}
+                        {selectedPhoto.date && (
+                          <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>
+                            {selectedPhoto.date}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </Layout>
           }
         />

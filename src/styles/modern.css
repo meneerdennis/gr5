@@ -1232,6 +1232,19 @@ body.modal-open {
   box-shadow: var(--shadow-md);
 }
 
+/* Photo marker icons on map */
+.photo-marker-icon {
+  border-radius: var(--radius-md);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-normal);
+}
+
+.photo-marker-icon:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-lg);
+}
+
 /* Full-size image modal */
 .full-image-modal {
   position: fixed;
@@ -1278,21 +1291,75 @@ body.modal-open {
   position: absolute;
   top: 1rem;
   right: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 1.8rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.close-button:hover {
+  background: white;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Photo modal navigation */
+.nav-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
   background: rgba(0, 0, 0, 0.7);
   color: white;
   border: none;
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  font-size: 1.5rem;
+  width: 50px;
+  height: 50px;
+  font-size: 24px;
+  font-weight: bold;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all var(--transition-normal);
-  z-index: 10;
+  z-index: 1001;
 }
 
-.close-button:hover {
+.nav-button:hover {
   background: rgba(0, 0, 0, 0.9);
-  transform: scale(1.1);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.nav-prev {
+  left: 20px;
+}
+
+.nav-next {
+  right: 20px;
+}
+
+.photo-counter {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 16px;
+  border-radius: var(--radius-lg);
+  font-size: 0.9rem;
+  font-weight: 500;
+  z-index: 1001;
 }
 
 .bg-red-500 {

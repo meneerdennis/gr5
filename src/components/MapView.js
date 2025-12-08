@@ -10,8 +10,14 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+import "leaflet.markercluster";
 import PhotoMarkerPopup from "./PhotoMarkerPopup";
 import GpxTrack from "./Gpxtrack";
+
+// Global function for photo modal (will be set by MapView)
+let globalPhotoClickHandler = null;
 
 const photoIcon = new L.Icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -34,6 +40,17 @@ const hikerIcon = new L.Icon({
   shadowSize: null,
   shadowAnchor: null,
 });
+
+// Function to create custom photo icon using photo URL
+const createPhotoIcon = (photoUrl) => {
+  return new L.Icon({
+    iconUrl: photoUrl,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20],
+    className: "photo-marker-icon",
+  });
+};
 
 // Component to handle hover marker
 function HoverMarker({ hoverPoint }) {
@@ -69,6 +86,204 @@ function ZoomToHike({ bounds }) {
       }
     }
   }, [bounds, map]);
+
+  return null;
+}
+
+// Component to handle photo markers with clustering
+function PhotoMarkers({ photos, onPhotoClick }) {
+  const map = useMap();
+  const markersRef = useRef(null);
+
+  useEffect(() => {
+    if (!map) return;
+
+    // Clear all existing marker cluster groups and individual markers from the map
+    map.eachLayer((layer) => {
+      if (layer instanceof L.MarkerClusterGroup || layer instanceof L.Marker) {
+        // Only remove our photo markers, not other markers like the hiker marker
+        if (
+          layer.options &&
+          layer.options.icon &&
+          layer.options.icon.options &&
+          layer.options.icon.options.className === "photo-marker-icon"
+        ) {
+          map.removeLayer(layer);
+        } else if (layer instanceof L.MarkerClusterGroup) {
+          map.removeLayer(layer);
+        }
+      }
+    });
+
+    // Remove existing markers reference if it exists
+    if (markersRef.current) {
+      if (Array.isArray(markersRef.current)) {
+        // Individual markers
+        markersRef.current.forEach((marker) => map.removeLayer(marker));
+      } else {
+        // Cluster group
+        map.removeLayer(markersRef.current);
+      }
+      markersRef.current = null;
+    }
+
+    // Group photos by location to handle overlapping photos
+    const photosByLocation = new Map();
+    photos.forEach((photo) => {
+      const key = `${photo.lat},${photo.lng}`;
+      if (!photosByLocation.has(key)) {
+        photosByLocation.set(key, []);
+      }
+      photosByLocation.get(key).push(photo);
+    });
+
+    // Create markers for each unique location
+    const locationMarkers = Array.from(photosByLocation.entries()).map(
+      ([key, locationPhotos]) => {
+        const [lat, lng] = key.split(",").map(Number);
+        return {
+          lat,
+          lng,
+          photos: locationPhotos,
+          count: locationPhotos.length,
+        };
+      }
+    );
+
+    // Use clustering only if there are 5+ unique locations
+    const shouldCluster = locationMarkers.length >= 5;
+
+    if (shouldCluster) {
+      // Use clustering for 5+ photos
+      const markers = L.markerClusterGroup({
+        spiderfyOnMaxZoom: false,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        removeOutsideVisibleBounds: true,
+        disableClusteringAtZoom: 12, // Disable clustering earlier for faster declustering
+        maxClusterRadius: 30, // Smaller cluster radius for finer control
+      });
+
+      // Add location markers to cluster group
+      locationMarkers.forEach((location) => {
+        const marker = L.marker([location.lat, location.lng], {
+          icon: createPhotoIcon(location.photos[0].url), // Use first photo as icon
+        });
+
+        // Create popup content showing all photos at this location
+        const popupContent = document.createElement("div");
+        popupContent.innerHTML = location.photos
+          .map(
+            (photo, index) => `
+          <div style="max-width: 200px; ${
+            index > 0
+              ? "margin-top: 1rem; border-top: 1px solid #eee; padding-top: 0.5rem;"
+              : ""
+          }">
+            <img
+              src="${photo.url}"
+              alt="${photo.caption || "Polarsteps foto"}"
+              style="width: 100%; border-radius: 4px; margin-bottom: 0.5rem; cursor: pointer;"
+              data-photo-url="${photo.url.replace(/"/g, '"')}"
+              data-photo-caption="${(photo.caption || "").replace(/"/g, '"')}"
+              data-photo-date="${photo.date || ""}"
+              onclick="if (window.globalPhotoClickHandler) window.globalPhotoClickHandler({
+                url: this.getAttribute('data-photo-url'),
+                caption: this.getAttribute('data-photo-caption'),
+                date: this.getAttribute('data-photo-date')
+              })"
+            />
+            ${
+              photo.caption
+                ? `<div style="font-weight: bold;">${photo.caption}</div>`
+                : ""
+            }
+            ${
+              photo.date
+                ? `<div style="font-size: 0.8rem; color: #555;">${photo.date}</div>`
+                : ""
+            }
+          </div>
+        `
+          )
+          .join("");
+
+        marker.bindPopup(popupContent);
+        markers.addLayer(marker);
+      });
+
+      // Add cluster group to map
+      map.addLayer(markers);
+      markersRef.current = markers;
+    } else {
+      // Show individual markers for 1-4 locations
+      const individualMarkers = [];
+
+      locationMarkers.forEach((location) => {
+        const marker = L.marker([location.lat, location.lng], {
+          icon: createPhotoIcon(location.photos[0].url), // Use first photo as icon
+        });
+
+        // Create popup content showing all photos at this location
+        const popupContent = document.createElement("div");
+        popupContent.innerHTML = location.photos
+          .map(
+            (photo, index) => `
+          <div style="max-width: 200px; ${
+            index > 0
+              ? "margin-top: 1rem; border-top: 1px solid #eee; padding-top: 0.5rem;"
+              : ""
+          }">
+            <img
+              src="${photo.url}"
+              alt="${photo.caption || "Polarsteps foto"}"
+              style="width: 100%; border-radius: 4px; margin-bottom: 0.5rem; cursor: pointer;"
+              data-photo-url="${photo.url.replace(/"/g, '"')}"
+              data-photo-caption="${(photo.caption || "").replace(/"/g, '"')}"
+              data-photo-date="${photo.date || ""}"
+              onclick="if (window.globalPhotoClickHandler) window.globalPhotoClickHandler({
+                url: this.getAttribute('data-photo-url'),
+                caption: this.getAttribute('data-photo-caption'),
+                date: this.getAttribute('data-photo-date')
+              })"
+            />
+            ${
+              photo.caption
+                ? `<div style="font-weight: bold;">${photo.caption}</div>`
+                : ""
+            }
+            ${
+              photo.date
+                ? `<div style="font-size: 0.8rem; color: #555;">${photo.date}</div>`
+                : ""
+            }
+          </div>
+        `
+          )
+          .join("");
+
+        marker.bindPopup(popupContent);
+        marker.addTo(map);
+        individualMarkers.push(marker);
+      });
+
+      markersRef.current = individualMarkers;
+    }
+
+    // Cleanup function
+    return () => {
+      if (markersRef.current) {
+        if (Array.isArray(markersRef.current)) {
+          // Individual markers
+          markersRef.current.forEach((marker) => map.removeLayer(marker));
+        } else {
+          // Cluster group
+          map.removeLayer(markersRef.current);
+        }
+        markersRef.current = null;
+      }
+    };
+  }, [map, photos]);
 
   return null;
 }
@@ -396,9 +611,21 @@ function MapView({
   onZoomChange,
   onWalkedDistanceChange,
   selectedHikeId,
+  onPhotoClick,
 }) {
   const [currentPosition, setCurrentPosition] = useState(null);
   const [mapReady, setMapReady] = useState(false);
+
+  // Set up global photo click handler to use the prop
+  useEffect(() => {
+    globalPhotoClickHandler = onPhotoClick;
+    // Make it available on window for onclick handlers
+    window.globalPhotoClickHandler = onPhotoClick;
+    return () => {
+      globalPhotoClickHandler = null;
+      window.globalPhotoClickHandler = null;
+    };
+  }, [onPhotoClick]);
 
   // Helper function to find current hiker position based on last hike end position
   const findCurrentPosition = () => {
@@ -531,6 +758,119 @@ function MapView({
   return (
     <div className="map-container fade-in">
       <div className="map-view-container">
+        {/* Photo Modal moved to App level */}
+        {false && selectedPhoto && (
+          <div
+            className="full-image-modal"
+            onClick={(e) => {
+              // Only close if clicking the backdrop, not the content
+              if (e.target === e.currentTarget) {
+                setSelectedPhoto(null);
+              }
+            }}
+          >
+            <div className="full-image-container">
+              {/* Close button - multiple options for visibility */}
+              <button
+                className="close-button"
+                onClick={() => setSelectedPhoto(null)}
+                title="Close (Esc)"
+                style={{
+                  background: "red",
+                  color: "white",
+                  border: "3px solid white",
+                  fontSize: "24px",
+                  fontWeight: "bold",
+                  width: "60px",
+                  height: "60px",
+                  borderRadius: "50%",
+                  position: "absolute",
+                  top: "10px",
+                  right: "10px",
+                  zIndex: 1002,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                ✕
+              </button>
+
+              {/* Fallback close button at bottom */}
+              <button
+                onClick={() => setSelectedPhoto(null)}
+                style={{
+                  position: "absolute",
+                  bottom: "10px",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: "red",
+                  color: "white",
+                  border: "none",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                  zIndex: 1002,
+                }}
+              >
+                CLOSE MODAL
+              </button>
+
+              {/* Previous button */}
+              {selectedPhotoIndex > 0 && (
+                <button
+                  className="nav-button nav-prev"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goToPreviousPhoto();
+                  }}
+                  title="Previous photo"
+                >
+                  ‹
+                </button>
+              )}
+
+              {/* Next button */}
+              {selectedPhotoIndex < sortedPhotos.length - 1 && (
+                <button
+                  className="nav-button nav-next"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goToNextPhoto();
+                  }}
+                  title="Next photo"
+                >
+                  ›
+                </button>
+              )}
+
+              <img
+                src={selectedPhoto.url}
+                alt={selectedPhoto.caption || "Polarsteps foto"}
+              />
+
+              {/* Photo counter */}
+              <div className="photo-counter">
+                {selectedPhotoIndex + 1} / {sortedPhotos.length}
+              </div>
+
+              {(selectedPhoto.caption || selectedPhoto.date) && (
+                <div className="full-image-caption">
+                  {selectedPhoto.caption && <div>{selectedPhoto.caption}</div>}
+                  {selectedPhoto.date && (
+                    <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>
+                      {selectedPhoto.date}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <MapContainer
           center={center}
           zoom={6}
@@ -624,18 +964,8 @@ function MapView({
             );
           })}
 
-          {/* Photo markers */}
-          {photos.map((photo) => (
-            <Marker
-              key={photo.id}
-              position={[photo.lat, photo.lng]}
-              icon={photoIcon}
-            >
-              <Popup>
-                <PhotoMarkerPopup photo={photo} />
-              </Popup>
-            </Marker>
-          ))}
+          {/* Photo markers with clustering */}
+          <PhotoMarkers photos={photos} onPhotoClick={onPhotoClick} />
 
           {/* Hiker marker - shows current position */}
           {currentPosition && currentPosition.lat && currentPosition.lon && (

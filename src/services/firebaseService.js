@@ -102,10 +102,30 @@ export async function getAllPhotosWithHikes() {
       }))
       .filter((photo) => photo.lat && photo.lng);
 
-    // Combine both sources
-    const allPhotos = [...hikePhotos, ...formattedStandalonePhotos];
+    // Combine both sources and remove duplicates based on ID
+    const photoMap = new Map();
 
-    console.log("Total photos (including standalone):", allPhotos.length);
+    // Add hike photos first
+    hikePhotos.forEach((photo) => {
+      photoMap.set(photo.id, photo);
+    });
+
+    // Add standalone photos (will overwrite if same ID exists)
+    formattedStandalonePhotos.forEach((photo) => {
+      photoMap.set(photo.id, photo);
+    });
+
+    const allPhotos = Array.from(photoMap.values());
+
+    console.log(
+      "Total photos after deduplication:",
+      allPhotos.length,
+      "(hike:",
+      hikePhotos.length,
+      ", standalone:",
+      formattedStandalonePhotos.length,
+      ")"
+    );
     return allPhotos;
   } catch (error) {
     console.error("Error getting all photos:", error);
