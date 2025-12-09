@@ -44,12 +44,14 @@ function AdminPhotoManager() {
     route: "",
   });
   const [deletingPhoto, setDeletingPhoto] = useState(null);
+  const [deletingPhotos, setDeletingPhotos] = useState([]); // For bulk delete
   const [filterRoute, setFilterRoute] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showMap, setShowMap] = useState(false); // Start with map hidden for better mobile performance
   const [showFullImage, setShowFullImage] = useState(null); // For full-size image modal
   const [mapCenter, setMapCenter] = useState([46.8182, 8.2275]); // Switzerland center
   const [creatingThumbnails, setCreatingThumbnails] = useState(false);
+  const [selectedPhotos, setSelectedPhotos] = useState(new Set()); // For multi-select
   const tableContainerRef = useRef(null);
 
   useEffect(() => {
@@ -81,11 +83,36 @@ function AdminPhotoManager() {
 
       setPhotos(photosWithThumbnails);
       setHikes(hikesData);
+      // Clear selection when data is reloaded
+      setSelectedPhotos(new Set());
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Multi-select functionality
+  const togglePhotoSelection = (photoId) => {
+    const newSelected = new Set(selectedPhotos);
+    if (newSelected.has(photoId)) {
+      newSelected.delete(photoId);
+    } else {
+      newSelected.add(photoId);
+    }
+    setSelectedPhotos(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedPhotos.size === filteredPhotos.length) {
+      setSelectedPhotos(new Set());
+    } else {
+      setSelectedPhotos(new Set(filteredPhotos.map((photo) => photo.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedPhotos(new Set());
   };
 
   const startEdit = (photo) => {
@@ -140,32 +167,78 @@ function AdminPhotoManager() {
     document.body.classList.add("modal-open");
   };
 
+  const confirmBulkDelete = () => {
+    const photosToDelete = filteredPhotos.filter((photo) =>
+      selectedPhotos.has(photo.id)
+    );
+    setDeletingPhotos(photosToDelete);
+    // Prevent body scroll when modal is open
+    document.body.style.overflow = "hidden";
+    document.body.classList.add("modal-open");
+  };
+
   const cancelDelete = () => {
     setDeletingPhoto(null);
+    setDeletingPhotos([]);
     // Restore body scroll
     document.body.style.overflow = "unset";
     document.body.classList.remove("modal-open");
   };
 
   const deleteConfirmed = async () => {
-    if (!deletingPhoto) return;
-
     try {
-      console.log(
-        "Deleting photo:",
-        deletingPhoto.id,
-        deletingPhoto.originalName
-      );
-      const result = await deletePhoto(deletingPhoto.id, deletingPhoto.hikeId);
+      let successCount = 0;
+      let failCount = 0;
 
-      if (result.success) {
-        console.log("Photo deleted successfully");
-        // Reload photos to reflect changes
-        await loadData();
-        setDeletingPhoto(null);
-        // Show success message briefly
+      // Handle single photo deletion
+      if (deletingPhoto) {
+        console.log(
+          "Deleting photo:",
+          deletingPhoto.id,
+          deletingPhoto.originalName
+        );
+        const result = await deletePhoto(
+          deletingPhoto.id,
+          deletingPhoto.hikeId
+        );
+
+        if (result.success) {
+          successCount = 1;
+        } else {
+          failCount = 1;
+          throw new Error(result.error || "Unknown error occurred");
+        }
+      }
+      // Handle bulk photo deletion
+      else if (deletingPhotos.length > 0) {
+        console.log(`Deleting ${deletingPhotos.length} photos...`);
+
+        for (const photo of deletingPhotos) {
+          try {
+            const result = await deletePhoto(photo.id, photo.hikeId);
+            if (result.success) {
+              successCount++;
+            } else {
+              failCount++;
+              console.warn(
+                `Failed to delete ${photo.originalName}:`,
+                result.error
+              );
+            }
+          } catch (error) {
+            failCount++;
+            console.warn(
+              `Error deleting ${photo.originalName}:`,
+              error.message
+            );
+          }
+        }
+      }
+
+      // Show success/failure message
+      if (successCount > 0) {
         const successMsg = document.createElement("div");
-        successMsg.textContent = "Photo deleted successfully!";
+        successMsg.textContent = `Successfully deleted ${successCount} photo(s)!`;
         successMsg.style.cssText = `
           position: fixed;
           top: 20px;
@@ -180,12 +253,20 @@ function AdminPhotoManager() {
         `;
         document.body.appendChild(successMsg);
         setTimeout(() => document.body.removeChild(successMsg), 3000);
-      } else {
-        throw new Error(result.error || "Unknown error occurred");
       }
+
+      if (failCount > 0) {
+        alert(`Failed to delete ${failCount} photo(s). Please try again.`);
+      }
+
+      // Reload photos to reflect changes
+      await loadData();
+      setDeletingPhoto(null);
+      setDeletingPhotos([]);
+      clearSelection();
     } catch (error) {
-      console.error("Error deleting photo:", error);
-      alert("Failed to delete photo: " + error.message);
+      console.error("Error deleting photo(s):", error);
+      alert("Failed to delete photo(s): " + error.message);
       // Don't close the modal on error so user can try again
     }
   };
@@ -388,9 +469,39 @@ function AdminPhotoManager() {
             <div className="flex items-end">
               <div className="text-sm text-gray-300">
                 <strong>{filteredPhotos.length}</strong> photo(s) found
+                {selectedPhotos.size > 0 && (
+                  <span className="ml-2 text-blue-300">
+                    • {selectedPhotos.size} selected
+                  </span>
+                )}
               </div>
             </div>
           </div>
+
+          {/* Bulk Actions Bar */}
+          {selectedPhotos.size > 0 && (
+            <div className="bg-blue-900 bg-opacity-30 border border-blue-500 border-opacity-30 rounded-lg p-3 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-blue-300 text-sm mb-2 sm:mb-0">
+                  <strong>{selectedPhotos.size}</strong> photo(s) selected
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={clearSelection}
+                    className="btn btn-secondary text-xs"
+                  >
+                    Clear Selection
+                  </button>
+                  <button
+                    onClick={confirmBulkDelete}
+                    className="btn btn-danger text-xs"
+                  >
+                    🗑️ Delete Selected ({selectedPhotos.size})
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Photos Table */}
@@ -421,10 +532,18 @@ function AdminPhotoManager() {
                 <thead>
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                      Thumbnail
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedPhotos.size === filteredPhotos.length &&
+                          filteredPhotos.length > 0
+                        }
+                        onChange={toggleSelectAll}
+                        className="rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                      />
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                      Location
+                      Thumbnail
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       Name
@@ -447,8 +566,20 @@ function AdminPhotoManager() {
                   {filteredPhotos.map((photo) => (
                     <tr
                       key={photo.id}
-                      className="hover:bg-gray-800 hover:bg-opacity-30"
+                      className={`hover:bg-gray-800 hover:bg-opacity-30 ${
+                        selectedPhotos.has(photo.id)
+                          ? "bg-blue-900 bg-opacity-20"
+                          : ""
+                      }`}
                     >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={selectedPhotos.has(photo.id)}
+                          onChange={() => togglePhotoSelection(photo.id)}
+                          className="rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                        />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <img
                           src={photo.thumbnail}
@@ -463,24 +594,6 @@ function AdminPhotoManager() {
                             e.target.src = photo.url; // Fallback to original
                           }}
                         />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {photo.lat &&
-                        photo.lng &&
-                        !isNaN(photo.lat) &&
-                        !isNaN(photo.lng) ? (
-                          <div
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-500 text-white text-xs font-bold hover:bg-green-600 cursor-pointer"
-                            title={`Location: ${photo.lat.toFixed(
-                              4
-                            )}, ${photo.lng.toFixed(4)}`}
-                          ></div>
-                        ) : (
-                          <div
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-500 text-white text-xs font-bold hover:bg-gray-600 cursor-pointer"
-                            title="No location data"
-                          ></div>
-                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-100">
@@ -642,7 +755,7 @@ function AdminPhotoManager() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal - Single Photo */}
       {deletingPhoto && (
         <div className="admin-modal">
           <div className="glass-card p-6 max-w-md w-full">
@@ -687,6 +800,51 @@ function AdminPhotoManager() {
                 className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal - Bulk Delete */}
+      {deletingPhotos.length > 0 && (
+        <div className="admin-modal">
+          <div className="glass-card p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold text-gray-100 mb-4">
+              Confirm Bulk Deletion
+            </h3>
+
+            <div className="mb-4">
+              <p className="text-gray-200 mb-3">
+                Are you sure you want to delete{" "}
+                <strong>{deletingPhotos.length}</strong> photo(s)?
+              </p>
+
+              <div className="max-h-32 overflow-y-auto bg-gray-800 bg-opacity-50 rounded p-2 mb-3">
+                {deletingPhotos.map((photo, index) => (
+                  <div key={photo.id} className="text-sm text-gray-300 mb-1">
+                    {index + 1}. {photo.originalName}
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-sm text-yellow-300">
+                ⚠️ This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={cancelDelete}
+                className="flex-1 btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteConfirmed}
+                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Delete All
               </button>
             </div>
           </div>

@@ -42,9 +42,11 @@ const hikerIcon = new L.Icon({
 });
 
 // Function to create custom photo icon using photo URL
-const createPhotoIcon = (photoUrl) => {
+const createPhotoIcon = (photo) => {
+  // Use thumbnail if available, otherwise fall back to full image
+  const iconUrl = photo.thumbnailUrl || photo.url;
   return new L.Icon({
-    iconUrl: photoUrl,
+    iconUrl: iconUrl,
     iconSize: [40, 40],
     iconAnchor: [20, 20],
     popupAnchor: [0, -20],
@@ -166,8 +168,9 @@ function PhotoMarkers({ photos, onPhotoClick }) {
 
       // Add location markers to cluster group
       locationMarkers.forEach((location) => {
+        // Use first photo as icon, passing the photo object to access thumbnailUrl
         const marker = L.marker([location.lat, location.lng], {
-          icon: createPhotoIcon(location.photos[0].url), // Use first photo as icon
+          icon: createPhotoIcon(location.photos[0]), // Use first photo as icon
         });
 
         // Create popup content showing all photos at this location
@@ -220,8 +223,9 @@ function PhotoMarkers({ photos, onPhotoClick }) {
       const individualMarkers = [];
 
       locationMarkers.forEach((location) => {
+        // Use first photo as icon, passing the photo object to access thumbnailUrl
         const marker = L.marker([location.lat, location.lng], {
-          icon: createPhotoIcon(location.photos[0].url), // Use first photo as icon
+          icon: createPhotoIcon(location.photos[0]), // Use first photo as icon
         });
 
         // Create popup content showing all photos at this location
@@ -626,6 +630,53 @@ function MapView({
       window.globalPhotoClickHandler = null;
     };
   }, [onPhotoClick]);
+
+  // Create thumbnails for existing photos that don't have them (improves performance)
+  useEffect(() => {
+    const createMissingThumbnails = async () => {
+      if (!photos || photos.length === 0) return;
+
+      // Filter photos that don't have thumbnail URLs
+      const photosWithoutThumbnails = photos.filter(
+        (photo) => !photo.thumbnailUrl && photo.url
+      );
+
+      if (photosWithoutThumbnails.length === 0) return;
+
+      console.log(
+        `Creating thumbnails for ${photosWithoutThumbnails.length} photos...`
+      );
+
+      // Dynamically import the photo service to avoid circular dependencies
+      try {
+        // Dynamically import the photo service to avoid circular dependencies
+        const { createThumbnailForPhoto } = await import(
+          "../services/photoService"
+        );
+
+        // Create thumbnails for photos that don't have them
+        for (const photo of photosWithoutThumbnails) {
+          try {
+            await createThumbnailForPhoto(photo.id, photo.url, photo.hikeId);
+            console.log(`Created thumbnail for photo: ${photo.id}`);
+          } catch (error) {
+            console.warn(
+              `Failed to create thumbnail for photo ${photo.id}:`,
+              error
+            );
+          }
+        }
+      } catch (error) {
+        console.warn(
+          "Failed to import photo service for thumbnail creation:",
+          error
+        );
+      }
+    };
+
+    // Only run this once when photos are first loaded
+    createMissingThumbnails();
+  }, [photos]);
 
   // Helper function to find current hiker position based on last hike end position
   const findCurrentPosition = () => {
