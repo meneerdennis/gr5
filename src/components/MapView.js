@@ -1093,20 +1093,15 @@ function MapView({
                   top: "0",
                   left: "0",
                   right: "0",
-                  bottom:
-                    "-1000px" /* Extend far beyond to cover all scrollable content */,
+                  bottom: "-1000px",
                   background: `repeating-linear-gradient(
                     to bottom,
                     transparent 0px,
-                    transparent 18px, /* First line starts at 18px */
-                    #e0e0e0 18px,
-                    #e0e0e0 19px, /* Line thickness is 1px */
-                    transparent 19px,
-                    transparent 37px, /* Next line starts at 37px (18 + 19) */
-                    #e0e0e0 37px,
-                    #e0e0e0 38px,
-                    transparent 38px,
-                    transparent 56px /* Pattern repeats every 19px */
+                    transparent 6px,
+                    #e0e0e0 6px,
+                    #e0e0e0 7px,
+                    transparent 7px,
+                    transparent 15px
                   )`,
                   pointerEvents: "none",
                   zIndex: 1,
@@ -1119,14 +1114,12 @@ function MapView({
                   position: "relative",
                   zIndex: 2,
                   whiteSpace: "pre-wrap",
-                  lineHeight: "19px" /* Match the line spacing exactly */,
+                  lineHeight: "17px",
                   fontSize: "13px",
                   color: "#333",
                   fontFamily: "'Courier New', monospace",
-                  paddingRight:
-                    "4px" /* Prevent text from touching the right edge */,
-                  paddingTop:
-                    "18px" /* Align first line with the first horizontal line */,
+                  paddingRight: "4px",
+                  paddingTop: "6px",
                 }}
               >
                 {noteText}
