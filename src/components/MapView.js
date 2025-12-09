@@ -177,7 +177,7 @@ function PhotoMarkers({ photos, onPhotoClick }) {
         const popupContent = document.createElement("div");
         popupContent.innerHTML = location.photos
           .map((photo, index) => {
-            const thumbnailUrl = getPhotoThumbnailUrl(photo);
+            const thumbnailUrl = photo.thumbnailUrl || photo.url;
             return `
           <div style="max-width: 200px; ${
             index > 0
@@ -233,7 +233,7 @@ function PhotoMarkers({ photos, onPhotoClick }) {
         const popupContent = document.createElement("div");
         popupContent.innerHTML = location.photos
           .map((photo, index) => {
-            const thumbnailUrl = getPhotoThumbnailUrl(photo);
+            const thumbnailUrl = photo.thumbnailUrl || photo.url;
             return `
           <div style="max-width: 200px; ${
             index > 0
