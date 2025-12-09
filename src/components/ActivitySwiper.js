@@ -85,13 +85,27 @@ function ActivitySwiper({ hikes, selectedHikeId, onSelectHike }) {
             >
               <div className="flex justify-between items-center ">
                 <div className="flex items-center justify-between">
-                  <h3
-                    className="text-gray-700 font-semibold "
-                    title={hike.name || "Unnamed Activity"}
-                    style={{ margin: "0" }}
-                  >
-                    {hike.name || "Unnamed Activity"}
-                  </h3>
+                  <div className="flex items-center gap-1">
+                    <h3
+                      className="text-gray-700 font-semibold"
+                      title={hike.name || "Unnamed Activity"}
+                      style={{ margin: "0" }}
+                    >
+                      {hike.name || "Unnamed Activity"}
+                    </h3>
+                    {hike.note && (
+                      <span
+                        title="This activity has a note"
+                        style={{
+                          fontSize: "12px",
+                          color: "#D2691E",
+                          marginLeft: "4px",
+                        }}
+                      >
+                        📝
+                      </span>
+                    )}
+                  </div>
                   {selectedHikeId === hike.id}
                 </div>
               </div>
@@ -109,6 +123,12 @@ function ActivitySwiper({ hikes, selectedHikeId, onSelectHike }) {
                       {hike.distanceKm?.toFixed(1) || "0"} km
                     </span>
                   </div>
+                  {hike.note && (
+                    <div className="flex items-center gap-1">
+                      <span>📝</span>
+                      <span className="text-gray-700">note</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

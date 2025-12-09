@@ -64,9 +64,23 @@ function ActivityList({ hikes, selectedHikeId, onSelectHike }) {
                 fontWeight: "600",
                 marginBottom: "0.25rem",
                 color: "#333",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
               }}
             >
-              {hike.name || "Unnamed Activity"}
+              <span>{hike.name || "Unnamed Activity"}</span>
+              {hike.note && (
+                <span
+                  title="This activity has a note"
+                  style={{
+                    fontSize: "12px",
+                    color: "#D2691E",
+                  }}
+                >
+                  📝
+                </span>
+              )}
             </div>
             <div
               style={{
@@ -79,6 +93,9 @@ function ActivityList({ hikes, selectedHikeId, onSelectHike }) {
             >
               <span>📅 {formatDate(hike.startDate)}</span>
               <span>📏 {hike.distanceKm?.toFixed(1) || "0"} km</span>
+              {hike.note && (
+                <span title="This activity has a note">📝 note</span>
+              )}
               {hike.photos && hike.photos.length > 0 && (
                 <span
                   onClick={(e) => {

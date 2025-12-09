@@ -12,6 +12,7 @@ import MapView from "./components/MapView";
 import ActivitySwiper from "./components/ActivitySwiper";
 import AdminUploadPage from "./components/AdminUploadPage";
 import AdminPhotoManager from "./components/AdminPhotoManager";
+import AdminNoteEditor from "./components/AdminNoteEditor";
 import AdminRoute from "./components/AdminRoute";
 
 function App() {
@@ -173,6 +174,11 @@ function App() {
     }
   };
 
+  // Handle clearing selected hike
+  const handleClearSelectedHike = () => {
+    setSelectedHikeId(null);
+  };
+
   // Handle photo click for modal
   const handlePhotoClick = (photoData) => {
     setSelectedPhoto(photoData);
@@ -212,6 +218,14 @@ function App() {
           element={
             <AdminRoute>
               <AdminPhotoManager />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/notes"
+          element={
+            <AdminRoute>
+              <AdminNoteEditor />
             </AdminRoute>
           }
         />
@@ -262,6 +276,7 @@ function App() {
                     onWalkedDistanceChange={handleWalkedDistanceChange}
                     selectedHikeId={selectedHikeId}
                     onPhotoClick={handlePhotoClick}
+                    onClearSelectedHike={handleClearSelectedHike}
                   />
                 </div>
               </div>

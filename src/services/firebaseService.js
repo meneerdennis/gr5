@@ -26,6 +26,7 @@ export async function getHikesFromFirebase() {
         latlng: data.latlng || [],
         altitude: data.altitude || [],
         time: data.time || [],
+        note: data.note || "",
       });
     });
 
@@ -61,6 +62,7 @@ export function getPhotosFromHikes(hikes) {
             lat: photo.lat,
             lng: photo.lng,
             url: photo.url || photo.photoUrl || "",
+            thumbnailUrl: photo.thumbnailUrl || null,
             caption: photo.caption || photo.description || "",
             date: photo.date || hike.startDate,
             hikeId: hike.id,
@@ -94,6 +96,7 @@ export async function getAllPhotosWithHikes() {
         lat: photo.lat,
         lng: photo.lng,
         url: photo.url,
+        thumbnailUrl: photo.thumbnailUrl || null,
         caption: photo.caption || "",
         date: photo.date || photo.uploadedAt,
         hikeId: photo.hikeId,
@@ -171,4 +174,17 @@ export function decodePolyline(polylineStr) {
   }
 
   return points;
+}
+
+// Update note for a specific hike
+export async function updateHikeNote(hikeId, note) {
+  try {
+    const { doc, updateDoc } = await import("firebase/firestore");
+    const hikeRef = doc(db, "hikes", hikeId);
+    await updateDoc(hikeRef, { note: note });
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating hike note:", error);
+    return { success: false, error: error.message };
+  }
 }

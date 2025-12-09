@@ -18,6 +18,7 @@ export async function getStravaHikes() {
       altitude: hike.altitude || [],
       time: hike.time || [],
       photos: hike.photos || [],
+      note: hike.note || "",
     }));
   } catch (error) {
     console.error("Error fetching hikes:", error);
