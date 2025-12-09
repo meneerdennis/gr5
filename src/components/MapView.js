@@ -41,10 +41,17 @@ const hikerIcon = new L.Icon({
   shadowAnchor: null,
 });
 
-// Function to create custom photo icon using photo URL
-const createPhotoIcon = (photoUrl) => {
+// Function to get the appropriate thumbnail URL for a photo
+const getPhotoThumbnailUrl = (photo) => {
+  // Use stored thumbnail URL if available, otherwise fall back to original
+  return photo.thumbnailUrl || photo.url;
+};
+
+// Function to create custom photo icon using photo object
+const createPhotoIcon = (photo) => {
+  const thumbnailUrl = getPhotoThumbnailUrl(photo);
   return new L.Icon({
-    iconUrl: photoUrl,
+    iconUrl: thumbnailUrl,
     iconSize: [40, 40],
     iconAnchor: [20, 20],
     popupAnchor: [0, -20],
@@ -167,21 +174,22 @@ function PhotoMarkers({ photos, onPhotoClick }) {
       // Add location markers to cluster group
       locationMarkers.forEach((location) => {
         const marker = L.marker([location.lat, location.lng], {
-          icon: createPhotoIcon(location.photos[0].url), // Use first photo as icon
+          icon: createPhotoIcon(location.photos[0]), // Use first photo as icon
         });
 
         // Create popup content showing all photos at this location
         const popupContent = document.createElement("div");
         popupContent.innerHTML = location.photos
-          .map(
-            (photo, index) => `
+          .map((photo, index) => {
+            const thumbnailUrl = getPhotoThumbnailUrl(photo);
+            return `
           <div style="max-width: 200px; ${
             index > 0
               ? "margin-top: 1rem; border-top: 1px solid #eee; padding-top: 0.5rem;"
               : ""
           }">
             <img
-              src="${photo.url}"
+              src="${thumbnailUrl}"
               alt="${photo.caption || "Polarsteps foto"}"
               style="width: 100%; border-radius: 4px; margin-bottom: 0.5rem; cursor: pointer;"
               data-photo-url="${photo.url.replace(/"/g, '"')}"
@@ -204,8 +212,8 @@ function PhotoMarkers({ photos, onPhotoClick }) {
                 : ""
             }
           </div>
-        `
-          )
+        `;
+          })
           .join("");
 
         marker.bindPopup(popupContent);
@@ -221,21 +229,22 @@ function PhotoMarkers({ photos, onPhotoClick }) {
 
       locationMarkers.forEach((location) => {
         const marker = L.marker([location.lat, location.lng], {
-          icon: createPhotoIcon(location.photos[0].url), // Use first photo as icon
+          icon: createPhotoIcon(location.photos[0]), // Use first photo as icon
         });
 
         // Create popup content showing all photos at this location
         const popupContent = document.createElement("div");
         popupContent.innerHTML = location.photos
-          .map(
-            (photo, index) => `
+          .map((photo, index) => {
+            const thumbnailUrl = getPhotoThumbnailUrl(photo);
+            return `
           <div style="max-width: 200px; ${
             index > 0
               ? "margin-top: 1rem; border-top: 1px solid #eee; padding-top: 0.5rem;"
               : ""
           }">
             <img
-              src="${photo.url}"
+              src="${thumbnailUrl}"
               alt="${photo.caption || "Polarsteps foto"}"
               style="width: 100%; border-radius: 4px; margin-bottom: 0.5rem; cursor: pointer;"
               data-photo-url="${photo.url.replace(/"/g, '"')}"
@@ -258,8 +267,8 @@ function PhotoMarkers({ photos, onPhotoClick }) {
                 : ""
             }
           </div>
-        `
-          )
+        `;
+          })
           .join("");
 
         marker.bindPopup(popupContent);
@@ -612,9 +621,14 @@ function MapView({
   onWalkedDistanceChange,
   selectedHikeId,
   onPhotoClick,
+  onClearSelectedHike,
 }) {
   const [currentPosition, setCurrentPosition] = useState(null);
   const [mapReady, setMapReady] = useState(false);
+
+  // Find the selected hike and its note
+  const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
+  const noteText = selectedHike?.note || "";
 
   // Set up global photo click handler to use the prop
   useEffect(() => {
@@ -1004,6 +1018,129 @@ function MapView({
           {/* Map initializer */}
           <MapInitializer onReady={handleMapReady} />
         </MapContainer>
+
+        {/* Note Overlay - Oldschool Notepad Style */}
+        {/* This is rendered outside MapContainer but positioned as an overlay */}
+        {noteText && (
+          <div
+            style={{
+              position: "absolute",
+              top: "20px",
+              right: "20px",
+              zIndex: 1000,
+              maxWidth: "350px",
+              minWidth: "250px",
+              fontFamily: "'Courier New', monospace",
+              background: "#fefefe",
+              border: "2px solid #8B4513",
+              borderRadius: "8px",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+              overflow: "hidden",
+            }}
+          >
+            {/* Notepad Header */}
+            <div
+              style={{
+                background: "linear-gradient(135deg, #D2691E, #CD853F)",
+                color: "white",
+                padding: "8px 12px",
+                fontWeight: "bold",
+                fontSize: "14px",
+                borderBottom: "1px solid #8B4513",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span style={{ fontSize: "16px" }}>📝</span>
+              <span>Activity Note</span>
+              <button
+                onClick={onClearSelectedHike}
+                style={{
+                  marginLeft: "auto",
+                  background: "rgba(255, 255, 255, 0.2)",
+                  border: "none",
+                  color: "white",
+                  borderRadius: "4px",
+                  width: "20px",
+                  height: "20px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                title="Close note"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Notepad Content */}
+            <div
+              style={{
+                padding: "16px",
+                background: "#fefefe",
+                maxHeight: "300px",
+                overflowY: "auto",
+                position: "relative",
+              }}
+            >
+              {/* Lined paper effect - simplified and more reliable */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "0",
+                  left: "0",
+                  right: "0",
+                  bottom: "0",
+                  background: `repeating-linear-gradient(
+                    to bottom,
+                    transparent 0px,
+                    transparent 18px,
+                    #d0d0d0 18px,
+                    #d0d0d0 19px
+                  )`,
+                  backgroundSize: "100% 19px",
+                  pointerEvents: "none",
+                  zIndex: 1,
+                }}
+              />
+
+              {/* Content with perfect line alignment */}
+              <div
+                style={{
+                  position: "relative",
+                  zIndex: 2,
+                  whiteSpace: "pre-wrap",
+                  lineHeight: "19px",
+                  fontSize: "13px",
+                  color: "#333",
+                  fontFamily: "'Courier New', monospace",
+                  paddingRight: "4px",
+                  paddingTop: "18px",
+                  paddingBottom: "18px",
+                }}
+              >
+                {noteText}
+              </div>
+            </div>
+
+            {/* Notepad Footer */}
+            <div
+              style={{
+                background: "#f5f5f5",
+                padding: "6px 12px",
+                borderTop: "1px solid #ddd",
+                fontSize: "11px",
+                color: "#666",
+                textAlign: "center",
+              }}
+            >
+              {selectedHike?.name || "Activity Note"}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
