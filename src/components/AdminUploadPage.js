@@ -99,52 +99,8 @@ function AdminUploadPage() {
     setUploadStatus(null);
 
     try {
-      // First, check all files for location data
-      const filesWithLocation = [];
-      const filesWithoutLocation = [];
-
-      for (const file of selectedFiles) {
-        try {
-          const exifData = await extractExifData(file);
-          if (exifData.lat && exifData.lng) {
-            filesWithLocation.push(file);
-          } else {
-            filesWithoutLocation.push(file);
-          }
-        } catch (error) {
-          console.warn(`Error checking EXIF data for ${file.name}:`, error);
-          filesWithoutLocation.push(file); // Treat as no location if we can't read EXIF
-        }
-      }
-
-      // Show info message if some files don't have location data
-      if (filesWithoutLocation.length > 0) {
-        setUploadStatus({
-          type: "info",
-          message: `📍 Filtering photos: ${filesWithoutLocation.length} photo(s) without location data will be skipped`,
-          details: [
-            `✅ ${filesWithLocation.length} photo(s) with location data will be uploaded`,
-            `❌ ${filesWithoutLocation.length} photo(s) without location data will be skipped:`,
-            ...filesWithoutLocation.map((file) => `   • ${file.name}`),
-          ],
-        });
-      }
-
-      // Only upload photos with location data
-      if (filesWithLocation.length === 0) {
-        setUploadStatus({
-          type: "warning",
-          message:
-            "No photos with location data found. Please ensure your photos have GPS coordinates.",
-          details: filesWithoutLocation.map(
-            (file) => `❌ ${file.name}: No location data`
-          ),
-        });
-        return;
-      }
-
       const result = await uploadMultiplePhotos(
-        filesWithLocation,
+        selectedFiles,
         selectedHike,
         formData.caption
       );
@@ -152,17 +108,12 @@ function AdminUploadPage() {
       if (result.success) {
         const { uploaded, failed, summary } = result;
 
-        let message = `✅ Successfully uploaded ${summary.successful} photo(s) with location data!`;
+        let message = `✅ Successfully uploaded ${summary.successful} photo(s)!`;
         if (summary.withExif > 0) {
           message += ` (${summary.withExif} with location data)`;
         }
         if (summary.failed > 0) {
           message += ` ⚠️ ${summary.failed} failed to upload`;
-        }
-
-        // Add info about filtered photos
-        if (filesWithoutLocation.length > 0) {
-          message += ` | ${filesWithoutLocation.length} photo(s) skipped (no location data)`;
         }
 
         setUploadStatus({
@@ -180,15 +131,6 @@ function AdminUploadPage() {
         failed.forEach((fail) => {
           details.push(`❌ ${fail.fileName}: ${fail.error}`);
         });
-
-        // Add info about skipped photos
-        if (filesWithoutLocation.length > 0) {
-          details.push("");
-          details.push(`Filtered out (no location data):`);
-          filesWithoutLocation.forEach((file) => {
-            details.push(`🚫 ${file.name}`);
-          });
-        }
 
         if (details.length > 0) {
           setUploadStatus({
@@ -259,17 +201,8 @@ function AdminUploadPage() {
           </h1>
           <p className="text-gray-300 mb-6">
             Upload multiple photos at once. Location and date are automatically
-            extracted from photo metadata (EXIF data). Photos without location
-            data will be filtered out.
+            extracted from photo metadata (EXIF data).
           </p>
-
-          <div className="mb-6 p-3 bg-blue-900 bg-opacity-30 border border-blue-500 border-opacity-30 rounded-lg">
-            <p className="text-blue-300 text-sm">
-              <strong>📍 Location Filter:</strong> Only photos with GPS
-              coordinates will be uploaded. Photos without location data will be
-              automatically skipped.
-            </p>
-          </div>
 
           {/* Upload Form */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -364,8 +297,6 @@ function AdminUploadPage() {
                       ? "bg-green-900 bg-opacity-30 text-green-300 border border-green-500 border-opacity-30"
                       : uploadStatus.type === "warning"
                       ? "bg-yellow-900 bg-opacity-30 text-yellow-300 border border-yellow-500 border-opacity-30"
-                      : uploadStatus.type === "info"
-                      ? "bg-blue-900 bg-opacity-30 text-blue-300 border border-blue-500 border-opacity-30"
                       : "bg-red-900 bg-opacity-30 text-red-300 border border-red-500 border-opacity-30"
                   }`}
                 >
@@ -445,10 +376,6 @@ function AdminUploadPage() {
                 </p>
                 <p>
                   4. <strong>Upload</strong> - location and date auto-extracted!
-                </p>
-                <p>
-                  📍 <strong>Important:</strong> Only photos with GPS
-                  coordinates will be uploaded
                 </p>
               </div>
             </div>

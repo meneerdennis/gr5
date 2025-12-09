@@ -41,12 +41,17 @@ const hikerIcon = new L.Icon({
   shadowAnchor: null,
 });
 
-// Function to create custom photo icon using photo URL
+// Function to get the appropriate thumbnail URL for a photo
+const getPhotoThumbnailUrl = (photo) => {
+  // Use stored thumbnail URL if available, otherwise fall back to original
+  return photo.thumbnailUrl || photo.url;
+};
+
+// Function to create custom photo icon using photo object
 const createPhotoIcon = (photo) => {
-  // Use thumbnail if available, otherwise fall back to full image
-  const iconUrl = photo.thumbnailUrl || photo.url;
+  const thumbnailUrl = getPhotoThumbnailUrl(photo);
   return new L.Icon({
-    iconUrl: iconUrl,
+    iconUrl: thumbnailUrl,
     iconSize: [40, 40],
     iconAnchor: [20, 20],
     popupAnchor: [0, -20],
@@ -168,7 +173,6 @@ function PhotoMarkers({ photos, onPhotoClick }) {
 
       // Add location markers to cluster group
       locationMarkers.forEach((location) => {
-        // Use first photo as icon, passing the photo object to access thumbnailUrl
         const marker = L.marker([location.lat, location.lng], {
           icon: createPhotoIcon(location.photos[0]), // Use first photo as icon
         });
@@ -177,7 +181,7 @@ function PhotoMarkers({ photos, onPhotoClick }) {
         const popupContent = document.createElement("div");
         popupContent.innerHTML = location.photos
           .map((photo, index) => {
-            const thumbnailUrl = photo.thumbnailUrl || photo.url;
+            const thumbnailUrl = getPhotoThumbnailUrl(photo);
             return `
           <div style="max-width: 200px; ${
             index > 0
@@ -224,7 +228,6 @@ function PhotoMarkers({ photos, onPhotoClick }) {
       const individualMarkers = [];
 
       locationMarkers.forEach((location) => {
-        // Use first photo as icon, passing the photo object to access thumbnailUrl
         const marker = L.marker([location.lat, location.lng], {
           icon: createPhotoIcon(location.photos[0]), // Use first photo as icon
         });
@@ -233,7 +236,7 @@ function PhotoMarkers({ photos, onPhotoClick }) {
         const popupContent = document.createElement("div");
         popupContent.innerHTML = location.photos
           .map((photo, index) => {
-            const thumbnailUrl = photo.thumbnailUrl || photo.url;
+            const thumbnailUrl = getPhotoThumbnailUrl(photo);
             return `
           <div style="max-width: 200px; ${
             index > 0
@@ -637,53 +640,6 @@ function MapView({
       window.globalPhotoClickHandler = null;
     };
   }, [onPhotoClick]);
-
-  // Create thumbnails for existing photos that don't have them (improves performance)
-  useEffect(() => {
-    const createMissingThumbnails = async () => {
-      if (!photos || photos.length === 0) return;
-
-      // Filter photos that don't have thumbnail URLs
-      const photosWithoutThumbnails = photos.filter(
-        (photo) => !photo.thumbnailUrl && photo.url
-      );
-
-      if (photosWithoutThumbnails.length === 0) return;
-
-      console.log(
-        `Creating thumbnails for ${photosWithoutThumbnails.length} photos...`
-      );
-
-      // Dynamically import the photo service to avoid circular dependencies
-      try {
-        // Dynamically import the photo service to avoid circular dependencies
-        const { createThumbnailForPhoto } = await import(
-          "../services/photoService"
-        );
-
-        // Create thumbnails for photos that don't have them
-        for (const photo of photosWithoutThumbnails) {
-          try {
-            await createThumbnailForPhoto(photo.id, photo.url, photo.hikeId);
-            console.log(`Created thumbnail for photo: ${photo.id}`);
-          } catch (error) {
-            console.warn(
-              `Failed to create thumbnail for photo ${photo.id}:`,
-              error
-            );
-          }
-        }
-      } catch (error) {
-        console.warn(
-          "Failed to import photo service for thumbnail creation:",
-          error
-        );
-      }
-    };
-
-    // Only run this once when photos are first loaded
-    createMissingThumbnails();
-  }, [photos]);
 
   // Helper function to find current hiker position based on last hike end position
   const findCurrentPosition = () => {
@@ -1130,22 +1086,28 @@ function MapView({
                 position: "relative",
               }}
             >
-              {/* Lined paper effect - simplified and more reliable */}
+              {/* Lined paper effect - extended to full content area */}
               <div
                 style={{
                   position: "absolute",
                   top: "0",
                   left: "0",
                   right: "0",
-                  bottom: "0",
+                  bottom:
+                    "-1000px" /* Extend far beyond to cover all scrollable content */,
                   background: `repeating-linear-gradient(
                     to bottom,
                     transparent 0px,
-                    transparent 18px,
-                    #d0d0d0 18px,
-                    #d0d0d0 19px
+                    transparent 18px, /* First line starts at 18px */
+                    #e0e0e0 18px,
+                    #e0e0e0 19px, /* Line thickness is 1px */
+                    transparent 19px,
+                    transparent 37px, /* Next line starts at 37px (18 + 19) */
+                    #e0e0e0 37px,
+                    #e0e0e0 38px,
+                    transparent 38px,
+                    transparent 56px /* Pattern repeats every 19px */
                   )`,
-                  backgroundSize: "100% 19px",
                   pointerEvents: "none",
                   zIndex: 1,
                 }}
@@ -1157,13 +1119,14 @@ function MapView({
                   position: "relative",
                   zIndex: 2,
                   whiteSpace: "pre-wrap",
-                  lineHeight: "19px",
+                  lineHeight: "19px" /* Match the line spacing exactly */,
                   fontSize: "13px",
                   color: "#333",
                   fontFamily: "'Courier New', monospace",
-                  paddingRight: "4px",
-                  paddingTop: "18px",
-                  paddingBottom: "18px",
+                  paddingRight:
+                    "4px" /* Prevent text from touching the right edge */,
+                  paddingTop:
+                    "18px" /* Align first line with the first horizontal line */,
                 }}
               >
                 {noteText}

@@ -510,36 +510,18 @@ body {
   border-radius: var(--radius-xl);
 }
 
-/* Responsive design for map - much larger on mobile */
+/* Responsive design for map - larger on mobile */
 @media (max-width: 768px) {
   .map-view-container {
-    /* Use fixed height instead of aspect ratio for better mobile experience */
-    height: 500px !important; /* Much taller for tablets */
-    min-height: 500px;
-    width: 100%;
-  }
-
-  /* Ensure Leaflet map fills the container */
-  .map-container-leaflet {
-    width: 100% !important;
-    height: 100% !important;
-    min-height: 500px !important;
+    aspect-ratio: 4/3; /* Shorter ratio for mobile */
+    min-height: 300px; /* Ensure minimum height */
   }
 }
 
 @media (max-width: 640px) {
   .map-view-container {
-    /* Even taller for phones */
-    height: 450px !important; /* Taller for phones */
-    min-height: 450px;
-    width: 100%;
-  }
-
-  /* Ensure Leaflet map fills the container on phones too */
-  .map-container-leaflet {
-    width: 100% !important;
-    height: 100% !important;
-    min-height: 450px !important;
+    aspect-ratio: 3/2; /* Even more compact for small screens */
+    min-height: 250px;
   }
 }
 
