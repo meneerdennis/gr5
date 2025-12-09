@@ -99,8 +99,35 @@ function AdminUploadPage() {
     setUploadStatus(null);
 
     try {
+      // Filter out photos without location data
+      const photosWithLocation = [];
+      const photosWithoutLocation = [];
+
+      for (const file of selectedFiles) {
+        try {
+          const exifData = await extractExifData(file);
+          if (exifData.lat && exifData.lng) {
+            photosWithLocation.push(file);
+          } else {
+            photosWithoutLocation.push(file);
+          }
+        } catch (error) {
+          console.warn(`Failed to check EXIF data for ${file.name}:`, error);
+          photosWithoutLocation.push(file);
+        }
+      }
+
+      if (photosWithLocation.length === 0) {
+        setUploadStatus({
+          type: "error",
+          message:
+            "No photos with location data found. Please ensure your photos have GPS coordinates.",
+        });
+        return;
+      }
+
       const result = await uploadMultiplePhotos(
-        selectedFiles,
+        photosWithLocation,
         selectedHike,
         formData.caption
       );

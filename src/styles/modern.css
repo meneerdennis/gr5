@@ -513,15 +513,19 @@ body {
 /* Responsive design for map - larger on mobile */
 @media (max-width: 768px) {
   .map-view-container {
-    aspect-ratio: 4/3; /* Shorter ratio for mobile */
-    min-height: 300px; /* Ensure minimum height */
+    aspect-ratio: 1/1; /* Square ratio for better mobile height utilization */
+    min-height: 400px; /* Increased minimum height for mobile */
+    height: 50vh; /* Use 50% of viewport height on mobile */
+    max-height: 600px; /* Maximum height constraint */
   }
 }
 
 @media (max-width: 640px) {
   .map-view-container {
-    aspect-ratio: 3/2; /* Even more compact for small screens */
-    min-height: 250px;
+    aspect-ratio: 4/5; /* Taller ratio for small screens */
+    min-height: 350px; /* Increased minimum height */
+    height: 60vh; /* Use 60% of viewport height on small screens */
+    max-height: 500px; /* Maximum height constraint */
   }
 }
 
