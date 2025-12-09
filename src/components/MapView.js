@@ -177,44 +177,72 @@ function PhotoMarkers({ photos, onPhotoClick }) {
           icon: createPhotoIcon(location.photos[0]), // Use first photo as icon
         });
 
-        // Create popup content showing all photos at this location
+        /* Create popup content showing all photos at this location */
         const popupContent = document.createElement("div");
-        popupContent.innerHTML = location.photos
-          .map((photo, index) => {
-            const thumbnailUrl = getPhotoThumbnailUrl(photo);
-            return `
-          <div style="max-width: 200px; ${
-            index > 0
-              ? "margin-top: 1rem; border-top: 1px solid #eee; padding-top: 0.5rem;"
-              : ""
-          }">
-            <img
-              src="${thumbnailUrl}"
-              alt="${photo.caption || "Polarsteps foto"}"
-              style="width: 100%; border-radius: 4px; margin-bottom: 0.5rem; cursor: pointer;"
-              data-photo-url="${photo.url.replace(/"/g, '"')}"
-              data-photo-caption="${(photo.caption || "").replace(/"/g, '"')}"
-              data-photo-date="${photo.date || ""}"
-              onclick="if (window.globalPhotoClickHandler) window.globalPhotoClickHandler({
-                url: this.getAttribute('data-photo-url'),
-                caption: this.getAttribute('data-photo-caption'),
-                date: this.getAttribute('data-photo-date')
-              })"
-            />
-            ${
-              photo.caption
-                ? `<div style="font-weight: bold;">${photo.caption}</div>`
-                : ""
+
+        // Create content with better mobile touch handling
+        const photoElements = location.photos.map((photo, index) => {
+          const thumbnailUrl = getPhotoThumbnailUrl(photo);
+          const photoDiv = document.createElement("div");
+          photoDiv.style.maxWidth = "200px";
+          if (index > 0) {
+            photoDiv.style.marginTop = "1rem";
+            photoDiv.style.borderTop = "1px solid #eee";
+            photoDiv.style.paddingTop = "0.5rem";
+          }
+
+          const img = document.createElement("img");
+          img.src = thumbnailUrl;
+          img.alt = photo.caption || "Polarsteps foto";
+          img.style.width = "100%";
+          img.style.borderRadius = "4px";
+          img.style.marginBottom = "0.5rem";
+          img.style.cursor = "pointer";
+          img.style.touchAction = "manipulation";
+          img.setAttribute("data-photo-url", photo.url.replace(/"/g, '"'));
+          img.setAttribute(
+            "data-photo-caption",
+            (photo.caption || "").replace(/"/g, '"')
+          );
+          img.setAttribute("data-photo-date", photo.date || "");
+
+          // Add both click and touchend handlers for better mobile support
+          const handlePhotoClick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (window.globalPhotoClickHandler) {
+              window.globalPhotoClickHandler({
+                url: img.getAttribute("data-photo-url"),
+                caption: img.getAttribute("data-photo-caption"),
+                date: img.getAttribute("data-photo-date"),
+              });
             }
-            ${
-              photo.date
-                ? `<div style="font-size: 0.8rem; color: #555;">${photo.date}</div>`
-                : ""
-            }
-          </div>
-        `;
-          })
-          .join("");
+          };
+
+          img.addEventListener("click", handlePhotoClick);
+          img.addEventListener("touchend", handlePhotoClick);
+
+          photoDiv.appendChild(img);
+
+          if (photo.caption) {
+            const captionDiv = document.createElement("div");
+            captionDiv.style.fontWeight = "bold";
+            captionDiv.textContent = photo.caption;
+            photoDiv.appendChild(captionDiv);
+          }
+
+          if (photo.date) {
+            const dateDiv = document.createElement("div");
+            dateDiv.style.fontSize = "0.8rem";
+            dateDiv.style.color = "#555";
+            dateDiv.textContent = photo.date;
+            photoDiv.appendChild(dateDiv);
+          }
+
+          return photoDiv;
+        });
+
+        photoElements.forEach((el) => popupContent.appendChild(el));
 
         marker.bindPopup(popupContent);
         markers.addLayer(marker);
@@ -232,44 +260,72 @@ function PhotoMarkers({ photos, onPhotoClick }) {
           icon: createPhotoIcon(location.photos[0]), // Use first photo as icon
         });
 
-        // Create popup content showing all photos at this location
+        /* Create popup content showing all photos at this location */
         const popupContent = document.createElement("div");
-        popupContent.innerHTML = location.photos
-          .map((photo, index) => {
-            const thumbnailUrl = getPhotoThumbnailUrl(photo);
-            return `
-          <div style="max-width: 200px; ${
-            index > 0
-              ? "margin-top: 1rem; border-top: 1px solid #eee; padding-top: 0.5rem;"
-              : ""
-          }">
-            <img
-              src="${thumbnailUrl}"
-              alt="${photo.caption || "Polarsteps foto"}"
-              style="width: 100%; border-radius: 4px; margin-bottom: 0.5rem; cursor: pointer;"
-              data-photo-url="${photo.url.replace(/"/g, '"')}"
-              data-photo-caption="${(photo.caption || "").replace(/"/g, '"')}"
-              data-photo-date="${photo.date || ""}"
-              onclick="if (window.globalPhotoClickHandler) window.globalPhotoClickHandler({
-                url: this.getAttribute('data-photo-url'),
-                caption: this.getAttribute('data-photo-caption'),
-                date: this.getAttribute('data-photo-date')
-              })"
-            />
-            ${
-              photo.caption
-                ? `<div style="font-weight: bold;">${photo.caption}</div>`
-                : ""
+
+        // Create content with better mobile touch handling
+        const photoElements = location.photos.map((photo, index) => {
+          const thumbnailUrl = getPhotoThumbnailUrl(photo);
+          const photoDiv = document.createElement("div");
+          photoDiv.style.maxWidth = "200px";
+          if (index > 0) {
+            photoDiv.style.marginTop = "1rem";
+            photoDiv.style.borderTop = "1px solid #eee";
+            photoDiv.style.paddingTop = "0.5rem";
+          }
+
+          const img = document.createElement("img");
+          img.src = thumbnailUrl;
+          img.alt = photo.caption || "Polarsteps foto";
+          img.style.width = "100%";
+          img.style.borderRadius = "4px";
+          img.style.marginBottom = "0.5rem";
+          img.style.cursor = "pointer";
+          img.style.touchAction = "manipulation";
+          img.setAttribute("data-photo-url", photo.url.replace(/"/g, '"'));
+          img.setAttribute(
+            "data-photo-caption",
+            (photo.caption || "").replace(/"/g, '"')
+          );
+          img.setAttribute("data-photo-date", photo.date || "");
+
+          // Add both click and touchend handlers for better mobile support
+          const handlePhotoClick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (window.globalPhotoClickHandler) {
+              window.globalPhotoClickHandler({
+                url: img.getAttribute("data-photo-url"),
+                caption: img.getAttribute("data-photo-caption"),
+                date: img.getAttribute("data-photo-date"),
+              });
             }
-            ${
-              photo.date
-                ? `<div style="font-size: 0.8rem; color: #555;">${photo.date}</div>`
-                : ""
-            }
-          </div>
-        `;
-          })
-          .join("");
+          };
+
+          img.addEventListener("click", handlePhotoClick);
+          img.addEventListener("touchend", handlePhotoClick);
+
+          photoDiv.appendChild(img);
+
+          if (photo.caption) {
+            const captionDiv = document.createElement("div");
+            captionDiv.style.fontWeight = "bold";
+            captionDiv.textContent = photo.caption;
+            photoDiv.appendChild(captionDiv);
+          }
+
+          if (photo.date) {
+            const dateDiv = document.createElement("div");
+            dateDiv.style.fontSize = "0.8rem";
+            dateDiv.style.color = "#555";
+            dateDiv.textContent = photo.date;
+            photoDiv.appendChild(dateDiv);
+          }
+
+          return photoDiv;
+        });
+
+        photoElements.forEach((el) => popupContent.appendChild(el));
 
         marker.bindPopup(popupContent);
         marker.addTo(map);

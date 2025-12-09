@@ -1280,6 +1280,62 @@ body.modal-open {
   display: block;
 }
 
+/* Mobile-specific fixes for portrait images */
+@media (max-width: 768px) {
+  .full-image-modal {
+    padding: 0.5rem;
+    align-items: flex-start;
+    padding-top: 2rem;
+  }
+
+  .full-image-container {
+    max-width: 95vw;
+    max-height: 95vh;
+    width: 100%;
+  }
+
+  .full-image-container img {
+    max-height: 85vh;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+
+  /* Special handling for portrait images on mobile */
+  .full-image-container img[style*="height"] {
+    max-height: 95vh !important;
+  }
+
+  /* Ensure portrait images can display properly */
+  .full-image-container img {
+    min-height: auto;
+    max-width: 95vw;
+  }
+}
+
+@media (max-width: 640px) {
+  .full-image-modal {
+    padding: 0.25rem;
+    padding-top: 1rem;
+  }
+
+  .full-image-container {
+    max-width: 98vw;
+    max-height: 98vh;
+  }
+
+  .full-image-container img {
+    max-height: 90vh;
+    width: 100%;
+  }
+
+  /* Additional fix for very small screens */
+  .full-image-container img {
+    max-width: 98vw;
+    height: auto;
+  }
+}
+
 .full-image-caption {
   position: absolute;
   bottom: 0;
