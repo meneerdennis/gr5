@@ -9,7 +9,6 @@ import { useHikeData } from "./hooks/useHikeData";
 import Layout from "./components/Layout";
 import ElevationProfile from "./components/ElevationProfile";
 import MapView from "./components/MapView";
-import ActivitySwiper from "./components/ActivitySwiper";
 import AdminUploadPage from "./components/AdminUploadPage";
 import AdminPhotoManager from "./components/AdminPhotoManager";
 import AdminNoteEditor from "./components/AdminNoteEditor";
@@ -237,15 +236,6 @@ function App() {
             <Layout progress={progress}>
               {/* Main Dashboard Grid */}
               <div className="grid grid-cols-1 gap-6">
-                {/* Hiking Activities Section */}
-                <div className="slide-up">
-                  <ActivitySwiper
-                    hikes={hikes}
-                    selectedHikeId={selectedHikeId}
-                    onSelectHike={handleSelectHike}
-                  />
-                </div>
-
                 {/* Elevation Profile Section */}
                 <div className="slide-up ">
                   <ElevationProfile
@@ -275,6 +265,7 @@ function App() {
                     onZoomChange={setZoomRange}
                     onWalkedDistanceChange={handleWalkedDistanceChange}
                     selectedHikeId={selectedHikeId}
+                    onSelectHike={handleSelectHike}
                     onPhotoClick={handlePhotoClick}
                     onClearSelectedHike={handleClearSelectedHike}
                   />

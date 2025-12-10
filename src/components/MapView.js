@@ -15,6 +15,7 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
 import PhotoMarkerPopup from "./PhotoMarkerPopup";
 import GpxTrack from "./Gpxtrack";
+import TravelJournalIcon from "./TravelJournalIcon";
 
 // Global function for photo modal (will be set by MapView)
 let globalPhotoClickHandler = null;
@@ -676,6 +677,7 @@ function MapView({
   onZoomChange,
   onWalkedDistanceChange,
   selectedHikeId,
+  onSelectHike,
   onPhotoClick,
   onClearSelectedHike,
 }) {
@@ -1074,6 +1076,14 @@ function MapView({
           {/* Map initializer */}
           <MapInitializer onReady={handleMapReady} />
         </MapContainer>
+
+        {/* Travel Journal Icon - positioned in top-right corner */}
+        <TravelJournalIcon
+          hikes={hikes}
+          selectedHikeId={selectedHikeId}
+          onSelectHike={onSelectHike}
+          onClearSelectedHike={onClearSelectedHike}
+        />
 
         {/* Note Overlay - Oldschool Notepad Style */}
         {/* This is rendered outside MapContainer but positioned as an overlay */}

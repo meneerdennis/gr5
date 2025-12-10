@@ -1441,3 +1441,370 @@ body.modal-open {
 .hover\:bg-gray-600:hover {
   background-color: #4b5563;
 }
+
+/* Travel Journal Icon Styles */
+.unified-journal-button {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-normal);
+  z-index: 1001;
+  white-space: nowrap;
+}
+
+.unified-journal-button:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: #8b5cf6;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.travel-journal-text {
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+}
+
+.journal-icon-image {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  transition: all var(--transition-normal);
+}
+
+.journal-swiper-container {
+  position: absolute;
+  top: 90px;
+  right: 0;
+  width: 400px;
+  max-height: 600px;
+  background: white;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid #e5e7eb;
+  z-index: 1001;
+  transition: all var(--transition-normal);
+  overflow: hidden;
+}
+
+.journal-swiper-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-bottom: 1px solid #e2e8f0;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+}
+
+.journal-swiper-header h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.journal-swiper-content {
+  padding: var(--space-md);
+  max-height: 450px;
+}
+
+/* Fix text colors in swiper for better readability */
+.journal-swiper .activity-card {
+  background: white !important;
+  color: #374151 !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.journal-swiper .activity-card h4 {
+  color: #1f2937 !important;
+}
+
+.journal-swiper .activity-card .text-gray-700 {
+  color: #4b5563 !important;
+}
+
+.journal-swiper .activity-card .text-gray-600 {
+  color: #6b7280 !important;
+}
+
+.journal-swiper .activity-card:hover {
+  background: #f9fafb !important;
+  border-color: #d1d5db !important;
+}
+
+.journal-swiper .activity-card.selected {
+  background: var(--gradient-primary) !important;
+  color: white !important;
+  border-color: #8b5cf6 !important;
+}
+
+.journal-swiper .activity-card.selected h4 {
+  color: white !important;
+}
+
+.journal-swiper .activity-card.selected .text-gray-700 {
+  color: #f3f4f6 !important;
+}
+
+.journal-swiper {
+  width: 100%;
+  height: 100%;
+}
+
+.journal-swiper__pagination {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.journal-swiper__pagination .swiper-pagination-bullet {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: #d1d5db;
+  opacity: 1;
+  cursor: pointer;
+}
+
+.journal-swiper__pagination .swiper-pagination-bullet-active {
+  background: #4b5563;
+}
+
+.journal-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-bottom: 1px solid #e2e8f0;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+}
+
+.journal-dropdown-header h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--gradient-primary);
+  color: white;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.activity-dropdown-item {
+  padding: var(--space-md);
+  cursor: pointer;
+  background-color: white;
+  transition: all var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.activity-dropdown-item:hover {
+  background-color: #f9fafb;
+}
+
+.activity-dropdown-item.selected {
+  background-color: #f3f4f6;
+}
+
+.activity-dropdown-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.activity-dropdown-item-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.activity-dropdown-item h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin: 0;
+}
+
+.activity-dropdown-item-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  font-size: 0.75rem;
+}
+
+.activity-dropdown-item-info span {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--gray-600);
+}
+
+.activity-dropdown-check {
+  color: var(--success-500);
+  font-size: 1.125rem;
+}
+
+/* Responsive styles for travel journal swiper */
+@media (max-width: 768px) {
+  .journal-swiper-container {
+    width: 90vw;
+    max-width: 300px;
+    right: 10px;
+    top: 80px;
+    max-height: 400px;
+  }
+
+  .unified-journal-button {
+    padding: 6px 8px;
+    gap: 8px;
+  }
+
+  .journal-icon-image {
+    width: 64px;
+    height: 64px;
+  }
+
+  .travel-journal-text {
+    font-size: 12px;
+  }
+
+  .journal-swiper-header {
+    padding: var(--space-sm);
+  }
+
+  .journal-swiper-header h3 {
+    font-size: 1rem;
+  }
+
+  .journal-swiper-content {
+    padding: var(--space-sm);
+    max-height: 300px;
+  }
+
+  .journal-swiper .activity-card {
+    height: 80px !important;
+  }
+
+  .journal-swiper .activity-card h4 {
+    font-size: 12px !important;
+  }
+
+  .journal-swiper .activity-card .text-xs {
+    font-size: 10px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .journal-swiper-container {
+    width: 95vw;
+    max-width: 280px;
+    right: 5px;
+    top: 70px;
+    max-height: 350px;
+  }
+
+  .unified-journal-button {
+    padding: 4px 6px;
+    gap: 6px;
+  }
+
+  .journal-icon-image {
+    width: 56px;
+    height: 56px;
+  }
+
+  .travel-journal-text {
+    font-size: 11px;
+  }
+
+  .journal-swiper-header {
+    padding: 8px;
+  }
+
+  .journal-swiper-header h3 {
+    font-size: 14px;
+  }
+
+  .journal-swiper-content {
+    padding: 8px;
+    max-height: 250px;
+  }
+
+  .journal-swiper .activity-card {
+    height: 70px !important;
+    padding: 8px !important;
+  }
+
+  .journal-swiper .activity-card h4 {
+    font-size: 11px !important;
+  }
+
+  .journal-swiper .activity-card .text-xs {
+    font-size: 9px !important;
+  }
+
+  .badge {
+    font-size: 10px !important;
+    padding: 2px 6px !important;
+  }
+}
+
+/* Ensure dropdown doesn't conflict with note overlay */
+.travel-journal-icon-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+}
+
+/* Mobile responsive styles for the unified button */
+@media (max-width: 640px) {
+  .unified-journal-button {
+    padding: 4px 6px;
+    gap: 6px;
+  }
+
+  .journal-icon-image {
+    width: 56px;
+    height: 56px;
+  }
+
+  .travel-journal-text {
+    font-size: 11px;
+  }
+}
+
+/* Adjust note overlay position when journal icon is present */
+.map-view-container .note-overlay-with-journal {
+  top: 80px;
+  right: 20px;
+}
