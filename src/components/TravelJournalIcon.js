@@ -1,11 +1,4 @@
 import React, { useState } from "react";
-import { Swiper, SwiperSlide } from "swiper/react";
-import { Navigation, Pagination } from "swiper/modules";
-
-// Import Swiper styles
-import "swiper/css";
-import "swiper/css/navigation";
-import "swiper/css/pagination";
 
 function TravelJournalIcon({
   hikes,
@@ -37,18 +30,24 @@ function TravelJournalIcon({
       {/* Unified Journal Button with Text and Icon */}
       <button
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="unified-journal-button"
+        className="unified-journal-button badge"
         title="View hiking activities"
       >
-        <span className="travel-journal-text">{"volg mijn reis hier =>"}</span>
         <img
-          src={process.env.PUBLIC_URL + "/travel_journal_icon_128.png"}
+          src={
+            process.env.PUBLIC_URL + "/travel_journal_button_transparent.png"
+          }
           alt="Travel Journal"
           className="journal-icon-image"
         />
+        <div className="travel-journal-text">
+          Travel
+          <br />
+          Journal
+        </div>
       </button>
 
-      {/* Swiper Menu */}
+      {/* Dropdown Menu */}
       {isDropdownOpen && (
         <div
           className="journal-swiper-container"
@@ -56,7 +55,7 @@ function TravelJournalIcon({
         >
           <div className="journal-swiper-header">
             <h3 className="text-lg font-semibold text-gray-900">
-              Hiking Adventures
+              Afgewerkte etappes
             </h3>
             <button
               onClick={() => setIsDropdownOpen(false)}
@@ -75,7 +74,7 @@ function TravelJournalIcon({
             >
               ×
             </button>
-            <div className="badge">{sortedHikes.length} hikes</div>
+            <div className="badge">{sortedHikes.length} etappes</div>
           </div>
 
           {sortedHikes.length === 0 ? (
@@ -83,97 +82,66 @@ function TravelJournalIcon({
               No activities found.
             </div>
           ) : (
-            <div className="journal-swiper-content">
-              <Swiper
-                className="journal-swiper"
-                modules={[Navigation, Pagination]}
-                spaceBetween={16}
-                slidesPerView={1}
-                navigation
-                pagination={{
-                  clickable: true,
-                  el: ".journal-swiper__pagination",
-                  renderBullet: (index, className) =>
-                    `<span class="${className}"></span>`,
-                }}
-                breakpoints={{
-                  640: {
-                    slidesPerView: 2,
-                    spaceBetween: 16,
-                  },
-                  768: {
-                    slidesPerView: 3,
-                    spaceBetween: 16,
-                  },
-                }}
-              >
-                {sortedHikes.map((hike) => (
-                  <SwiperSlide key={hike.id}>
-                    <div
-                      onClick={() => {
-                        onSelectHike(hike.id);
-                        setIsDropdownOpen(false);
-                      }}
-                      className={`activity-card ${
-                        selectedHikeId === hike.id ? "selected" : ""
-                      }`}
-                      style={{ margin: "0", height: "100px" }}
-                    >
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            <h4
-                              className="text-gray-700 font-semibold"
-                              title={hike.name || "Unnamed Activity"}
-                              style={{ margin: "0", fontSize: "14px" }}
-                            >
-                              {hike.name || "Unnamed Activity"}
-                            </h4>
-                            {hike.note && (
-                              <span
-                                title="This activity has a note"
-                                style={{
-                                  fontSize: "12px",
-                                  color: "#D2691E",
-                                  marginLeft: "4px",
-                                }}
-                              >
-                                📝
-                              </span>
-                            )}
-                          </div>
-                          {selectedHikeId === hike.id && (
-                            <span className="activity-dropdown-check">✓</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-col justify-center">
-                        <div className="flex items-center gap-2 text-xs">
-                          <div className="flex items-center gap-1">
-                            <span>📅</span>
-                            <span className="text-gray-700">
-                              {formatDate(hike.startDate)}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span>📏</span>
-                            <span className="text-gray-700">
-                              {hike.distanceKm?.toFixed(1) || "0"} km
-                            </span>
-                          </div>
-                          {hike.note && (
-                            <div className="flex items-center gap-1">
-                              <span>📝</span>
-                              <span className="text-gray-700">note</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+            <div
+              className="journal-swiper-content"
+              style={{
+                maxHeight: "40vh",
+                overflowY: "auto",
+                overflowX: "hidden",
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
+              {sortedHikes.map((hike) => (
+                <div
+                  key={hike.id}
+                  onClick={() => {
+                    onSelectHike(hike.id);
+                    setIsDropdownOpen(false);
+                  }}
+                  className={`activity-dropdown-item ${
+                    selectedHikeId === hike.id ? "selected" : ""
+                  }`}
+                >
+                  <div className="activity-dropdown-item-header">
+                    <div className="activity-dropdown-item-title">
+                      <h4 title={hike.name || "Unnamed Activity"}>
+                        {hike.name || "Unnamed Activity"}
+                      </h4>
+                      {hike.note && (
+                        <span
+                          title="This activity has a note"
+                          style={{
+                            fontSize: "12px",
+                            color: "#D2691E",
+                            marginLeft: "4px",
+                          }}
+                        >
+                          📝
+                        </span>
+                      )}
                     </div>
-                  </SwiperSlide>
-                ))}
-              </Swiper>
-              <div className="journal-swiper__pagination" />
+                    {selectedHikeId === hike.id && (
+                      <span className="activity-dropdown-check">✓</span>
+                    )}
+                  </div>
+                  <div className="activity-dropdown-item-info">
+                    <div className="flex items-center gap-1">
+                      <span>📅</span>
+                      <span>{formatDate(hike.startDate)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span>📏</span>
+                      <span>{hike.distanceKm?.toFixed(1) || "0"} km</span>
+                    </div>
+                    {hike.note && (
+                      <div className="flex items-center gap-1">
+                        <span>📝</span>
+                        <span>note</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

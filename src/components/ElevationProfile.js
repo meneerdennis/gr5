@@ -346,11 +346,7 @@ function ElevationProfile({
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">
-              Scroll to zoom | Double-click to reset
-            </span>
-          </div>
+          " "
         )}
       </div>
 

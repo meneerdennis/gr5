@@ -1089,6 +1089,7 @@ function MapView({
         {/* This is rendered outside MapContainer but positioned as an overlay */}
         {noteText && (
           <div
+            className="glass-card"
             style={{
               position: "absolute",
               top: "20px",
@@ -1097,30 +1098,24 @@ function MapView({
               maxWidth: "350px",
               minWidth: "250px",
               fontFamily: "'Courier New', monospace",
-              background: "#fefefe",
-              border: "2px solid #8B4513",
+              // background: "#fefefe",
+              // border: "2px solid #8B4513",
               borderRadius: "8px",
               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
-              overflow: "hidden",
+              // overflow: "hidden",
             }}
           >
             {/* Notepad Header */}
             <div
+              className="journal-swiper-header"
               style={{
-                background: "linear-gradient(135deg, #D2691E, #CD853F)",
-                color: "white",
-                padding: "8px 12px",
-                fontWeight: "bold",
-                fontSize: "14px",
-                borderBottom: "1px solid #8B4513",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
+                background: "var(--gradient-primary)",
               }}
             >
-              <span style={{ fontSize: "16px" }}>📝</span>
+              <span style={{ fontSize: "16px" }}>🗒️</span>
               <span>Activity Note</span>
               <button
+                className="note-close-btn"
                 onClick={onClearSelectedHike}
                 style={{
                   marginLeft: "auto",
@@ -1144,6 +1139,7 @@ function MapView({
 
             {/* Notepad Content */}
             <div
+              className="note-content"
               style={{
                 padding: "16px",
                 background: "#fefefe",
@@ -1176,6 +1172,7 @@ function MapView({
 
               {/* Content with perfect line alignment */}
               <div
+                className="note-text"
                 style={{
                   position: "relative",
                   zIndex: 2,
@@ -1194,6 +1191,7 @@ function MapView({
 
             {/* Notepad Footer */}
             <div
+              className="note-footer"
               style={{
                 background: "#f5f5f5",
                 padding: "6px 12px",
