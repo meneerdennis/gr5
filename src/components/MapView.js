@@ -1089,20 +1089,17 @@ function MapView({
         {/* This is rendered outside MapContainer but positioned as an overlay */}
         {noteText && (
           <div
-            className="glass-card"
+            className="glass-card mobile-note-overlay"
             style={{
               position: "absolute",
-              top: "20px",
+              top: "100px",
               right: "20px",
               zIndex: 1000,
               maxWidth: "350px",
               minWidth: "250px",
               fontFamily: "'Courier New', monospace",
-              // background: "#fefefe",
-              // border: "2px solid #8B4513",
               borderRadius: "8px",
               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
-              // overflow: "hidden",
             }}
           >
             {/* Notepad Header */}

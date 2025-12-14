@@ -28,24 +28,56 @@ function TravelJournalIcon({
   return (
     <div className="travel-journal-icon-container">
       {/* Unified Journal Button with Text and Icon */}
-      <button
-        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="unified-journal-button badge"
-        title="View hiking activities"
+      <div
+        className="journal-button-container"
+        style={{ position: "relative" }}
       >
-        <img
-          src={
-            process.env.PUBLIC_URL + "/travel_journal_button_transparent.png"
-          }
-          alt="Travel Journal"
-          className="journal-icon-image"
-        />
-        <div className="travel-journal-text">
-          Travel
-          <br />
-          Journal
-        </div>
-      </button>
+        <button
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          className="unified-journal-button badge"
+          title="View hiking activities"
+        >
+          <img
+            src={
+              process.env.PUBLIC_URL + "/travel_journal_button_transparent.png"
+            }
+            alt="Travel Journal"
+            className="journal-icon-image"
+          />
+          <div className="travel-journal-text">
+            Travel
+            <br />
+            Journal
+          </div>
+        </button>
+
+        {/* iOS-style notification badge */}
+        {sortedHikes.length > 0 && (
+          <div
+            className="notification-badge"
+            style={{
+              position: "absolute",
+              top: "-5px",
+              right: "-5px",
+              backgroundColor: "#ff3b30",
+              color: "white",
+              borderRadius: "50%",
+              width: "24px",
+              height: "24px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "13px",
+              fontWeight: "bold",
+              border: "2px solid white",
+              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
+              zIndex: 1002,
+            }}
+          >
+            {sortedHikes.length > 99 ? "99+" : sortedHikes.length}
+          </div>
+        )}
+      </div>
 
       {/* Dropdown Menu */}
       {isDropdownOpen && (
@@ -96,7 +128,10 @@ function TravelJournalIcon({
                   key={hike.id}
                   onClick={() => {
                     onSelectHike(hike.id);
-                    setIsDropdownOpen(false);
+                    // Only close dropdown if the activity doesn't have a note
+                    if (!hike.note) {
+                      setIsDropdownOpen(false);
+                    }
                   }}
                   className={`activity-dropdown-item ${
                     selectedHikeId === hike.id ? "selected" : ""
@@ -134,7 +169,7 @@ function TravelJournalIcon({
                       <span>{hike.distanceKm?.toFixed(1) || "0"} km</span>
                     </div>
                     {hike.note && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-3">
                         <span>📝</span>
                         <span>note</span>
                       </div>

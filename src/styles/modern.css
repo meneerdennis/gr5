@@ -1608,8 +1608,8 @@ input[type="file"] {
   .note-overlay {
     top: 5px !important;
     right: 5px !important;
-    max-width: 225px !important;
-    min-width: 200px !important;
+    max-width: 300 !important;
+    min-width: 250 !important;
     font-size: 10px !important;
   }
 
@@ -1814,6 +1814,25 @@ input[type="file"] {
 .map-view-container .note-overlay-with-journal {
   top: 80px;
   right: 20px;
+}
+
+/* Mobile-specific styles for note overlay */
+@media (max-width: 768px) {
+  .mobile-note-overlay {
+    top: 90px !important;
+    right: 10px !important;
+    max-width: 280px !important;
+    min-width: 200px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .mobile-note-overlay {
+    top: 85px !important;
+    right: 5px !important;
+    max-width: 280px !important;
+    min-width: 200px !important;
+  }
 }
 
 .map-view-container .note-overlay-with-journal .travel-journal-text {
