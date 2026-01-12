@@ -188,6 +188,15 @@ function AdminRoute({ children }) {
                 <span className="text-base">📝</span>
                 <span>Activity Notes</span>
               </Link>
+              <Link
+                to="/admin/activities"
+                className={`admin-nav-tab ${
+                  location.pathname === "/admin/activities" ? "active" : ""
+                }`}
+              >
+                <span className="text-base">🗑️</span>
+                <span>Manage Activities</span>
+              </Link>
             </nav>
           </div>
         </div>

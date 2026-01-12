@@ -16,6 +16,7 @@ import "leaflet.markercluster";
 import PhotoMarkerPopup from "./PhotoMarkerPopup";
 import GpxTrack from "./Gpxtrack";
 import TravelJournalIcon from "./TravelJournalIcon";
+import { useViewedActivities } from "../hooks/useViewedActivities";
 
 // Global function for photo modal (will be set by MapView)
 let globalPhotoClickHandler = null;
@@ -683,10 +684,63 @@ function MapView({
 }) {
   const [currentPosition, setCurrentPosition] = useState(null);
   const [mapReady, setMapReady] = useState(false);
+  const noteOverlayRef = useRef(null);
+
+  // Get markAsViewed function from hook
+  const { markAsViewed } = useViewedActivities();
 
   // Find the selected hike and its note
   const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
   const noteText = selectedHike?.note || "";
+
+  // Get all hikes with notes for navigation
+  const hikesWithNotes = hikes.filter((hike) => hike.note && hike.note.trim());
+  const currentNoteIndex = hikesWithNotes.findIndex(
+    (hike) => hike.id === selectedHikeId
+  );
+  const hasPreviousNote = currentNoteIndex > 0;
+  const hasNextNote = currentNoteIndex < hikesWithNotes.length - 1;
+
+  // Navigation functions for notes (with mark as viewed)
+  const goToPreviousNote = () => {
+    if (hasPreviousNote) {
+      const previousHike = hikesWithNotes[currentNoteIndex - 1];
+      onSelectHike(previousHike.id);
+      // Mark as viewed when navigating via arrows
+      markAsViewed(previousHike.id);
+    }
+  };
+
+  const goToNextNote = () => {
+    if (hasNextNote) {
+      const nextHike = hikesWithNotes[currentNoteIndex + 1];
+      onSelectHike(nextHike.id);
+      // Mark as viewed when navigating via arrows
+      markAsViewed(nextHike.id);
+    }
+  };
+
+  // Close note overlay when clicking outside (but don't affect dropdown)
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        noteOverlayRef.current &&
+        !noteOverlayRef.current.contains(event.target)
+      ) {
+        onClearSelectedHike();
+      }
+    };
+
+    if (noteText) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [noteText, onClearSelectedHike]);
 
   // Set up global photo click handler to use the prop
   useEffect(() => {
@@ -970,9 +1024,13 @@ function MapView({
                 .map((p) => [p.lat, p.lon])
                 .filter((pos) => pos[0] && pos[1])}
               color="#ff5722"
-              weight={3}
-              opacity={0.8}
+              weight={4}
+              opacity={0.95}
               zIndex={300}
+              dashArray={null}
+              lineCap="round"
+              lineJoin="round"
+              className="gpx-route-main"
             />
           )}
 
@@ -1016,9 +1074,14 @@ function MapView({
                 key={hike.id}
                 positions={positions}
                 color={hikeColor}
-                weight={isSelected ? 6 : 4}
-                opacity={isSelected ? 1 : 0.9}
-                zIndex={isSelected ? 2000 : 1000}
+                weight={isSelected ? 7 : 5}
+                opacity={isSelected ? 1 : 0.95}
+                zIndex={isSelected ? 2500 : 1200}
+                lineCap="round"
+                lineJoin="round"
+                className={`activity-polyline ${
+                  isSelected ? "selected-activity" : ""
+                }`}
               >
                 <Popup>
                   <div>
@@ -1089,6 +1152,7 @@ function MapView({
         {/* This is rendered outside MapContainer but positioned as an overlay */}
         {noteText && (
           <div
+            ref={noteOverlayRef}
             className="glass-card mobile-note-overlay"
             style={{
               position: "absolute",
@@ -1102,20 +1166,90 @@ function MapView({
               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
             }}
           >
-            {/* Notepad Header */}
+            {/* Notepad Header with Navigation */}
             <div
               className="journal-swiper-header"
               style={{
                 background: "var(--gradient-primary)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
               }}
             >
-              <span style={{ fontSize: "16px" }}>🗒️</span>
-              <span>Activity Note</span>
+              {/* Previous Note Button */}
+              {hasPreviousNote && (
+                <button
+                  onClick={goToPreviousNote}
+                  style={{
+                    background: "rgba(255, 255, 255, 0.2)",
+                    border: "none",
+                    color: "white",
+                    borderRadius: "4px",
+                    width: "24px",
+                    height: "24px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: "8px",
+                  }}
+                  title="Previous note"
+                >
+                  ‹
+                </button>
+              )}
+
+              <div style={{ display: "flex", alignItems: "center", flex: 1 }}>
+                <span style={{ fontSize: "16px", marginRight: "8px" }}>🗒️</span>
+                <span>Activity Note</span>
+                {hikesWithNotes.length > 1 && (
+                  <span
+                    style={{
+                      marginLeft: "8px",
+                      fontSize: "12px",
+                      opacity: 0.8,
+                      background: "rgba(255, 255, 255, 0.2)",
+                      padding: "2px 6px",
+                      borderRadius: "10px",
+                    }}
+                  >
+                    {currentNoteIndex + 1}/{hikesWithNotes.length}
+                  </span>
+                )}
+              </div>
+
+              {/* Next Note Button */}
+              {hasNextNote && (
+                <button
+                  onClick={goToNextNote}
+                  style={{
+                    background: "rgba(255, 255, 255, 0.2)",
+                    border: "none",
+                    color: "white",
+                    borderRadius: "4px",
+                    width: "24px",
+                    height: "24px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginLeft: "8px",
+                  }}
+                  title="Next note"
+                >
+                  ›
+                </button>
+              )}
+
               <button
                 className="note-close-btn"
                 onClick={onClearSelectedHike}
                 style={{
-                  marginLeft: "auto",
+                  marginLeft: "8px",
                   background: "rgba(255, 255, 255, 0.2)",
                   border: "none",
                   color: "white",

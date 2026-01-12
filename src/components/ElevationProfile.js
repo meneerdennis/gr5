@@ -331,7 +331,7 @@ function ElevationProfile({
 
   return (
     <div className="elevation-chart mb-2 fade-in">
-      <div className="flex items-center justify-between mb-6">
+      {/* <div className="flex items-center justify-between mb-6">
         {zoomRange ? (
           <div className="flex items-center gap-4 p-2">
             <span className="text-sm text-gray-600">
@@ -348,7 +348,7 @@ function ElevationProfile({
         ) : (
           " "
         )}
-      </div>
+      </div> */}
 
       <div className="relative">
         <svg

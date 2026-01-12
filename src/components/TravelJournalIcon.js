@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useViewedActivities } from "../hooks/useViewedActivities";
 
 function TravelJournalIcon({
   hikes,
@@ -7,6 +8,34 @@ function TravelJournalIcon({
   onClearSelectedHike,
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const { markAsViewed, getUnreadCount, isViewed } = useViewedActivities();
+  const dropdownRef = useRef(null);
+
+  // Find the currently selected hike to check if it has a note
+  const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
+  const hasNoteOpen = selectedHike?.note && selectedHike.note.trim();
+
+  // Close dropdown when clicking outside (but not if note is currently open)
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        // Only close dropdown if there's no note overlay currently open
+        if (!hasNoteOpen) {
+          setIsDropdownOpen(false);
+        }
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [isDropdownOpen, hasNoteOpen]);
 
   // Sort hikes by date (most recent first)
   const sortedHikes = [...hikes].sort((a, b) => {
@@ -14,6 +43,9 @@ function TravelJournalIcon({
     const dateB = new Date(b.startDate);
     return dateB - dateA;
   });
+
+  // Get unread activities count for the notification badge
+  const unreadCount = getUnreadCount(sortedHikes);
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -23,6 +55,21 @@ function TravelJournalIcon({
       month: "short",
       year: "numeric",
     });
+  };
+
+  // Handle activity selection and mark as viewed
+  const handleActivitySelect = (hikeId) => {
+    // Mark activity as viewed
+    markAsViewed(hikeId);
+
+    // Call the original onSelectHike function
+    onSelectHike(hikeId);
+
+    // Only close dropdown if the activity doesn't have a note
+    const selectedHike = sortedHikes.find((h) => h.id === hikeId);
+    if (selectedHike && !selectedHike.note) {
+      setIsDropdownOpen(false);
+    }
   };
 
   return (
@@ -51,8 +98,8 @@ function TravelJournalIcon({
           </div>
         </button>
 
-        {/* iOS-style notification badge */}
-        {sortedHikes.length > 0 && (
+        {/* iOS-style notification badge - only show if there are unread activities */}
+        {unreadCount > 0 && (
           <div
             className="notification-badge"
             style={{
@@ -72,9 +119,10 @@ function TravelJournalIcon({
               border: "2px solid white",
               boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
               zIndex: 1002,
+              animation: "pulse 2s infinite",
             }}
           >
-            {sortedHikes.length > 99 ? "99+" : sortedHikes.length}
+            {unreadCount > 99 ? "99+" : unreadCount}
           </div>
         )}
       </div>
@@ -82,6 +130,7 @@ function TravelJournalIcon({
       {/* Dropdown Menu */}
       {isDropdownOpen && (
         <div
+          ref={dropdownRef}
           className="journal-swiper-container"
           onClick={(e) => e.stopPropagation()}
         >
@@ -126,13 +175,7 @@ function TravelJournalIcon({
               {sortedHikes.map((hike) => (
                 <div
                   key={hike.id}
-                  onClick={() => {
-                    onSelectHike(hike.id);
-                    // Only close dropdown if the activity doesn't have a note
-                    if (!hike.note) {
-                      setIsDropdownOpen(false);
-                    }
-                  }}
+                  onClick={() => handleActivitySelect(hike.id)}
                   className={`activity-dropdown-item ${
                     selectedHikeId === hike.id ? "selected" : ""
                   }`}
@@ -142,16 +185,19 @@ function TravelJournalIcon({
                       <h4 title={hike.name || "Unnamed Activity"}>
                         {hike.name || "Unnamed Activity"}
                       </h4>
-                      {hike.note && (
+
+                      {/* Show unread indicator */}
+                      {!isViewed(hike.id) && (
                         <span
-                          title="This activity has a note"
+                          title="New activity"
                           style={{
                             fontSize: "12px",
-                            color: "#D2691E",
+                            color: "#ff3b30",
                             marginLeft: "4px",
+                            animation: "pulse 1s infinite",
                           }}
                         >
-                          📝
+                          ●
                         </span>
                       )}
                     </div>

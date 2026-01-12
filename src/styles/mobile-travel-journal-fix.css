@@ -1,0 +1,31 @@
+/* ==========================================================================
+   Mobile Travel Journal Button - Image Only Fix
+   ========================================================================== */
+
+/* Hide text and make button smaller on mobile */
+@media (max-width: 768px) {
+  .unified-journal-button .travel-journal-text {
+    display: none !important;
+  }
+
+  .unified-journal-button {
+    gap: 0 !important;
+    padding: 6px !important;
+  }
+
+  .journal-icon-image {
+    width: 44px !important;
+    height: 44px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .unified-journal-button {
+    padding: 4px !important;
+  }
+
+  .journal-icon-image {
+    width: 40px !important;
+    height: 40px !important;
+  }
+}

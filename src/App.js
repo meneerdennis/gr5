@@ -12,6 +12,7 @@ import MapView from "./components/MapView";
 import AdminUploadPage from "./components/AdminUploadPage";
 import AdminPhotoManager from "./components/AdminPhotoManager";
 import AdminNoteEditor from "./components/AdminNoteEditor";
+import AdminActivityManager from "./components/AdminActivityManager";
 import AdminRoute from "./components/AdminRoute";
 
 function App() {
@@ -225,6 +226,14 @@ function App() {
           element={
             <AdminRoute>
               <AdminNoteEditor />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/activities"
+          element={
+            <AdminRoute>
+              <AdminActivityManager />
             </AdminRoute>
           }
         />

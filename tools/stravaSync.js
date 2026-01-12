@@ -4,7 +4,6 @@
 // - gebruikt refresh token uit .env
 // - filtert enkel activiteiten waar "GR5" in naam of beschrijving voorkomt
 // - haalt GPS-streams (latlng, altitude, time) op
-// - haalt foto's (medium-size URL's) op
 //
 // .env moet minstens bevatten:
 //
@@ -151,51 +150,6 @@ async function fetchStreams(activityId, accessToken) {
   }
 }
 
-// ---- STRAVA: FOTO'S OPHALEN ---------------------------------------------
-
-async function fetchPhotos(activityId, accessToken) {
-  const url = `https://www.strava.com/api/v3/activities/${activityId}/photos`;
-
-  try {
-    const response = await axios.get(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      params: {
-        size: 600, // medium resolutie
-      },
-    });
-
-    const items = Array.isArray(response.data) ? response.data : [];
-
-    return items
-      .map((p) => {
-        // Strava geeft meestal p.urls als object met keys per grootte
-        const urls = p.urls || {};
-        const url600 = urls["600"] || urls["0"] || null;
-
-        // Extract location if available
-        const lat = p.location ? p.location[0] : p.lat || null;
-        const lng = p.location ? p.location[1] : p.lng || null;
-
-        return {
-          id: p.id || p.unique_id || null,
-          url: url600,
-          caption: p.caption || null,
-          lat: lat,
-          lng: lng,
-        };
-      })
-      .filter((p) => !!p.url); // alleen foto's met een bruikbare URL
-  } catch (err) {
-    console.error(
-      `❌ Fout bij ophalen van foto's voor activiteit ${activityId}:`,
-      err.response?.data || err.message
-    );
-    return [];
-  }
-}
-
 // ---- SYNC LOGICA --------------------------------------------------------
 
 async function syncHikes() {
@@ -213,16 +167,13 @@ async function syncHikes() {
     }
 
     for (const act of activities) {
-      // 🔍 Filter alleen activiteiten waar "GR5" in naam OF beschrijving voorkomt
-      const text = `${act.name || ""} ${act.description || ""}`.toUpperCase();
-      if (!text.includes("GR5")) {
-        continue;
-      }
-
       // (optioneel) filter op type
       // if (act.type !== "Hike" && act.type !== "Walk") continue;
 
-      console.log(`➡️ Verwerk GR5-activiteit: ${act.name} (${act.type})`);
+      console.log(`➡️ Verwerk activiteit: ${act.name} (${act.type})`);
+      console.log(
+        `   Beschrijving: "${act.description || "(geen beschrijving)"}"`
+      );
 
       const docId = String(act.id);
       const ref = db.collection("hikes").doc(docId);
@@ -232,17 +183,18 @@ async function syncHikes() {
 
       // Alleen de delen bewaren die Firestore slikt (geen geneste arrays)
 
-      // 🖼 Foto's
-      const photos = await fetchPhotos(act.id, accessToken);
-
       // polyline (samengevatte route)
       const polyline =
         act.map && act.map.summary_polyline ? act.map.summary_polyline : null;
+
+      // Copy description to note field (like AdminNoteEditor does)
+      const noteContent = act.description || "";
 
       const hikeData = {
         stravaId: act.id,
         name: act.name,
         description: act.description || "",
+        note: noteContent, // Copy description to note field
         distanceKm: act.distance ? act.distance / 1000 : null,
         movingTimeSec: act.moving_time || null,
         elapsedTimeSec: act.elapsed_time || null,
@@ -250,12 +202,36 @@ async function syncHikes() {
         type: act.type,
         polyline,
         // streams: streamsForFirestore, // ✅ geen geneste arrays meer
-        photos, // [ { id, url, caption }, ... ]
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      await ref.set(hikeData, { merge: true });
+      // Log the data structure to verify note field is present
+      console.log("Data to be saved:", JSON.stringify(hikeData, null, 2));
+
+      // Update the document with the latest data from Strava
+      // Use set() without merge to ensure all fields are written
+      await ref.set(hikeData);
+
+      // Verify the document was created with the note field
+      const docSnapshot = await ref.get();
+      const savedData = docSnapshot.data();
+      console.log(
+        "Document saved with data:",
+        JSON.stringify(savedData, null, 2)
+      );
+
+      if (!savedData.note) {
+        console.error("❌ ERROR: Note field was not saved to Firestore!");
+      } else {
+        console.log(
+          `✅ SUCCESS: Note field saved with value: "${savedData.note}"`
+        );
+      }
+
+      console.log(`✅ Activity saved with note: "${hikeData.note}"`);
+      console.log(`   Description: "${hikeData.description}"`);
+      console.log(`   Note field set to: "${hikeData.note}"`);
       totalImported++;
       console.log(`✅ GR5-hike opgeslagen: ${act.name} (${docId})`);
     }
