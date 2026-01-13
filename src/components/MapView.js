@@ -1274,7 +1274,8 @@ function MapView({
               style={{
                 padding: "16px",
                 background: "#fefefe",
-                maxHeight: "300px",
+                minHeight: "350px",
+                maxHeight: "400px",
                 overflowY: "auto",
                 position: "relative",
               }}
@@ -1290,11 +1291,9 @@ function MapView({
                   background: `repeating-linear-gradient(
                     to bottom,
                     transparent 0px,
-                    transparent 6px,
-                    #e0e0e0 6px,
-                    #e0e0e0 7px,
-                    transparent 7px,
-                    transparent 15px
+                    transparent 14px,
+                    #e0e0e0 14px,
+                    #e0e0e0 15px
                   )`,
                   pointerEvents: "none",
                   zIndex: 1,
@@ -1308,12 +1307,12 @@ function MapView({
                   position: "relative",
                   zIndex: 2,
                   whiteSpace: "pre-wrap",
-                  lineHeight: "17px",
+                  lineHeight: "15px",
                   fontSize: "13px",
                   color: "#333",
                   fontFamily: "'Courier New', monospace",
                   paddingRight: "4px",
-                  paddingTop: "6px",
+                  paddingTop: "0px",
                 }}
               >
                 {noteText}

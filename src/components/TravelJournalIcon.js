@@ -19,6 +19,10 @@ function TravelJournalIcon({
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        // Don't close if clicking on the journal button
+        if (event.target.closest(".unified-journal-button")) {
+          return;
+        }
         // Only close dropdown if there's no note overlay currently open
         if (!hasNoteOpen) {
           setIsDropdownOpen(false);
@@ -80,7 +84,17 @@ function TravelJournalIcon({
         style={{ position: "relative" }}
       >
         <button
-          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (isDropdownOpen) {
+              // If closing the dropdown and a note is open, close the note too
+              if (hasNoteOpen) {
+                onClearSelectedHike();
+              }
+            }
+            setIsDropdownOpen(!isDropdownOpen);
+          }}
           className="unified-journal-button badge"
           title="View hiking activities"
         >
