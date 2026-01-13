@@ -171,9 +171,6 @@ async function syncHikes() {
       // if (act.type !== "Hike" && act.type !== "Walk") continue;
 
       console.log(`➡️ Verwerk activiteit: ${act.name} (${act.type})`);
-      console.log(
-        `   Beschrijving: "${act.description || "(geen beschrijving)"}"`
-      );
 
       const docId = String(act.id);
       const ref = db.collection("hikes").doc(docId);
@@ -187,14 +184,11 @@ async function syncHikes() {
       const polyline =
         act.map && act.map.summary_polyline ? act.map.summary_polyline : null;
 
-      // Copy description to note field (like AdminNoteEditor does)
-      const noteContent = act.description || "";
-
       const hikeData = {
         stravaId: act.id,
         name: act.name,
         description: act.description || "",
-        note: noteContent, // Copy description to note field
+        note: act.description || "",
         distanceKm: act.distance ? act.distance / 1000 : null,
         movingTimeSec: act.moving_time || null,
         elapsedTimeSec: act.elapsed_time || null,
@@ -206,32 +200,11 @@ async function syncHikes() {
         updatedAt: new Date(),
       };
 
-      // Log the data structure to verify note field is present
-      console.log("Data to be saved:", JSON.stringify(hikeData, null, 2));
-
       // Update the document with the latest data from Strava
-      // Use set() without merge to ensure all fields are written
-      await ref.set(hikeData);
-
-      // Verify the document was created with the note field
-      const docSnapshot = await ref.get();
-      const savedData = docSnapshot.data();
-      console.log(
-        "Document saved with data:",
-        JSON.stringify(savedData, null, 2)
-      );
-
-      if (!savedData.note) {
-        console.error("❌ ERROR: Note field was not saved to Firestore!");
-      } else {
-        console.log(
-          `✅ SUCCESS: Note field saved with value: "${savedData.note}"`
-        );
-      }
+      // Using merge: true to preserve existing data while updating new fields
+      await ref.set(hikeData, { merge: true });
 
       console.log(`✅ Activity saved with note: "${hikeData.note}"`);
-      console.log(`   Description: "${hikeData.description}"`);
-      console.log(`   Note field set to: "${hikeData.note}"`);
       totalImported++;
       console.log(`✅ GR5-hike opgeslagen: ${act.name} (${docId})`);
     }
