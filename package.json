@@ -1,8 +1,8 @@
 {
-  "name": "gr5-app",
-  "version": "0.1.0",
+  "name": "gr5",
+  "version": "0.2.0",
   "private": true,
-  "homepage": "https://meneerdennis.github.io/gr5",
+  "homepage": "https://mijngr5.be",
   "dependencies": {
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
