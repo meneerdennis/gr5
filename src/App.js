@@ -13,6 +13,7 @@ import AdminUploadPage from "./components/AdminUploadPage";
 import AdminPhotoManager from "./components/AdminPhotoManager";
 import AdminNoteEditor from "./components/AdminNoteEditor";
 import AdminActivityManager from "./components/AdminActivityManager";
+import AdminQuoteManager from "./components/AdminQuoteManager";
 import AdminRoute from "./components/AdminRoute";
 
 function App() {
@@ -234,6 +235,14 @@ function App() {
           element={
             <AdminRoute>
               <AdminActivityManager />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/quotes"
+          element={
+            <AdminRoute>
+              <AdminQuoteManager />
             </AdminRoute>
           }
         />

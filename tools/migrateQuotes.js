@@ -1,3 +1,16 @@
+require("dotenv").config();
+
+const { initializeApp, cert } = require("firebase-admin/app");
+const { getFirestore } = require("firebase-admin/firestore");
+const serviceAccount = require("../serviceAccountKey.json");
+
+const app = initializeApp({
+  credential: cert(serviceAccount),
+  projectId: process.env.FIREBASE_PROJECT_ID,
+});
+
+const db = getFirestore(app);
+
 const quotes = [
   {
     quote: "The journey of a thousand miles begins with a single step.",
@@ -75,4 +88,22 @@ const quotes = [
   },
 ];
 
-export default quotes;
+async function migrateQuotes() {
+  try {
+    const quotesCollection = db.collection("quotes");
+
+    for (const quote of quotes) {
+      await quotesCollection.add({
+        quote: quote.quote,
+        author: quote.author,
+      });
+      console.log(`Added quote: "${quote.quote}" by ${quote.author}`);
+    }
+
+    console.log("Migration completed successfully!");
+  } catch (error) {
+    console.error("Error migrating quotes:", error);
+  }
+}
+
+migrateQuotes();

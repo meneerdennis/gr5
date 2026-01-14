@@ -1,13 +1,24 @@
 import React, { useState, useEffect } from "react";
 import ProgressBar from "./ProgressBar";
-import quotes from "../quotes";
+import { getQuotesFromFirebase } from "../services/firebaseService";
 
 function Layout({ children, progress = 0 }) {
+  const [quotes, setQuotes] = useState([]);
   const [randomQuote, setRandomQuote] = useState({});
   const [quoteOpacity, setQuoteOpacity] = useState(1);
   const [quoteTransform, setQuoteTransform] = useState(0);
 
   useEffect(() => {
+    const fetchQuotes = async () => {
+      const fetchedQuotes = await getQuotesFromFirebase();
+      setQuotes(fetchedQuotes);
+    };
+    fetchQuotes();
+  }, []);
+
+  useEffect(() => {
+    if (quotes.length === 0) return;
+
     const updateQuote = () => {
       // Slide up and fade out
       setQuoteOpacity(0);
@@ -29,7 +40,7 @@ function Layout({ children, progress = 0 }) {
     const interval = setInterval(updateQuote, 20000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [quotes]);
 
   return (
     <div

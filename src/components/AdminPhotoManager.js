@@ -166,6 +166,9 @@ function AdminPhotoManager() {
         // Reload photos to reflect changes
         await loadData();
         setDeletingPhoto(null);
+        // Restore body scroll
+        document.body.style.overflow = "unset";
+        document.body.classList.remove("modal-open");
         // Show success message briefly
         const successMsg = document.createElement("div");
         successMsg.textContent = "Photo deleted successfully!";
