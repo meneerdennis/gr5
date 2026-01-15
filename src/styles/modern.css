@@ -579,6 +579,30 @@ body {
   border-color: #8b5cf6;
 }
 
+.btn-success {
+  background: var(--success-500);
+  color: white;
+  box-shadow: var(--shadow-md);
+}
+
+.btn-success:hover {
+  background: var(--success-600);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+}
+
+.btn-danger {
+  background: var(--danger-500);
+  color: white;
+  box-shadow: var(--shadow-md);
+}
+
+.btn-danger:hover {
+  background: var(--danger-600);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+}
+
 /* Modern Input */
 .input {
   width: 100%;
@@ -1374,8 +1398,8 @@ input[type="file"] {
 
   /* Larger elevation profile on mobile - properly sized */
   .elevation-chart svg {
-    height: 120px !important;
-    min-height: 120px;
+    height: 100px !important;
+    min-height: 100px;
     max-height: 150px;
     width: 100% !important;
   }
@@ -1387,8 +1411,8 @@ input[type="file"] {
 
   /* Make elevation chart fit properly on mobile */
   .elevation-chart {
-    padding: 0px 10px !important;
-    margin: 5px 0px;
+    padding: 0px 5px !important;
+    margin: 0px 0px;
     overflow: hidden;
   }
 

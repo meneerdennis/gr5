@@ -330,7 +330,7 @@ function ElevationProfile({
   }
 
   return (
-    <div className="elevation-chart mb-2 fade-in">
+    <div className="elevation-chart  fade-in">
       {/* <div className="flex items-center justify-between mb-6">
         {zoomRange ? (
           <div className="flex items-center gap-4 p-2">
@@ -350,7 +350,7 @@ function ElevationProfile({
         )}
       </div> */}
 
-      <div className="relative">
+      <div className="flex">
         <svg
           ref={svgRef}
           width="100%"
@@ -361,8 +361,7 @@ function ElevationProfile({
           onWheel={handleWheel}
           className="cursor-crosshair rounded-lg"
           style={{
-            filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))",
-            borderRadius: "5px",
+            borderRadius: "1rem",
           }}
         >
           {/* Define gradient for mountain silhouette */}

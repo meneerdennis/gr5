@@ -662,6 +662,45 @@ function MapInteraction({
     };
   }, [map, elevationProfile, onHover]);
 
+  // Handle double-tap to zoom in on mobile
+  useEffect(() => {
+    if (!map || !isMapReady.current) return;
+
+    const mapContainer = map.getContainer();
+    let lastTapTime = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+
+    const handleTouchStart = (e) => {
+      if (e.touches.length === 1) {
+        // Only handle single touch
+        const touch = e.touches[0];
+        const currentTime = Date.now();
+        const timeDiff = currentTime - lastTapTime;
+        const xDiff = Math.abs(touch.clientX - lastTapX);
+        const yDiff = Math.abs(touch.clientY - lastTapY);
+
+        if (timeDiff < 300 && xDiff < 30 && yDiff < 30) {
+          // Double tap detected
+          e.preventDefault();
+          map.zoomIn();
+        }
+
+        lastTapTime = currentTime;
+        lastTapX = touch.clientX;
+        lastTapY = touch.clientY;
+      }
+    };
+
+    mapContainer.addEventListener("touchstart", handleTouchStart, {
+      passive: false,
+    });
+
+    return () => {
+      mapContainer.removeEventListener("touchstart", handleTouchStart);
+    };
+  }, [map, isMapReady.current]);
+
   return null;
 }
 
@@ -1047,7 +1086,7 @@ function MapView({
 
             if (positions.length === 0) return null;
 
-            // Assign a unique color to each hike - smooth gradient flow (starting with lime)
+            // Assign a unique color to each hike - mixed up order for better contrast
             const colorPalette = [
               "#84cc16", // Lime
               "#10b981", // Emerald
@@ -1066,7 +1105,12 @@ function MapView({
               "#eab308", // Yellow
             ];
 
-            const hikeColor = colorPalette[index % colorPalette.length];
+            // Shuffle the color palette to mix up the order
+            const shuffledPalette = [...colorPalette].sort(
+              () => Math.random() - 0.5
+            );
+
+            const hikeColor = shuffledPalette[index % shuffledPalette.length];
             const isSelected = hike.id === selectedHikeId;
 
             return (

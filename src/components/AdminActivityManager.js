@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { getHikesFromFirebase } from "../services/firebaseService";
+import {
+  getHikesFromFirebase,
+  updateHike,
+  addHikeToFirebase,
+  parseGPX,
+  parseFIT,
+} from "../services/firebaseService";
 import { db } from "../services/firebase";
 import { doc, deleteDoc } from "firebase/firestore";
 
@@ -9,6 +15,11 @@ function AdminActivityManager() {
   const [deleteStatus, setDeleteStatus] = useState(null);
   const [selectedHike, setSelectedHike] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editingHikeId, setEditingHikeId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editStatus, setEditStatus] = useState(null);
+  const [uploadStatus, setUploadStatus] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadHikes();
@@ -62,6 +73,95 @@ function AdminActivityManager() {
     setSelectedHike(null);
   };
 
+  const handleEditClick = (hike) => {
+    setEditingHikeId(hike.id);
+    setEditName(hike.name);
+    setEditStatus(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingHikeId || !editName.trim()) return;
+
+    try {
+      setEditStatus(null);
+      const result = await updateHike(editingHikeId, { name: editName.trim() });
+      if (result.success) {
+        setEditStatus({
+          type: "success",
+          message: "✅ Activity name updated successfully.",
+        });
+        await loadHikes();
+      } else {
+        setEditStatus({
+          type: "error",
+          message: `❌ Failed to update activity name: ${result.error}`,
+        });
+      }
+    } catch (error) {
+      console.error("Error updating hike name:", error);
+      setEditStatus({
+        type: "error",
+        message: `❌ Failed to update activity name: ${error.message}`,
+      });
+    } finally {
+      setEditingHikeId(null);
+      setEditName("");
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingHikeId(null);
+    setEditName("");
+    setEditStatus(null);
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    setUploadStatus(null);
+
+    try {
+      let parsedData;
+      if (file.name.toLowerCase().endsWith(".gpx")) {
+        const content = await file.text();
+        parsedData = parseGPX(content);
+      } else if (file.name.toLowerCase().endsWith(".fit")) {
+        const buffer = await file.arrayBuffer();
+        parsedData = await parseFIT(buffer);
+      } else {
+        throw new Error(
+          "Unsupported file type. Please upload .gpx or .fit files."
+        );
+      }
+
+      // Add to Firebase
+      const result = await addHikeToFirebase(parsedData);
+      if (result.success) {
+        setUploadStatus({
+          type: "success",
+          message: `✅ Successfully uploaded activity: ${parsedData.name}`,
+        });
+        await loadHikes(); // Refresh list
+      } else {
+        setUploadStatus({
+          type: "error",
+          message: `❌ Failed to upload activity: ${result.error}`,
+        });
+      }
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      setUploadStatus({
+        type: "error",
+        message: `❌ Failed to process file: ${error.message}`,
+      });
+    } finally {
+      setUploading(false);
+      event.target.value = ""; // Reset file input
+    }
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString();
   };
@@ -89,6 +189,30 @@ function AdminActivityManager() {
             activities/hikes from your collection.
           </p>
 
+          {/* Upload Section */}
+          <div className="mb-6 p-4 bg-gray-800 bg-opacity-50 border border-gray-600 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-100 mb-3">
+              📤 Upload Activity
+            </h3>
+            <p className="text-gray-300 text-sm mb-4">
+              Import activities from GPX or FIT files (e.g., from Strava).
+              Supported formats: .gpx, .fit
+            </p>
+            <input
+              type="file"
+              accept=".gpx,.fit"
+              onChange={handleFileUpload}
+              disabled={uploading}
+              className="block w-full text-sm text-gray-300 bg-gray-700 border border-gray-600 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {uploading && (
+              <div className="mt-3 flex items-center text-blue-300">
+                <div className="animate-spin rounded-full border-b-2 border-blue-400 h-4 w-4 mr-2"></div>
+                Processing file...
+              </div>
+            )}
+          </div>
+
           {deleteStatus && (
             <div
               className={`p-3 rounded-lg mb-4 ${
@@ -98,6 +222,30 @@ function AdminActivityManager() {
               }`}
             >
               <p>{deleteStatus.message}</p>
+            </div>
+          )}
+
+          {editStatus && (
+            <div
+              className={`p-3 rounded-lg mb-4 ${
+                editStatus.type === "success"
+                  ? "bg-green-900 bg-opacity-30 text-green-300 border border-green-500 border-opacity-30"
+                  : "bg-red-900 bg-opacity-30 text-red-300 border border-red-500 border-opacity-30"
+              }`}
+            >
+              <p>{editStatus.message}</p>
+            </div>
+          )}
+
+          {uploadStatus && (
+            <div
+              className={`p-3 rounded-lg mb-4 ${
+                uploadStatus.type === "success"
+                  ? "bg-green-900 bg-opacity-30 text-green-300 border border-green-500 border-opacity-30"
+                  : "bg-red-900 bg-opacity-30 text-red-300 border border-red-500 border-opacity-30"
+              }`}
+            >
+              <p>{uploadStatus.message}</p>
             </div>
           )}
 
@@ -135,7 +283,19 @@ function AdminActivityManager() {
                       key={hike.id}
                       className="border-b border-gray-700 hover:bg-gray-800"
                     >
-                      <td className="p-3 text-gray-200">{hike.name}</td>
+                      <td className="p-3 text-gray-200">
+                        {editingHikeId === hike.id ? (
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="w-full px-2 py-1 bg-gray-700 text-gray-200 border border-gray-600 rounded"
+                            autoFocus
+                          />
+                        ) : (
+                          hike.name
+                        )}
+                      </td>
                       <td className="p-3 text-gray-300">
                         {formatDate(hike.startDate)}
                       </td>
@@ -144,13 +304,38 @@ function AdminActivityManager() {
                         km
                       </td>
                       <td className="p-3 text-gray-300">{hike.type}</td>
-                      <td className="p-3">
-                        <button
-                          onClick={() => handleDeleteClick(hike)}
-                          className="btn btn-danger text-sm"
-                        >
-                          🗑️ Delete
-                        </button>
+                      <td className="p-3 flex space-x-2">
+                        {editingHikeId === hike.id ? (
+                          <>
+                            <button
+                              onClick={handleSaveEdit}
+                              className="btn btn-success text-sm"
+                            >
+                              💾 Save
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="btn btn-secondary text-sm"
+                            >
+                              ❌ Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleEditClick(hike)}
+                              className="btn btn-primary text-sm"
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClick(hike)}
+                              className="btn btn-danger text-sm"
+                            >
+                              🗑️ Delete
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))

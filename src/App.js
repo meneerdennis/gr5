@@ -24,6 +24,7 @@ function App() {
   const [selectedHikeId, setSelectedHikeId] = useState(null);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [photoLoading, setPhotoLoading] = useState(false);
 
   // Sort photos by distance along the route
   const sortedPhotos = useMemo(() => {
@@ -35,6 +36,7 @@ function App() {
   // Navigation functions - memoized to prevent hook ordering issues
   const goToPreviousPhoto = useCallback(() => {
     if (selectedPhotoIndex > 0) {
+      setPhotoLoading(true);
       const newIndex = selectedPhotoIndex - 1;
       setSelectedPhotoIndex(newIndex);
       setSelectedPhoto(sortedPhotos[newIndex]);
@@ -43,6 +45,7 @@ function App() {
 
   const goToNextPhoto = useCallback(() => {
     if (selectedPhotoIndex < sortedPhotos.length - 1) {
+      setPhotoLoading(true);
       const newIndex = selectedPhotoIndex + 1;
       setSelectedPhotoIndex(newIndex);
       setSelectedPhoto(sortedPhotos[newIndex]);
@@ -364,9 +367,51 @@ function App() {
                       </button>
                     )}
 
+                    {photoLoading && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "50%",
+                          left: "50%",
+                          transform: "translate(-50%, -50%)",
+                          zIndex: 1001,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: "10px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            border: "4px solid rgba(255, 255, 255, 0.3)",
+                            borderTop: "4px solid white",
+                            borderRadius: "50%",
+                            animation: "spin 1s linear infinite",
+                          }}
+                        />
+                        <div
+                          style={{
+                            color: "white",
+                            fontSize: "14px",
+                            fontWeight: "500",
+                            textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)",
+                          }}
+                        >
+                          Loading photo...
+                        </div>
+                      </div>
+                    )}
                     <img
                       src={selectedPhoto.url}
                       alt={selectedPhoto.caption || "Polarsteps foto"}
+                      onLoad={() => setPhotoLoading(false)}
+                      onError={() => setPhotoLoading(false)}
+                      style={{
+                        opacity: photoLoading ? 0.3 : 1,
+                        transition: "opacity 0.3s ease",
+                      }}
                     />
 
                     {/* Photo counter */}

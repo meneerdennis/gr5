@@ -1,5 +1,11 @@
 import { db } from "./firebase";
-import { collection, query, orderBy, getDocs } from "firebase/firestore";
+import {
+  collection,
+  query,
+  orderBy,
+  getDocs,
+  addDoc,
+} from "firebase/firestore";
 import { getAllPhotos } from "./photoService";
 
 export async function getHikesFromFirebase() {
@@ -11,6 +17,13 @@ export async function getHikesFromFirebase() {
     const hikes = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
+      // Reconstruct latlng from lat and lng arrays
+      const latlng = [];
+      if (data.lat && data.lng && data.lat.length === data.lng.length) {
+        for (let i = 0; i < data.lat.length; i++) {
+          latlng.push([data.lat[i], data.lng[i]]);
+        }
+      }
       hikes.push({
         id: doc.id,
         stravaId: data.stravaId,
@@ -23,7 +36,7 @@ export async function getHikesFromFirebase() {
         type: data.type,
         polyline: data.polyline,
         photos: data.photos || [],
-        latlng: data.latlng || [],
+        latlng,
         altitude: data.altitude || [],
         time: data.time || [],
         note: data.note || "",
@@ -34,6 +47,17 @@ export async function getHikesFromFirebase() {
   } catch (error) {
     console.error("Error fetching hikes from Firebase:", error);
     return [];
+  }
+}
+
+export async function addHikeToFirebase(hikeData) {
+  try {
+    const hikesCollection = collection(db, "hikes");
+    const docRef = await addDoc(hikesCollection, hikeData);
+    return { success: true, id: docRef.id };
+  } catch (error) {
+    console.error("Error adding hike to Firebase:", error);
+    return { success: false, error: error.message };
   }
 }
 
@@ -176,6 +200,277 @@ export function decodePolyline(polylineStr) {
   return points;
 }
 
+// Encode array of coordinates to polyline string
+export function encodePolyline(points) {
+  if (!points || points.length === 0) return "";
+
+  let polyline = "";
+  let prevLat = 0;
+  let prevLng = 0;
+
+  points.forEach(([lat, lng]) => {
+    const latInt = Math.round(lat * 1e5);
+    const lngInt = Math.round(lng * 1e5);
+
+    const dLat = latInt - prevLat;
+    const dLng = lngInt - prevLng;
+
+    polyline += encodeValue(dLat);
+    polyline += encodeValue(dLng);
+
+    prevLat = latInt;
+    prevLng = lngInt;
+  });
+
+  return polyline;
+}
+
+function encodeValue(value) {
+  value = value < 0 ? ~(value << 1) : value << 1;
+  let encoded = "";
+  while (value >= 0x20) {
+    encoded += String.fromCharCode((0x20 | (value & 0x1f)) + 63);
+    value >>= 5;
+  }
+  encoded += String.fromCharCode(value + 63);
+  return encoded;
+}
+
+// Parse GPX file content and extract track data
+export function parseGPX(gpxContent) {
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(gpxContent, "text/xml");
+
+  const trackPoints = xmlDoc.querySelectorAll("trkpt");
+  if (trackPoints.length === 0) {
+    throw new Error("No track points found in GPX file");
+  }
+
+  const lat = [];
+  const lng = [];
+  const altitude = [];
+  const time = [];
+
+  trackPoints.forEach((point) => {
+    const latVal = parseFloat(point.getAttribute("lat"));
+    const lonVal = parseFloat(point.getAttribute("lon"));
+    const ele = point.querySelector("ele");
+    const timeEl = point.querySelector("time");
+
+    if (!isNaN(latVal) && !isNaN(lonVal)) {
+      lat.push(latVal);
+      lng.push(lonVal);
+      altitude.push(ele ? parseFloat(ele.textContent) : 0);
+      time.push(timeEl ? new Date(timeEl.textContent).toISOString() : null);
+    }
+  });
+
+  if (lat.length === 0) {
+    throw new Error("No valid track points found");
+  }
+
+  // Downsample to max 1000 points to avoid Firestore index limits
+  const maxPoints = 1000;
+  let sampledLat = lat;
+  let sampledLng = lng;
+  let sampledAltitude = altitude;
+  let sampledTime = time;
+
+  if (lat.length > maxPoints) {
+    const step = Math.floor(lat.length / maxPoints);
+    sampledLat = [];
+    sampledLng = [];
+    sampledAltitude = [];
+    sampledTime = [];
+    for (let i = 0; i < lat.length; i += step) {
+      sampledLat.push(lat[i]);
+      sampledLng.push(lng[i]);
+      sampledAltitude.push(altitude[i]);
+      sampledTime.push(time[i]);
+    }
+    // Ensure last point is included
+    if (sampledLat[sampledLat.length - 1] !== lat[lat.length - 1]) {
+      sampledLat.push(lat[lat.length - 1]);
+      sampledLng.push(lng[lng.length - 1]);
+      sampledAltitude.push(altitude[altitude.length - 1]);
+      sampledTime.push(time[time.length - 1]);
+    }
+  }
+
+  const startDate = sampledTime[0] || new Date().toISOString();
+  const endDate = sampledTime[sampledTime.length - 1] || startDate;
+
+  // Calculate distance
+  let distance = 0;
+  for (let i = 1; i < sampledLat.length; i++) {
+    distance += haversineDistance(
+      [sampledLat[i - 1], sampledLng[i - 1]],
+      [sampledLat[i], sampledLng[i]]
+    );
+  }
+
+  // Calculate moving time (simplified: total time if timestamps available)
+  let movingTimeSec = 0;
+  if (sampledTime[0] && sampledTime[sampledTime.length - 1]) {
+    movingTimeSec = (new Date(endDate) - new Date(startDate)) / 1000;
+  }
+
+  const latlng = sampledLat.map((l, i) => [l, sampledLng[i]]);
+  const polyline = encodePolyline(latlng);
+
+  return {
+    lat: sampledLat,
+    lng: sampledLng,
+    altitude: sampledAltitude,
+    time: sampledTime,
+    distanceKm: distance,
+    movingTimeSec,
+    elapsedTimeSec: movingTimeSec,
+    startDate,
+    polyline,
+    type: "Hike",
+    name: `GPX Import - ${new Date(startDate).toLocaleDateString()}`,
+  };
+}
+
+// Haversine distance calculation
+function haversineDistance([lat1, lon1], [lat2, lon2]) {
+  const R = 6371; // Earth's radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Parse FIT file content (requires fit-parser library)
+export async function parseFIT(fitBuffer) {
+  // Note: Requires 'fit-parser' npm package: npm install fit-parser
+  try {
+    // Convert ArrayBuffer to base64 string
+    const bytes = new Uint8Array(fitBuffer);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64String = btoa(binary);
+
+    const FitParser = (await import("fit-parser")).default;
+    const fitParser = new FitParser({
+      mode: "list",
+    });
+    const data = fitParser.parse(base64String);
+
+    // Extract records (assuming activity data)
+    const records = data.records || [];
+    if (records.length === 0) {
+      throw new Error("No records found in FIT file");
+    }
+
+    const lat = [];
+    const lng = [];
+    const altitude = [];
+    const time = [];
+
+    records.forEach((record) => {
+      if (record.position_lat != null && record.position_long != null) {
+        const latVal = record.position_lat * (180 / Math.pow(2, 31)); // Convert from semicircles
+        const lonVal = record.position_long * (180 / Math.pow(2, 31));
+        lat.push(latVal);
+        lng.push(lonVal);
+        altitude.push(record.altitude || 0);
+        time.push(
+          record.timestamp
+            ? new Date(record.timestamp * 1000).toISOString()
+            : null
+        );
+      }
+    });
+
+    if (lat.length === 0) {
+      throw new Error("No valid track points found in FIT file");
+    }
+
+    // Downsample to max 1000 points to avoid Firestore index limits
+    const maxPoints = 1000;
+    let sampledLat = lat;
+    let sampledLng = lng;
+    let sampledAltitude = altitude;
+    let sampledTime = time;
+
+    if (lat.length > maxPoints) {
+      const step = Math.floor(lat.length / maxPoints);
+      sampledLat = [];
+      sampledLng = [];
+      sampledAltitude = [];
+      sampledTime = [];
+      for (let i = 0; i < lat.length; i += step) {
+        sampledLat.push(lat[i]);
+        sampledLng.push(lng[i]);
+        sampledAltitude.push(altitude[i]);
+        sampledTime.push(time[i]);
+      }
+      // Ensure last point is included
+      if (sampledLat[sampledLat.length - 1] !== lat[lat.length - 1]) {
+        sampledLat.push(lat[lat.length - 1]);
+        sampledLng.push(lng[lng.length - 1]);
+        sampledAltitude.push(altitude[altitude.length - 1]);
+        sampledTime.push(time[time.length - 1]);
+      }
+    }
+
+    const startDate = sampledTime[0] || new Date().toISOString();
+    const endDate = sampledTime[sampledTime.length - 1] || startDate;
+
+    // Calculate distance
+    let distance = 0;
+    for (let i = 1; i < sampledLat.length; i++) {
+      distance += haversineDistance(
+        [sampledLat[i - 1], sampledLng[i - 1]],
+        [sampledLat[i], sampledLng[i]]
+      );
+    }
+
+    let movingTimeSec = 0;
+    if (sampledTime[0] && sampledTime[sampledTime.length - 1]) {
+      movingTimeSec = (new Date(endDate) - new Date(startDate)) / 1000;
+    }
+
+    const latlng = sampledLat.map((l, i) => [l, sampledLng[i]]);
+    const polyline = encodePolyline(latlng);
+
+    return {
+      lat: sampledLat,
+      lng: sampledLng,
+      altitude: sampledAltitude,
+      time: sampledTime,
+      distanceKm: distance,
+      movingTimeSec,
+      elapsedTimeSec: movingTimeSec,
+      startDate,
+      polyline,
+      type: "Hike",
+      name: `FIT Import - ${new Date(startDate).toLocaleDateString()}`,
+    };
+  } catch (error) {
+    console.error("FIT parsing error:", error);
+    if (
+      error.message.includes("fit-parser") ||
+      error.message.includes("stringToParse")
+    ) {
+      throw new Error(
+        "FIT file parsing is not supported in the browser. Please use GPX files instead, or install a browser-compatible FIT parser library."
+      );
+    }
+    throw error;
+  }
+}
+
 // Update note for a specific hike
 export async function updateHikeNote(hikeId, note) {
   try {
@@ -185,6 +480,19 @@ export async function updateHikeNote(hikeId, note) {
     return { success: true };
   } catch (error) {
     console.error("Error updating hike note:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Update hike fields
+export async function updateHike(hikeId, updates) {
+  try {
+    const { doc, updateDoc } = await import("firebase/firestore");
+    const hikeRef = doc(db, "hikes", hikeId);
+    await updateDoc(hikeRef, updates);
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating hike:", error);
     return { success: false, error: error.message };
   }
 }
