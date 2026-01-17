@@ -1425,7 +1425,7 @@ input[type="file"] {
   /* Mobile-specific fixes for portrait images */
   .full-image-modal {
     padding: 0.5rem;
-    align-items: flex-start;
+    align-items: center;
     padding-top: 2rem;
   }
 
