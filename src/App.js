@@ -6,6 +6,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { useHikeData } from "./hooks/useHikeData";
+import { useAuth } from "./hooks/useAuth";
 import Layout from "./components/Layout";
 import ElevationProfile from "./components/ElevationProfile";
 import MapView from "./components/MapView";
@@ -22,6 +23,10 @@ import "swiper/css/navigation";
 import "swiper/css/pagination";
 import { useViewedActivities } from "./hooks/useViewedActivities";
 
+import { useLikes } from "./hooks/useLikes";
+import LikeButton from "./components/LikeButton";
+import CommentsSection from "./components/CommentsSection";
+
 function App() {
   const { route, hikes, photos, loading, error } = useHikeData();
   const [hoverPoint, setHoverPoint] = useState(null);
@@ -34,6 +39,8 @@ function App() {
 
   // Note modal state
   const { markAsViewed } = useViewedActivities();
+
+  const { user } = useAuth();
 
   // Sort photos by distance along the route
   const sortedPhotos = useMemo(() => {
@@ -70,6 +77,7 @@ function App() {
 
   // Note modal logic
   const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
+  const { likesCount } = useLikes(selectedHike?.id, user?.uid);
   const noteText = selectedHike?.note || "";
   const showNoteModal = selectedHikeId && noteText;
 
@@ -642,18 +650,7 @@ function App() {
                           marginBottom: "12px",
                         }}
                       >
-                        <button
-                          style={{
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            fontSize: "24px",
-                            color: "#262626",
-                          }}
-                          title="Like"
-                        >
-                          ❤️
-                        </button>
+                        <LikeButton activityId={selectedHike.id} />
                         <button
                           style={{
                             background: "none",
@@ -689,7 +686,7 @@ function App() {
                           color: "#262626",
                         }}
                       >
-                        0 likes
+                        {likesCount || 0} likes
                       </div>
 
                       {/* Caption/Note */}
@@ -711,23 +708,7 @@ function App() {
                           borderTop: "1px solid #e1e5e9",
                         }}
                       >
-                        <div
-                          style={{
-                            fontSize: "14px",
-                            color: "#8e8e8e",
-                            marginBottom: "8px",
-                          }}
-                        >
-                          View all comments
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "14px",
-                            color: "#8e8e8e",
-                          }}
-                        >
-                          Add a comment...
-                        </div>
+                        <CommentsSection activityId={selectedHike.id} />
                       </div>
                     </div>
 

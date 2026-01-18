@@ -5,6 +5,16 @@ import {
   orderBy,
   getDocs,
   addDoc,
+  doc,
+  setDoc,
+  deleteDoc,
+  getDoc,
+  updateDoc,
+  increment,
+  serverTimestamp,
+  onSnapshot,
+  where,
+  runTransaction,
 } from "firebase/firestore";
 import { getAllPhotos } from "./photoService";
 
@@ -560,5 +570,105 @@ export async function deleteQuoteFromFirebase(quoteId) {
   } catch (error) {
     console.error("Error deleting quote from Firebase:", error);
     return { success: false, error: error.message };
+  }
+}
+
+// Social features for activities
+
+export async function toggleLike(activityId, uid) {
+  const likeRef = doc(db, "hikes", activityId, "likes", uid);
+  const activityRef = doc(db, "hikes", activityId);
+  try {
+    return await runTransaction(db, async (transaction) => {
+      const likeDoc = await transaction.get(likeRef);
+      const activityDoc = await transaction.get(activityRef);
+      if (likeDoc.exists()) {
+        // Unlike
+        transaction.delete(likeRef);
+        const currentCount = activityDoc.exists()
+          ? activityDoc.data().likesCount || 0
+          : 0;
+        transaction.set(
+          activityRef,
+          { likesCount: Math.max(0, currentCount - 1) },
+          { merge: true }
+        );
+        return false;
+      } else {
+        // Like
+        transaction.set(likeRef, { createdAt: serverTimestamp() });
+        const currentCount = activityDoc.exists()
+          ? activityDoc.data().likesCount || 0
+          : 0;
+        transaction.set(
+          activityRef,
+          { likesCount: currentCount + 1 },
+          { merge: true }
+        );
+        return true;
+      }
+    });
+  } catch (error) {
+    console.error("Error toggling like:", error);
+    throw error;
+  }
+}
+
+export async function addComment(
+  activityId,
+  uid,
+  text,
+  nickname = "Anonymous hiker"
+) {
+  const commentsRef = collection(db, "hikes", activityId, "comments");
+  try {
+    const docRef = await addDoc(commentsRef, {
+      text,
+      nickname,
+      uid,
+      createdAt: serverTimestamp(),
+      approved: true,
+    });
+    // Update count
+    const activityRef = doc(db, "hikes", activityId);
+    const activityDoc = await getDoc(activityRef);
+    const currentCount = activityDoc.exists()
+      ? activityDoc.data().commentsCount || 0
+      : 0;
+    await setDoc(
+      activityRef,
+      { commentsCount: currentCount + 1 },
+      { merge: true }
+    );
+    return docRef.id;
+  } catch (error) {
+    console.error("Error adding comment:", error);
+    throw error;
+  }
+}
+
+export async function deleteComment(activityId, commentId, uid) {
+  const commentRef = doc(db, "hikes", activityId, "comments", commentId);
+  try {
+    const commentDoc = await getDoc(commentRef);
+    if (commentDoc.exists() && commentDoc.data().uid === uid) {
+      await deleteDoc(commentRef);
+      const activityRef = doc(db, "hikes", activityId);
+      const activityDoc = await getDoc(activityRef);
+      const currentCount = activityDoc.exists()
+        ? activityDoc.data().commentsCount || 0
+        : 0;
+      await setDoc(
+        activityRef,
+        { commentsCount: Math.max(0, currentCount - 1) },
+        { merge: true }
+      );
+      return true;
+    } else {
+      throw new Error("Comment not found or not owned by user");
+    }
+  } catch (error) {
+    console.error("Error deleting comment:", error);
+    throw error;
   }
 }
