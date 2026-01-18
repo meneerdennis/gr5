@@ -29,8 +29,17 @@ function TravelJournalIcon({
   onClearSelectedHike,
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { markAsViewed, getUnreadCount, isViewed } = useViewedActivities();
   const dropdownRef = useRef(null);
+
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // Sort hikes by date (most recent first)
   const sortedHikes = [...hikes].sort((a, b) => {
@@ -92,12 +101,12 @@ function TravelJournalIcon({
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           className="custom-select-trigger"
           style={{
-            width: "280px",
+            width: isMobile ? "200px" : "280px",
             padding: "12px 16px",
             border: "2px solid #4a90e2",
             borderRadius: "12px",
             background: "linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)",
-            fontSize: "15px",
+            fontSize: isMobile ? "12px" : "15px",
             fontWeight: "600",
             cursor: "pointer",
             display: "flex",
@@ -191,6 +200,7 @@ function TravelJournalIcon({
                 cursor: "pointer",
                 color: "#999",
                 borderBottom: "1px solid #f0f0f0",
+                fontSize: isMobile ? "12px" : "14px",
               }}
             >
               selecteer hier de etappe
@@ -212,6 +222,7 @@ function TravelJournalIcon({
                     selectedHikeId === hike.id ? "#f0f8ff" : "white",
                   color: "#333",
                   borderBottom: "1px solid #f0f0f0",
+                  fontSize: isMobile ? "12px" : "14px",
                 }}
                 onMouseEnter={(e) => {
                   e.target.style.backgroundColor = "#f5f5f5";
