@@ -292,8 +292,8 @@ function Layout({ children, progress = 0 }) {
                       <button
                         onClick={() => setIsGR5InfoOpen(true)}
                         style={{
-                          width: "12px",
-                          height: "12px",
+                          width: "18px",
+                          height: "18px",
                           borderRadius: "50%",
                           backgroundColor: "#3b82f6",
                           color: "white",
@@ -302,7 +302,7 @@ function Layout({ children, progress = 0 }) {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          fontSize: "8px",
+                          fontSize: "12px",
                           fontWeight: "bold",
                           marginTop: "10px",
                         }}

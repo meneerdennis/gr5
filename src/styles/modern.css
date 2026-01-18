@@ -136,7 +136,7 @@ body {
   padding: 0;
   background: var(--gradient-background);
   min-height: 100vh;
-  color: #f1f5f9;
+  color: #3d3d3d;
   font-feature-settings: "rlig" 1, "calt" 1;
   -webkit-overflow-scrolling: touch;
 }

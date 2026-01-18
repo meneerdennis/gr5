@@ -1,6 +1,27 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useViewedActivities } from "../hooks/useViewedActivities";
 
+// Add slideDown animation
+const slideDownKeyframes = `
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+
+// Inject the keyframes into the document head
+if (typeof document !== "undefined") {
+  const style = document.createElement("style");
+  style.textContent = slideDownKeyframes;
+  document.head.appendChild(style);
+}
+
 function TravelJournalIcon({
   hikes,
   selectedHikeId,
@@ -11,22 +32,21 @@ function TravelJournalIcon({
   const { markAsViewed, getUnreadCount, isViewed } = useViewedActivities();
   const dropdownRef = useRef(null);
 
-  // Find the currently selected hike to check if it has a note
-  const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
-  const hasNoteOpen = selectedHike?.note && selectedHike.note.trim();
+  // Sort hikes by date (most recent first)
+  const sortedHikes = [...hikes].sort((a, b) => {
+    const dateA = new Date(a.startDate);
+    const dateB = new Date(b.startDate);
+    return dateB - dateA;
+  });
 
-  // Close dropdown when clicking outside (but not if note is currently open)
+  // Get unread activities count for the notification badge
+  const unreadCount = getUnreadCount(sortedHikes);
+
+  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        // Don't close if clicking on the journal button
-        if (event.target.closest(".unified-journal-button")) {
-          return;
-        }
-        // Only close dropdown if there's no note overlay currently open
-        if (!hasNoteOpen) {
-          setIsDropdownOpen(false);
-        }
+        setIsDropdownOpen(false);
       }
     };
 
@@ -39,17 +59,7 @@ function TravelJournalIcon({
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
     };
-  }, [isDropdownOpen, hasNoteOpen]);
-
-  // Sort hikes by date (most recent first)
-  const sortedHikes = [...hikes].sort((a, b) => {
-    const dateA = new Date(a.startDate);
-    const dateB = new Date(b.startDate);
-    return dateB - dateA;
-  });
-
-  // Get unread activities count for the notification badge
-  const unreadCount = getUnreadCount(sortedHikes);
+  }, [isDropdownOpen]);
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -68,49 +78,172 @@ function TravelJournalIcon({
 
     // Call the original onSelectHike function
     onSelectHike(hikeId);
-
-    // Only close dropdown if the activity doesn't have a note
-    const selectedHike = sortedHikes.find((h) => h.id === hikeId);
-    if (selectedHike && !selectedHike.note) {
-      setIsDropdownOpen(false);
-    }
   };
 
   return (
     <div className="travel-journal-icon-container">
-      {/* Unified Journal Button with Text and Icon */}
+      {/* Custom Travel Journal Dropdown */}
       <div
-        className="journal-button-container"
+        className="journal-select-container"
         style={{ position: "relative" }}
+        ref={dropdownRef}
       >
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (isDropdownOpen) {
-              // If closing the dropdown and a note is open, close the note too
-              if (hasNoteOpen) {
-                onClearSelectedHike();
-              }
-            }
-            setIsDropdownOpen(!isDropdownOpen);
+        <div
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          className="custom-select-trigger"
+          style={{
+            width: "280px",
+            padding: "12px 16px",
+            border: "2px solid #4a90e2",
+            borderRadius: "12px",
+            background: "linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)",
+            fontSize: "15px",
+            fontWeight: "600",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            userSelect: "none",
+            boxShadow: "0 4px 15px rgba(74, 144, 226, 0.2)",
+            transition: "all 0.3s ease",
+            position: "relative",
+            overflow: "hidden",
           }}
-          className="unified-journal-button badge"
-          title="View hiking activities"
+          onMouseEnter={(e) => {
+            e.target.style.boxShadow = "0 6px 20px rgba(74, 144, 226, 0.3)";
+            e.target.style.transform = "translateY(-1px)";
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.boxShadow = "0 4px 15px rgba(74, 144, 226, 0.2)";
+            e.target.style.transform = "translateY(0)";
+          }}
+          title="Select hiking activity"
         >
-          <img
-            src={
-              process.env.PUBLIC_URL + "/travel_journal_button_transparent.png"
-            }
-            alt="Travel Journal"
-            className="journal-icon-image"
+          {/* Subtle animated background effect */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: "-100%",
+              width: "100%",
+              height: "100%",
+              background:
+                "linear-gradient(90deg, transparent, rgba(74, 144, 226, 0.1), transparent)",
+              transition: "left 0.5s",
+            }}
           />
-          <div className="travel-journal-text">
-            Travel
-            <br />
-            Journal
+
+          {/* Icon */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "18px" }}>📖</span>
+            <span
+              style={{
+                color: selectedHikeId ? "#2c3e50" : "#7f8c8d",
+                fontWeight: "500",
+              }}
+            >
+              {selectedHikeId
+                ? hikes.find((h) => h.id === selectedHikeId)?.name ||
+                  "Unnamed Activity"
+                : "selecteer etappe"}
+            </span>
           </div>
-        </button>
+
+          <span
+            style={{
+              transform: isDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.3s ease",
+              fontSize: "14px",
+              color: "#4a90e2",
+            }}
+          >
+            ▼
+          </span>
+        </div>
+
+        {/* Custom Dropdown Options */}
+        {isDropdownOpen && (
+          <div
+            className="custom-select-options"
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              background: "linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)",
+              border: "2px solid #4a90e2",
+              borderTop: "none",
+              borderRadius: "0 0 12px 12px",
+              maxHeight: "250px",
+              overflowY: "auto",
+              zIndex: 1000,
+              boxShadow: "0 8px 25px rgba(74, 144, 226, 0.15)",
+              animation: "slideDown 0.3s ease-out",
+            }}
+          >
+            <div
+              onClick={() => {
+                onClearSelectedHike();
+                setIsDropdownOpen(false);
+              }}
+              style={{
+                padding: "8px 12px",
+                cursor: "pointer",
+                color: "#999",
+                borderBottom: "1px solid #f0f0f0",
+              }}
+            >
+              selecteer hier de etappe
+            </div>
+            {sortedHikes.map((hike) => (
+              <div
+                key={hike.id}
+                onClick={() => {
+                  handleActivitySelect(hike.id);
+                  setIsDropdownOpen(false);
+                }}
+                style={{
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  backgroundColor:
+                    selectedHikeId === hike.id ? "#f0f8ff" : "white",
+                  color: "#333",
+                  borderBottom: "1px solid #f0f0f0",
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = "#f5f5f5";
+                  e.target.style.color = "#333";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor =
+                    selectedHikeId === hike.id ? "#f0f8ff" : "white";
+                  e.target.style.color = "#333";
+                }}
+              >
+                <span>
+                  {hike.name || "Unnamed Activity"}
+                  {hike.distanceKm && ` (${hike.distanceKm.toFixed(1)} km)`}
+                </span>
+                {!isViewed(hike.id) && (
+                  <span
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: "50%",
+                      backgroundColor: "#0066cc",
+                      display: "inline-block",
+                      marginLeft: "8px",
+                    }}
+                    title="New activity"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* iOS-style notification badge - only show if there are unread activities */}
         {unreadCount > 0 && (
@@ -140,107 +273,6 @@ function TravelJournalIcon({
           </div>
         )}
       </div>
-
-      {/* Dropdown Menu */}
-      {isDropdownOpen && (
-        <div
-          ref={dropdownRef}
-          className="journal-swiper-container"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="journal-swiper-header">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Afgewerkte etappes
-            </h3>
-            <button
-              onClick={() => setIsDropdownOpen(false)}
-              style={{
-                marginLeft: "auto",
-                background: "none",
-                border: "none",
-                fontSize: "18px",
-                cursor: "pointer",
-                color: "#6b7280",
-                padding: "4px",
-                borderRadius: "4px",
-              }}
-              onMouseEnter={(e) => (e.target.style.color = "#374151")}
-              onMouseLeave={(e) => (e.target.style.color = "#6b7280")}
-            >
-              ×
-            </button>
-            <div className="badge">{sortedHikes.length} etappes</div>
-          </div>
-
-          {sortedHikes.length === 0 ? (
-            <div className="p-3 text-center text-gray-500">
-              No activities found.
-            </div>
-          ) : (
-            <div
-              className="journal-swiper-content"
-              style={{
-                maxHeight: "40vh",
-                overflowY: "auto",
-                overflowX: "hidden",
-                WebkitOverflowScrolling: "touch",
-              }}
-            >
-              {sortedHikes.map((hike) => (
-                <div
-                  key={hike.id}
-                  onClick={() => handleActivitySelect(hike.id)}
-                  className={`activity-dropdown-item ${
-                    selectedHikeId === hike.id ? "selected" : ""
-                  }`}
-                >
-                  <div className="activity-dropdown-item-header">
-                    <div className="activity-dropdown-item-title">
-                      <h4 title={hike.name || "Unnamed Activity"}>
-                        {hike.name || "Unnamed Activity"}
-                      </h4>
-
-                      {/* Show unread indicator */}
-                      {!isViewed(hike.id) && (
-                        <span
-                          title="New activity"
-                          style={{
-                            fontSize: "12px",
-                            color: "#ff3b30",
-                            marginLeft: "4px",
-                            animation: "pulse 1s infinite",
-                          }}
-                        >
-                          ●
-                        </span>
-                      )}
-                    </div>
-                    {selectedHikeId === hike.id && (
-                      <span className="activity-dropdown-check">✓</span>
-                    )}
-                  </div>
-                  <div className="activity-dropdown-item-info">
-                    <div className="flex items-center gap-1">
-                      <span>📅</span>
-                      <span>{formatDate(hike.startDate)}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span>📏</span>
-                      <span>{hike.distanceKm?.toFixed(1) || "0"} km</span>
-                    </div>
-                    {hike.note && (
-                      <div className="flex items-center gap-3">
-                        <span>📝</span>
-                        <span>note</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

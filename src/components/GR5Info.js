@@ -73,7 +73,7 @@ function GR5Info({ isOpen, onClose, isMobile }) {
               fontWeight: activeTab === "gr5" ? "bold" : "normal",
             }}
           >
-            GR5?
+            GR5
           </button>
           <button
             onClick={() => setActiveTab("route")}
@@ -89,7 +89,7 @@ function GR5Info({ isOpen, onClose, isMobile }) {
               fontWeight: activeTab === "route" ? "bold" : "normal",
             }}
           >
-            Mijn route
+            Deze app
           </button>
         </div>
         <div>
@@ -102,12 +102,12 @@ function GR5Info({ isOpen, onClose, isMobile }) {
                     De GR5 is een iconische langeafstandswandelroute die deel
                     uitmaakt van het Europese netwerk van Grande
                     Randonnée-paden. Zowel in Vlaanderen als in Wallonië is de
-                    GR5 de populairste langeafstandsroute. Ben jij een geoefende
-                    stapper en wil jij je wagen aan dit onvergetelijke
-                    wandelavontuur? Met een overzicht van de verschillende
-                    etappes en tips voor onderweg helpen wij je met het
-                    vormgeven van je wandelvakantie. "Deux milles kilomètres à
-                    pied, ça use les souliers!"
+                    GR5 de populairste langeafstandsroute.
+                    <p>
+                      <quote>
+                        "Deux milles kilomètres à pied, ça use les souliers!"
+                      </quote>
+                    </p>
                   </p>
                   <h4>De GR5: feiten & cijfers</h4>
                   <ul>
@@ -225,12 +225,12 @@ function GR5Info({ isOpen, onClose, isMobile }) {
                       De GR5 is een iconische langeafstandswandelroute die deel
                       uitmaakt van het Europese netwerk van Grande
                       Randonnée-paden. Zowel in Vlaanderen als in Wallonië is de
-                      GR5 de populairste langeafstandsroute. Ben jij een
-                      geoefende stapper en wil jij je wagen aan dit
-                      onvergetelijke wandelavontuur? Met een overzicht van de
-                      verschillende etappes en tips voor onderweg helpen wij je
-                      met het vormgeven van je wandelvakantie. "Deux milles
-                      kilomètres à pied, ça use les souliers!"
+                      GR5 de populairste langeafstandsroute.
+                      <p>
+                        <quote>
+                          "Deux milles kilomètres à pied, ça use les souliers!"
+                        </quote>
+                      </p>
                     </p>
                     <h4>De GR5: feiten & cijfers</h4>
                     <ul>
@@ -300,7 +300,7 @@ function GR5Info({ isOpen, onClose, isMobile }) {
           )}
           {activeTab === "route" && (
             <div>
-              <p>Hier komt informatie over mijn persoonlijke route.</p>
+              <p>Hier komt meer info over deze app.</p>
             </div>
           )}
         </div>

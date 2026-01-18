@@ -15,6 +15,12 @@ import AdminNoteEditor from "./components/AdminNoteEditor";
 import AdminActivityManager from "./components/AdminActivityManager";
 import AdminQuoteManager from "./components/AdminQuoteManager";
 import AdminRoute from "./components/AdminRoute";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Navigation, Pagination } from "swiper/modules";
+import "swiper/css";
+import "swiper/css/navigation";
+import "swiper/css/pagination";
+import { useViewedActivities } from "./hooks/useViewedActivities";
 
 function App() {
   const { route, hikes, photos, loading, error } = useHikeData();
@@ -25,6 +31,9 @@ function App() {
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [photoLoading, setPhotoLoading] = useState(false);
+
+  // Note modal state
+  const { markAsViewed } = useViewedActivities();
 
   // Sort photos by distance along the route
   const sortedPhotos = useMemo(() => {
@@ -58,6 +67,59 @@ function App() {
       setCurrentWalkedDistance(route.walkedDistanceKm);
     }
   }, [route]);
+
+  // Note modal logic
+  const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
+  const noteText = selectedHike?.note || "";
+  const showNoteModal = selectedHikeId && noteText;
+
+  // Mobile detection for modal styling
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Helper function to format date
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  // Get all hikes with notes for navigation
+  const hikesWithNotes = hikes.filter((hike) => hike.note && hike.note.trim());
+  const currentNoteIndex = hikesWithNotes.findIndex(
+    (hike) => hike.id === selectedHikeId
+  );
+  const hasPreviousNote = currentNoteIndex > 0;
+  const hasNextNote = currentNoteIndex < hikesWithNotes.length - 1;
+
+  // Navigation functions for notes (with mark as viewed)
+  const goToPreviousNote = () => {
+    if (hasPreviousNote) {
+      const previousHike = hikesWithNotes[currentNoteIndex - 1];
+      setSelectedHikeId(previousHike.id);
+      // Mark as viewed when navigating via arrows
+      markAsViewed(previousHike.id);
+    }
+  };
+
+  const goToNextNote = () => {
+    if (hasNextNote) {
+      const nextHike = hikesWithNotes[currentNoteIndex + 1];
+      setSelectedHikeId(nextHike.id);
+      // Mark as viewed when navigating via arrows
+      markAsViewed(nextHike.id);
+    }
+  };
 
   // Keyboard navigation for modal - always called to maintain hook order
   useEffect(() => {
@@ -428,6 +490,306 @@ function App() {
                           <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>
                             {selectedPhoto.date}
                           </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Note Modal - Instagram-like Post Style */}
+              {showNoteModal && (
+                <div
+                  className="note-modal-backdrop"
+                  onClick={(e) => {
+                    // Only close if clicking the backdrop, not the content
+                    if (e.target === e.currentTarget) {
+                      setSelectedHikeId(null);
+                    }
+                  }}
+                  style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    display: "flex",
+                    alignItems: isMobile ? "flex-start" : "center",
+                    justifyContent: "center",
+                    zIndex: 2000,
+                    padding: isMobile ? "10px" : "20px",
+                    overflowY: isMobile ? "auto" : "hidden",
+                  }}
+                >
+                  <div
+                    className="instagram-post-modal"
+                    style={{
+                      maxWidth: "500px",
+                      width: "100%",
+                      maxHeight: isMobile ? "none" : "90vh",
+                      height: isMobile ? "auto" : "auto",
+                      backgroundColor: "white",
+                      borderRadius: "12px",
+                      boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+                      border: "1px solid #e1e5e9",
+                      overflow: isMobile ? "visible" : "hidden",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    {/* Instagram Header */}
+                    <div
+                      className="instagram-header"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 16px",
+                        borderBottom: "1px solid #e1e5e9",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        <div
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "50%",
+                            backgroundColor: "#f0f0f0",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            marginRight: "12px",
+                            fontSize: "16px",
+                          }}
+                        >
+                          🏔️
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: "600", fontSize: "14px" }}>
+                            {selectedHike?.name || "GR5 Hike"}
+                          </div>
+                          <div style={{ fontSize: "12px", color: "#8e8e8e" }}>
+                            {formatDate(selectedHike?.startDate)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => setSelectedHikeId(null)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: "20px",
+                          color: "#8e8e8e",
+                          padding: "4px",
+                        }}
+                        title="Close post"
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    {/* Photos Swiper */}
+                    {selectedHike?.photos && selectedHike.photos.length > 0 && (
+                      <div
+                        className="instagram-photos"
+                        style={{ position: "relative", flexShrink: 0 }}
+                      >
+                        <Swiper
+                          modules={[Navigation, Pagination]}
+                          spaceBetween={0}
+                          slidesPerView={1}
+                          navigation
+                          pagination={{ clickable: true }}
+                          style={{ height: "400px" }}
+                        >
+                          {selectedHike.photos.map((photo, index) => (
+                            <SwiperSlide key={index}>
+                              <img
+                                src={photo.url}
+                                alt={photo.caption || `Photo ${index + 1}`}
+                                style={{
+                                  width: "100%",
+                                  height: "400px",
+                                  objectFit: "cover",
+                                }}
+                              />
+                            </SwiperSlide>
+                          ))}
+                        </Swiper>
+                      </div>
+                    )}
+
+                    {/* Post Content */}
+                    <div
+                      className="instagram-content"
+                      style={{
+                        padding: "12px 16px",
+                        flex: isMobile ? "none" : 1,
+                        overflowY: isMobile ? "visible" : "auto",
+                      }}
+                    >
+                      {/* Action Buttons */}
+                      <div
+                        className="instagram-actions"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "16px",
+                          marginBottom: "12px",
+                        }}
+                      >
+                        <button
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: "24px",
+                            color: "#262626",
+                          }}
+                          title="Like"
+                        >
+                          ❤️
+                        </button>
+                        <button
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: "24px",
+                            color: "#262626",
+                          }}
+                          title="Comment"
+                        >
+                          💬
+                        </button>
+                        <button
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: "24px",
+                            color: "#262626",
+                          }}
+                          title="Share"
+                        >
+                          📤
+                        </button>
+                      </div>
+
+                      {/* Likes Count */}
+                      <div
+                        style={{
+                          fontSize: "14px",
+                          fontWeight: "600",
+                          marginBottom: "8px",
+                          color: "#262626",
+                        }}
+                      >
+                        0 likes
+                      </div>
+
+                      {/* Caption/Note */}
+                      <div className="instagram-caption">
+                        <span style={{ fontWeight: "600", marginRight: "8px" }}>
+                          {selectedHike?.name || "GR5 Hike"}
+                        </span>
+                        <span style={{ fontSize: "14px", color: "#262626" }}>
+                          {noteText}
+                        </span>
+                      </div>
+
+                      {/* Comments Section (placeholder) */}
+                      <div
+                        className="instagram-comments"
+                        style={{
+                          marginTop: "12px",
+                          paddingTop: "12px",
+                          borderTop: "1px solid #e1e5e9",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: "14px",
+                            color: "#8e8e8e",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          View all comments
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "14px",
+                            color: "#8e8e8e",
+                          }}
+                        >
+                          Add a comment...
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Navigation Arrows for Multiple Notes */}
+                    {(hasPreviousNote || hasNextNote) && (
+                      <div
+                        className="instagram-navigation"
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          padding: "8px 16px",
+                          backgroundColor: "#fafafa",
+                          borderTop: "1px solid #e1e5e9",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {hasPreviousNote ? (
+                          <button
+                            onClick={goToPreviousNote}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              fontSize: "14px",
+                              color: "#0095f6",
+                              fontWeight: "600",
+                            }}
+                          >
+                            ‹ Previous
+                          </button>
+                        ) : (
+                          <div />
+                        )}
+
+                        {hikesWithNotes.length > 1 && (
+                          <span
+                            style={{
+                              fontSize: "12px",
+                              color: "#8e8e8e",
+                              alignSelf: "center",
+                            }}
+                          >
+                            {currentNoteIndex + 1} of {hikesWithNotes.length}
+                          </span>
+                        )}
+
+                        {hasNextNote ? (
+                          <button
+                            onClick={goToNextNote}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              fontSize: "14px",
+                              color: "#0095f6",
+                              fontWeight: "600",
+                            }}
+                          >
+                            Next ›
+                          </button>
+                        ) : (
+                          <div />
                         )}
                       </div>
                     )}
