@@ -4,6 +4,7 @@ import {
   updatePhoto,
   deletePhoto,
   createThumbnailsForExistingPhotos,
+  uploadMultiplePhotos,
 } from "../services/photoService";
 import { getHikesFromFirebase } from "../services/firebaseService";
 import {
@@ -14,6 +15,7 @@ import {
   Polyline,
 } from "react-leaflet";
 import L from "leaflet";
+import EXIF from "exif-js";
 import "leaflet/dist/leaflet.css";
 
 // Fix for default markers in react-leaflet
@@ -27,7 +29,7 @@ L.Icon.Default.mergeOptions({
 
 const photoIcon = new L.Icon({
   iconUrl:
-    "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUiIGhlaWdodD0iNDEiIHZpZXdCb3g9IjAgMCAyNSA0MSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMjAuNSAyMS41QzIxLjQ4IDE3LjY3MyAyMS41IDEyLjc4NiAyMS41IDhDMjEuNSAzLjYzNjQgMTYuOTQ2IC0xIDExLjUgLTFDMTAuMDQ0IC0xIDguNSAwLjc1MTQgOC41IDIuNTAwOEM4LjUgMi43Mjk0IDguNTI3NyAyLjk2NDYgOC41NSAzLjIxOUw4LjU1IDQuNDI2MUM4LjU1IDQuNDY5IDguNTU4NCA0LjUxMjIgOC41NjcgNC41NTI2TDguNTY3IDQuOTg2MUM4LjU2NyA1LjAzNDQgOC41NjkgNS4wODE0IDguNTcyIDUuMTI5TDguNTcyIDUuNDQ5QzguNTcyIDUuNDk0NiA4LjU3MDYgNS41Mzg3IDguNTY5IDUuNTgyM0w4LjU2OSA1LjkyNTZDNi4yNSA1OS44NTcgMi42OSA0Mi44MzcgMi42OSAyMC44MzNDMi42OSAyMC43OTcgMi42OSAyMC43NjIgMi43MDIgMjAuNzI3TDIuNzAyIDIwLjQ3NUMyLjcwMiAxNi43NTcgMy4yOTEgMTMuMjg3IDQuMjQ2IDEwLjI1NkM1LjI2MiA3LjEzMzYgNi45NDYgNC40NDQzIDkuNzA3IDIuNzg2MUMxMC42ODIgMS45NTM0IDExLjc0OSAxLjUgMTIuODU5IDEuNUMyNy44NTkgMS41IDM5LjUgMTMuMTQxIDM5LjUgMjguMDQxQzM5LjUgNDIuOTUxIDMxLjA3NSA1MS41IDIxLjc1MSA1MS41QzE2LjM2NiA1MS41IDExLjc5NSA0OC4yODQgOS4zMDM5IDQ0LjAzNjlDOC44NzM3IDQwLjgwOSA4LjUgMzcuNTE5IDguNSAzNC4wNzFDOC41IDMyLjA3MSA4Ljk1NDQgMzAuMTk0IDkuNzI3MyAyOC40NTVMMTIuMTIzIDIwLjI4NEw4LjUwNSAzNC4wMTdDOC41MDUgMzQuMTIyIDguNTA2IDMyLjMxNiA4LjUwNiAzMS43MDhDOC41MDYgMzAuMzU2IDguNTY3IDI5LjA3IDguNzE3IDI3Ljk1OEw4LjcxNyAyNy41NDdDOC43MTcgMjcuMTQ4IDguNzQ0IDI2Ljc1MyA4Ljc5IDI2LjM5NkwxMC4yMjUgMTguMjM2TDEyLjMwMyAyMC4yNTdMMTQuMzc1IDE4LjIyOEwxNS44NTIgMTkuNzE2QzE3LjQ4OSAyMS4xOTUgMTguNTQyIDIuNTcyIDE5LjI2NCAxNy44NTZDMjAuNzIgMTYuMzk2IDIwLjUgMjEuNSAyMC41IDIxLjVaIiBmaWxsPSIjZmY1NzIyIi8+PC9zdmc+",
+    "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUiIGhlaWdodD0iNDEiIHZpZXdCb3g9IjAgMCAyNSA0MSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMjAuNSAyMS41QzIxLjQ4IDE3LjY3MyAyMS41IDEyLjc4NiAyMS41IDhDMjEuNSAzLjYzNjQgMTYuOTQ2IC0xIDExLjUgLTFDMTAuMDQ0IC0xIDguNSAwLjc1MTQgOC41IDIuNTAwOEM4LjUgMi43Mjk0IDguNTI3NyAyLjk2NDYgOC41NSAzLjIxOUw4LjU1IDQuNDI2MUM4LjU1IDQuNDY5IDguNTU4NCA0LjUxMjIgOC41NjcgNC41NTI2TDguNTY3IDQuOTg2MUM4LjU2NyA1LjAzNDQgOC41NjkgNS4wODE0IDguNTcyIDUuMTI5TDguNTcyIDUuNDQ5QzguNTcyIDUuNDk0NiA4LjU3MDYgNS41Mzg3IDguNTY5IDUuNTgyM0w4LjU2OSA1LjkyNTZDNi4yNSA1OS44NTcgMi42OSA0Mi44MzcgMi42OSAyMC44MzNDMi42OSAyMC43OTcgMi2OSAyMC43NjIgMi43MDIgMjAuNzI3TDIuNzAyIDIwLjQ3NUMyLjcwMiAxNi43NTcgMy4yOTEgMTMuMjg3IDQuMjQ2IDEwLjI1NkM1LjI2MiA3LjEzMzYgNi45NDYgNC40NDQzIDkuNzA3IDIuNzg2MUMxMC42ODIgMS45NTM0IDExLjc0OSAxLjUgMTIuODU5IDEuNUMyNy44NTkgMS41IDM5LjUgMTMuMTQxIDM5LjUgMjguMDQxQzM5LjUgNDIuOTUxIDMxLjA3NSA1MS41IDIxLjc1MSA1MS41QzE2LjM2NiA1MS41IDExLjc5NSA0OC4yODQgOS4zMDM5IDQ0LjAzNjlDOC44NzM3IDQwLjgwOSA4LjUgMzcuNTE5IDguNSAzNC4wNzFDOC41IDMyLjA3MSA4Ljk1NDQgMzAuMTk0IDkuNzI3MyAyOC40NTVMMTIuMTIzIDIwLjI4NEw4LjUwNSAzNC4wMTdDOC41MDUgMzQuMTIyIDguNTA2IDMyLjMxNiA4LjUwNiAzMS43MDhDOC41MDYgMzAuMzU2IDguNTY3IDI5LjA3IDguNzE3IDI3Ljk1OEw4LjcxNyAyNy41NDdDOC43MTcgMjcuMTQ4IDguNzQ0IDI2Ljc1MyA4Ljc5IDI2LjM5NkwxMC4yMjUgMTguMjM2TDEyLjMwMyAyMC4yNTdMMTQuMzc1IDE4LjIyOEwxNS44NTIgMTkuNzE2QzE3LjQ4OSAyMS4xOTUgMTguNTQyIDIuNTcyIDE5LjI2NCAxNy44NTZDMjAuNzIgMTYuMzk2IDIwLjUgMjEuNSAyMC41IDIxLjVaIiBmaWxsPSIjZmY1NzIyIi8+PC9zdmc+",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
@@ -54,6 +56,17 @@ function AdminPhotoManager() {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const tableContainerRef = useRef(null);
+
+  // Upload related states
+  const [selectedHike, setSelectedHike] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [exifPreview, setExifPreview] = useState([]);
+  const [formData, setFormData] = useState({
+    caption: "",
+    description: "",
+  });
 
   useEffect(() => {
     loadData();
@@ -166,6 +179,9 @@ function AdminPhotoManager() {
         // Reload photos to reflect changes
         await loadData();
         setDeletingPhoto(null);
+
+        // Notify main app to refetch photos
+        window.dispatchEvent(new CustomEvent("photoUploaded"));
         // Restore body scroll
         document.body.style.overflow = "unset";
         document.body.classList.remove("modal-open");
@@ -378,6 +394,9 @@ function AdminPhotoManager() {
       setSelectedPhotos(new Set());
       setShowBulkDeleteModal(false);
 
+      // Notify main app to refetch photos
+      window.dispatchEvent(new CustomEvent("photoUploaded"));
+
       // Show success message
       const message = `Successfully deleted ${successful} photo(s)`;
       const successMsg = document.createElement("div");
@@ -411,6 +430,120 @@ function AdminPhotoManager() {
     }
   };
 
+  // Upload functions
+  const handleFileSelection = async (event) => {
+    const files = Array.from(event.target.files);
+    setSelectedFiles(files);
+    setUploadStatus(null);
+
+    // Extract EXIF preview data for first few files to show user
+    const previewData = [];
+    for (let i = 0; i < Math.min(files.length, 3); i++) {
+      const file = files[i];
+      try {
+        const exifData = await extractExifData(file);
+        previewData.push({
+          name: file.name,
+          hasLocation: !!(exifData.lat && exifData.lng),
+          hasDate: !!exifData.date,
+          lat: exifData.lat,
+          lng: exifData.lng,
+          date: exifData.date,
+        });
+      } catch (error) {
+        previewData.push({
+          name: file.name,
+          hasLocation: false,
+          hasDate: false,
+          error: error.message,
+        });
+      }
+    }
+    setExifPreview(previewData);
+  };
+
+  const handleBatchUpload = async (event) => {
+    if (!selectedHike || selectedFiles.length === 0) {
+      setUploadStatus({
+        type: "error",
+        message: "Please select a hike and files first.",
+      });
+      return;
+    }
+
+    setUploading(true);
+    setUploadStatus(null);
+
+    try {
+      // Upload all selected files, regardless of location data
+      const result = await uploadMultiplePhotos(
+        selectedFiles,
+        selectedHike,
+        formData.caption
+      );
+
+      if (result.success) {
+        const { uploaded, failed, summary } = result;
+
+        let message = `✅ Successfully uploaded ${summary.successful} media file(s)!`;
+        if (summary.withExif > 0) {
+          message += ` (${summary.withExif} with location data)`;
+        }
+        if (summary.failed > 0) {
+          message += ` ⚠️ ${summary.failed} failed to upload`;
+        }
+
+        setUploadStatus({
+          type: summary.failed > 0 ? "warning" : "success",
+          message: message,
+        });
+
+        // Show details about each uploaded photo
+        const details = [];
+        uploaded.forEach((photo) => {
+          details.push(
+            `📸 ${photo.fileName} ${photo.exifExtracted ? "📍" : ""}`
+          );
+        });
+        failed.forEach((fail) => {
+          details.push(`❌ ${fail.fileName}: ${fail.error}`);
+        });
+
+        if (details.length > 0) {
+          setUploadStatus({
+            type: summary.failed > 0 ? "warning" : "success",
+            message: message,
+            details: details,
+          });
+        }
+
+        // Reset form
+        setFormData({ caption: "", description: "" });
+        setSelectedFiles([]);
+        setExifPreview([]);
+        event.target.value = "";
+
+        // Reload photos to show new uploads
+        await loadData();
+
+        // Notify main app to refetch photos
+        window.dispatchEvent(new CustomEvent("photoUploaded"));
+      } else {
+        setUploadStatus({
+          type: "error",
+          message: "Upload failed: " + result.error,
+        });
+      }
+    } catch (error) {
+      setUploadStatus({
+        type: "error",
+        message: "Upload failed: " + error.message,
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-4 sm:p-6">
@@ -435,11 +568,11 @@ function AdminPhotoManager() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-100 mb-2">
-                📸 Photo Management
+                📸 Media Management & Upload
               </h1>
               <p className="text-gray-300">
-                Manage your uploaded photos - edit captions, routes, and delete
-                unwanted images.
+                Upload new photos and videos and manage your existing media
+                collection.
               </p>
             </div>
             <div className="mt-4 sm:mt-0 flex space-x-2">
@@ -451,6 +584,134 @@ function AdminPhotoManager() {
                   🗑️ Delete Selected ({selectedPhotos.size})
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Upload Section */}
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-100 mb-4">
+              📤 Upload New Media
+            </h2>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {/* Left Column - Form */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-200 mb-2">
+                    Select Hike/Activity
+                  </label>
+                  <select
+                    value={selectedHike}
+                    onChange={(e) => setSelectedHike(e.target.value)}
+                    className="input"
+                  >
+                    <option value="" style={{ color: "black" }}>
+                      Choose a hike...
+                    </option>
+                    {hikes.map((hike) => (
+                      <option
+                        key={hike.id}
+                        value={hike.id}
+                        style={{ color: "black" }}
+                      >
+                        {hike.name} ({formatDate(hike.startDate)}) -{" "}
+                        {hike.distanceKm?.toFixed(1)}km
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-200 mb-2">
+                    Caption (optional - applies to all media)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.caption}
+                    onChange={(e) =>
+                      setFormData({ ...formData, caption: e.target.value })
+                    }
+                    className="input"
+                    placeholder="Caption for all photos..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-200 mb-2">
+                    Select Photos and Videos
+                  </label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,video/*"
+                    onChange={handleFileSelection}
+                    className="input"
+                    disabled={uploading}
+                  />
+                </div>
+
+                {selectedFiles.length > 0 && (
+                  <div className="p-3 bg-blue-900 bg-opacity-30 border border-blue-500 border-opacity-30 rounded-lg">
+                    <p className="text-blue-300 text-sm mb-2">
+                      📁 {selectedFiles.length} media file(s) selected
+                    </p>
+
+                    {exifPreview.length > 0 && (
+                      <div className="text-xs text-blue-200">
+                        <p className="font-medium mb-1">Metadata Preview:</p>
+                        {exifPreview.map((preview, index) => (
+                          <div key={index} className="mb-1">
+                            <span className="font-mono">{preview.name}</span>
+                            <span className="ml-2">
+                              {preview.hasLocation ? "📍" : "❌"}
+                              {preview.hasDate ? " 📅" : " ❌"}
+                            </span>
+                          </div>
+                        ))}
+                        {selectedFiles.length > 3 && (
+                          <p className="text-xs text-blue-300">
+                            ... and {selectedFiles.length - 3} more
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {uploadStatus && (
+                  <div
+                    className={`p-3 rounded-lg ${
+                      uploadStatus.type === "success"
+                        ? "bg-green-900 bg-opacity-30 text-green-300 border border-green-500 border-opacity-30"
+                        : uploadStatus.type === "warning"
+                        ? "bg-yellow-900 bg-opacity-30 text-yellow-300 border border-yellow-500 border-opacity-30"
+                        : "bg-red-900 bg-opacity-30 text-red-300 border border-red-500 border-opacity-30"
+                    }`}
+                  >
+                    <p>{uploadStatus.message}</p>
+                    {uploadStatus.details && (
+                      <div className="mt-2 text-xs font-mono">
+                        {uploadStatus.details.map((detail, index) => (
+                          <div key={index}>{detail}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  onClick={handleBatchUpload}
+                  disabled={
+                    !selectedHike || selectedFiles.length === 0 || uploading
+                  }
+                  className="w-full btn btn-primary"
+                >
+                  {uploading
+                    ? "⏳ Uploading Media..."
+                    : `📤 Upload ${selectedFiles.length} Media File(s)`}
+                </button>
+              </div>
+
+              {/* Right Column - Info */}
             </div>
           </div>
 
@@ -482,7 +743,7 @@ function AdminPhotoManager() {
 
             <div>
               <label className="block text-sm font-medium text-gray-200 mb-2">
-                Search Photos
+                Search Media
               </label>
               <input
                 type="text"
@@ -495,7 +756,7 @@ function AdminPhotoManager() {
 
             <div className="flex items-end">
               <div className="text-sm text-gray-300">
-                <strong>{filteredPhotos.length}</strong> photo(s) found
+                <strong>{filteredPhotos.length}</strong> media file(s) found
               </div>
             </div>
           </div>
@@ -536,23 +797,22 @@ function AdminPhotoManager() {
             </div>
           )}
         </div>
-
         {/* Photos Table */}
         <div className="glass-card p-4 sm:p-6">
           <h2 className="text-xl font-semibold text-gray-100 mb-4">
-            📷 Photos ({filteredPhotos.length})
+            📷 Media ({filteredPhotos.length})
           </h2>
 
           {filteredPhotos.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">📷</div>
               <h3 className="text-xl font-medium text-gray-100 mb-2">
-                No photos found
+                No media found
               </h3>
               <p className="text-gray-300">
                 {searchTerm || filterRoute
                   ? "Try adjusting your search or filter criteria."
-                  : "Upload some photos first!"}
+                  : "Upload some media first!"}
               </p>
             </div>
           ) : (
@@ -606,19 +866,50 @@ function AdminPhotoManager() {
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <img
-                          src={photo.thumbnail}
-                          alt={photo.caption || "Photo"}
-                          className="photo-thumbnail"
-                          onClick={() => openFullImage(photo)}
-                          onError={(e) => {
-                            console.warn(
-                              "Table thumbnail failed to load:",
-                              photo.url
-                            );
-                            e.target.src = photo.url; // Fallback to original
-                          }}
-                        />
+                        {(photo.type && photo.type.startsWith("video/")) ||
+                        photo.thumbnail?.includes(".mov") ||
+                        photo.thumbnail?.includes(".mp4") ||
+                        photo.thumbnail?.includes(".avi") ||
+                        photo.thumbnail?.includes(".webm") ? (
+                          <div className="relative">
+                            <video
+                              src={photo.thumbnail || photo.url}
+                              alt={photo.caption || "Video"}
+                              className="photo-thumbnail"
+                              onClick={() => openFullImage(photo)}
+                              muted
+                              onError={(e) => {
+                                console.warn(
+                                  "Table video thumbnail failed to load:",
+                                  photo.url
+                                );
+                                // Fallback to a play icon overlay on a placeholder
+                                e.target.style.display = "none";
+                                const parent = e.target.parentElement;
+                                const playIcon = document.createElement("div");
+                                playIcon.innerHTML = "▶️";
+                                playIcon.className =
+                                  "absolute inset-0 flex items-center justify-center text-2xl bg-gray-800 bg-opacity-50 rounded";
+                                playIcon.onclick = () => openFullImage(photo);
+                                parent.appendChild(playIcon);
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <img
+                            src={photo.thumbnail}
+                            alt={photo.caption || "Photo"}
+                            className="photo-thumbnail"
+                            onClick={() => openFullImage(photo)}
+                            onError={(e) => {
+                              console.warn(
+                                "Table thumbnail failed to load:",
+                                photo.url
+                              );
+                              e.target.src = photo.url; // Fallback to original
+                            }}
+                          />
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-100">
@@ -731,40 +1022,87 @@ function AdminPhotoManager() {
             className="full-image-container"
             onClick={(e) => e.stopPropagation()}
           >
-            <img
-              src={showFullImage.url}
-              alt={showFullImage.caption || "Full size photo"}
-              className="max-w-full max-h-[80vh] object-contain mx-auto block"
-              style={{
-                maxHeight: "80vh",
-                maxWidth: "90vw",
-              }}
-              onLoad={() =>
-                console.log(
-                  "Modal image loaded successfully:",
-                  showFullImage.url
-                )
-              }
-              onError={(e) => {
-                console.error("Modal image failed to load:", showFullImage.url);
-                console.log("Error target:", e.target);
-                console.log("Error src:", e.target.src);
-                // Try to show the backup image as fallback
-                if (
-                  showFullImage.backupUrl &&
-                  e.target.src !== showFullImage.backupUrl
-                ) {
+            {showFullImage.type && showFullImage.type.startsWith("video/") ? (
+              <video
+                src={showFullImage.url}
+                controls
+                className="max-w-full max-h-[80vh] object-contain mx-auto block"
+                style={{
+                  maxHeight: "80vh",
+                  maxWidth: "90vw",
+                }}
+                onLoad={() =>
                   console.log(
-                    "Falling back to backup image:",
-                    showFullImage.backupUrl
-                  );
-                  e.target.src = showFullImage.backupUrl;
-                } else {
-                  console.log("All image sources failed, showing error state");
-                  e.target.style.display = "none";
+                    "Modal video loaded successfully:",
+                    showFullImage.url
+                  )
                 }
-              }}
-            />
+                onError={(e) => {
+                  console.error(
+                    "Modal video failed to load:",
+                    showFullImage.url
+                  );
+                  console.log("Error target:", e.target);
+                  console.log("Error src:", e.target.src);
+                  // Try to show the backup video as fallback
+                  if (
+                    showFullImage.backupUrl &&
+                    e.target.src !== showFullImage.backupUrl
+                  ) {
+                    console.log(
+                      "Falling back to backup video:",
+                      showFullImage.backupUrl
+                    );
+                    e.target.src = showFullImage.backupUrl;
+                  } else {
+                    console.log(
+                      "All video sources failed, showing error state"
+                    );
+                    e.target.style.display = "none";
+                  }
+                }}
+              />
+            ) : (
+              <img
+                src={showFullImage.url}
+                alt={showFullImage.caption || "Full size photo"}
+                className="max-w-full max-h-[80vh] object-contain mx-auto block"
+                style={{
+                  maxHeight: "80vh",
+                  maxWidth: "90vw",
+                }}
+                onLoad={() =>
+                  console.log(
+                    "Modal image loaded successfully:",
+                    showFullImage.url
+                  )
+                }
+                onError={(e) => {
+                  console.error(
+                    "Modal image failed to load:",
+                    showFullImage.url
+                  );
+                  console.log("Error target:", e.target);
+                  console.log("Error src:", e.target.src);
+                  // Try to show the backup image as fallback
+                  if (
+                    showFullImage.backupUrl &&
+                    e.target.src !== showFullImage.backupUrl
+                  ) {
+                    console.log(
+                      "Falling back to backup image:",
+                      showFullImage.backupUrl
+                    );
+                    e.target.src = showFullImage.backupUrl;
+                  } else {
+                    console.log(
+                      "All image sources failed, showing error state"
+                    );
+                    e.target.style.display = "none";
+                  }
+                }}
+              />
+            )}
             <button onClick={closeFullImage} className="close-button">
               ❌
             </button>
@@ -876,6 +1214,94 @@ function AdminPhotoManager() {
       )}
     </div>
   );
+}
+
+// Helper function to extract EXIF data (duplicate from service for preview)
+function extractExifData(file) {
+  return new Promise((resolve) => {
+    EXIF.getData(file, function () {
+      try {
+        const allMetadata = EXIF.getAllTags(this);
+
+        // Extract GPS data
+        const gpsLatitude = EXIF.getTag(this, "GPSLatitude");
+        const gpsLongitude = EXIF.getTag(this, "GPSLongitude");
+        const gpsLatitudeRef = EXIF.getTag(this, "GPSLatitudeRef");
+        const gpsLongitudeRef = EXIF.getTag(this, "GPSLongitudeRef");
+
+        // Extract date taken
+        const dateTimeOriginal = EXIF.getTag(this, "DateTimeOriginal");
+        const createDate = EXIF.getTag(this, "CreateDate");
+
+        // Convert GPS coordinates to decimal format
+        let lat = null;
+        let lng = null;
+
+        if (gpsLatitude && gpsLongitude) {
+          lat = convertToDecimal(gpsLatitude, gpsLatitudeRef);
+          lng = convertToDecimal(gpsLongitude, gpsLongitudeRef);
+        }
+
+        // Convert date to ISO string
+        let photoDate = null;
+        if (dateTimeOriginal) {
+          photoDate = convertExifDateToISO(dateTimeOriginal);
+        } else if (createDate) {
+          photoDate = convertExifDateToISO(createDate);
+        }
+
+        resolve({
+          lat,
+          lng,
+          date: photoDate,
+          exifData: allMetadata,
+        });
+      } catch (error) {
+        console.warn("Error extracting EXIF data:", error);
+        resolve({ lat: null, lng: null, date: null, exifData: {} });
+      }
+    });
+  });
+}
+
+// Convert GPS coordinates from DMS format to decimal
+function convertToDecimal(dms, ref) {
+  if (!dms || !ref) return null;
+
+  try {
+    const degrees = parseFloat(dms[0]) || 0;
+    const minutes = parseFloat(dms[1]) || 0;
+    const seconds = parseFloat(dms[2]) || 0;
+
+    let decimal = degrees + minutes / 60 + seconds / 3600;
+
+    // Apply direction reference
+    if (ref === "S" || ref === "W") {
+      decimal = -decimal;
+    }
+
+    return isNaN(decimal) ? null : decimal;
+  } catch (error) {
+    console.warn("Error converting GPS coordinates:", error);
+    return null;
+  }
+}
+
+// Convert EXIF date format to ISO string
+function convertExifDateToISO(exifDate) {
+  try {
+    // EXIF date format is typically "YYYY:MM:DD HH:MM:SS"
+    const cleanDate = exifDate.replace(/:/, "-").replace(/:/, "-");
+    const date = new Date(cleanDate);
+
+    if (!isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+  } catch (error) {
+    console.warn("Error converting EXIF date:", error);
+  }
+
+  return null;
 }
 
 export default AdminPhotoManager;

@@ -159,25 +159,17 @@ function AdminRoute({ children }) {
               style={{ gap: "0.25rem" }}
             >
               <Link
-                to="/admin/upload"
+                to="/admin/manage"
                 className={`admin-nav-tab ${
+                  location.pathname === "/admin/manage" ||
                   location.pathname === "/admin/upload" ||
                   location.pathname === "/admin"
                     ? "active"
                     : ""
                 }`}
               >
-                <span className="text-base">📤</span>
-                <span>Upload Photos</span>
-              </Link>
-              <Link
-                to="/admin/manage"
-                className={`admin-nav-tab ${
-                  location.pathname === "/admin/manage" ? "active" : ""
-                }`}
-              >
                 <span className="text-base">📸</span>
-                <span>Manage Photos</span>
+                <span>Photo Management</span>
               </Link>
               <Link
                 to="/admin/notes"

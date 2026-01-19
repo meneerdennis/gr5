@@ -193,20 +193,53 @@ function PhotoMarkers({ photos, onPhotoClick }) {
             photoDiv.style.paddingTop = "0.5rem";
           }
 
-          const img = document.createElement("img");
-          img.src = thumbnailUrl;
-          img.alt = photo.caption || "Polarsteps foto";
-          img.style.width = "100%";
-          img.style.borderRadius = "4px";
-          img.style.marginBottom = "0.5rem";
-          img.style.cursor = "pointer";
-          img.style.touchAction = "manipulation";
-          img.setAttribute("data-photo-url", photo.url.replace(/"/g, '"'));
-          img.setAttribute(
+          let mediaElement;
+          if (
+            (photo.type && photo.type.startsWith("video/")) ||
+            photo.url?.includes(".mov") ||
+            photo.url?.includes(".mp4") ||
+            photo.url?.includes(".avi") ||
+            photo.url?.includes(".webm")
+          ) {
+            mediaElement = document.createElement("video");
+            mediaElement.src = thumbnailUrl;
+            mediaElement.style.width = "100%";
+            mediaElement.style.borderRadius = "4px";
+            mediaElement.style.marginBottom = "0.5rem";
+            mediaElement.style.cursor = "pointer";
+            mediaElement.style.touchAction = "manipulation";
+            mediaElement.muted = true;
+            // Add play icon overlay
+            const playIcon = document.createElement("div");
+            playIcon.innerHTML = "▶️";
+            playIcon.style.position = "absolute";
+            playIcon.style.top = "50%";
+            playIcon.style.left = "50%";
+            playIcon.style.transform = "translate(-50%, -50%)";
+            playIcon.style.fontSize = "1.5rem";
+            playIcon.style.pointerEvents = "none";
+            photoDiv.style.position = "relative";
+            photoDiv.appendChild(playIcon);
+          } else {
+            mediaElement = document.createElement("img");
+            mediaElement.src = thumbnailUrl;
+            mediaElement.alt = photo.caption || "Polarsteps foto";
+            mediaElement.style.width = "100%";
+            mediaElement.style.borderRadius = "4px";
+            mediaElement.style.marginBottom = "0.5rem";
+            mediaElement.style.cursor = "pointer";
+            mediaElement.style.touchAction = "manipulation";
+          }
+
+          mediaElement.setAttribute(
+            "data-photo-url",
+            photo.url.replace(/"/g, '"')
+          );
+          mediaElement.setAttribute(
             "data-photo-caption",
             (photo.caption || "").replace(/"/g, '"')
           );
-          img.setAttribute("data-photo-date", photo.date || "");
+          mediaElement.setAttribute("data-photo-date", photo.date || "");
 
           // Add both click and touchend handlers for better mobile support
           const handlePhotoClick = (e) => {
@@ -214,17 +247,17 @@ function PhotoMarkers({ photos, onPhotoClick }) {
             e.stopPropagation();
             if (window.globalPhotoClickHandler) {
               window.globalPhotoClickHandler({
-                url: img.getAttribute("data-photo-url"),
-                caption: img.getAttribute("data-photo-caption"),
-                date: img.getAttribute("data-photo-date"),
+                url: mediaElement.getAttribute("data-photo-url"),
+                caption: mediaElement.getAttribute("data-photo-caption"),
+                date: mediaElement.getAttribute("data-photo-date"),
               });
             }
           };
 
-          img.addEventListener("click", handlePhotoClick);
-          img.addEventListener("touchend", handlePhotoClick);
+          mediaElement.addEventListener("click", handlePhotoClick);
+          mediaElement.addEventListener("touchend", handlePhotoClick);
 
-          photoDiv.appendChild(img);
+          photoDiv.appendChild(mediaElement);
 
           if (photo.caption) {
             const captionDiv = document.createElement("div");
@@ -276,20 +309,53 @@ function PhotoMarkers({ photos, onPhotoClick }) {
             photoDiv.style.paddingTop = "0.5rem";
           }
 
-          const img = document.createElement("img");
-          img.src = thumbnailUrl;
-          img.alt = photo.caption || "Polarsteps foto";
-          img.style.width = "100%";
-          img.style.borderRadius = "4px";
-          img.style.marginBottom = "0.5rem";
-          img.style.cursor = "pointer";
-          img.style.touchAction = "manipulation";
-          img.setAttribute("data-photo-url", photo.url.replace(/"/g, '"'));
-          img.setAttribute(
+          let mediaElement;
+          if (
+            (photo.type && photo.type.startsWith("video/")) ||
+            photo.url?.includes(".mov") ||
+            photo.url?.includes(".mp4") ||
+            photo.url?.includes(".avi") ||
+            photo.url?.includes(".webm")
+          ) {
+            mediaElement = document.createElement("video");
+            mediaElement.src = thumbnailUrl;
+            mediaElement.style.width = "100%";
+            mediaElement.style.borderRadius = "4px";
+            mediaElement.style.marginBottom = "0.5rem";
+            mediaElement.style.cursor = "pointer";
+            mediaElement.style.touchAction = "manipulation";
+            mediaElement.muted = true;
+            // Add play icon overlay
+            const playIcon = document.createElement("div");
+            playIcon.innerHTML = "▶️";
+            playIcon.style.position = "absolute";
+            playIcon.style.top = "50%";
+            playIcon.style.left = "50%";
+            playIcon.style.transform = "translate(-50%, -50%)";
+            playIcon.style.fontSize = "1.5rem";
+            playIcon.style.pointerEvents = "none";
+            photoDiv.style.position = "relative";
+            photoDiv.appendChild(playIcon);
+          } else {
+            mediaElement = document.createElement("img");
+            mediaElement.src = thumbnailUrl;
+            mediaElement.alt = photo.caption || "Polarsteps foto";
+            mediaElement.style.width = "100%";
+            mediaElement.style.borderRadius = "4px";
+            mediaElement.style.marginBottom = "0.5rem";
+            mediaElement.style.cursor = "pointer";
+            mediaElement.style.touchAction = "manipulation";
+          }
+
+          mediaElement.setAttribute(
+            "data-photo-url",
+            photo.url.replace(/"/g, '"')
+          );
+          mediaElement.setAttribute(
             "data-photo-caption",
             (photo.caption || "").replace(/"/g, '"')
           );
-          img.setAttribute("data-photo-date", photo.date || "");
+          mediaElement.setAttribute("data-photo-date", photo.date || "");
 
           // Add both click and touchend handlers for better mobile support
           const handlePhotoClick = (e) => {
@@ -297,17 +363,17 @@ function PhotoMarkers({ photos, onPhotoClick }) {
             e.stopPropagation();
             if (window.globalPhotoClickHandler) {
               window.globalPhotoClickHandler({
-                url: img.getAttribute("data-photo-url"),
-                caption: img.getAttribute("data-photo-caption"),
-                date: img.getAttribute("data-photo-date"),
+                url: mediaElement.getAttribute("data-photo-url"),
+                caption: mediaElement.getAttribute("data-photo-caption"),
+                date: mediaElement.getAttribute("data-photo-date"),
               });
             }
           };
 
-          img.addEventListener("click", handlePhotoClick);
-          img.addEventListener("touchend", handlePhotoClick);
+          mediaElement.addEventListener("click", handlePhotoClick);
+          mediaElement.addEventListener("touchend", handlePhotoClick);
 
-          photoDiv.appendChild(img);
+          photoDiv.appendChild(mediaElement);
 
           if (photo.caption) {
             const captionDiv = document.createElement("div");
@@ -974,7 +1040,10 @@ function MapView({
           })}
 
           {/* Photo markers with clustering */}
-          <PhotoMarkers photos={photos} onPhotoClick={onPhotoClick} />
+          <PhotoMarkers
+            photos={photos.filter((p) => p.lat && p.lng)}
+            onPhotoClick={onPhotoClick}
+          />
 
           {/* Hiker marker - shows current position */}
           {currentPosition && currentPosition.lat && currentPosition.lon && (

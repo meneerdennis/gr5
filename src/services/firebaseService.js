@@ -126,20 +126,18 @@ export async function getAllPhotosWithHikes() {
     const standalonePhotos = await getAllPhotos();
 
     // Convert standalone photos to the same format as hike photos
-    const formattedStandalonePhotos = standalonePhotos
-      .map((photo) => ({
-        id: photo.id,
-        lat: photo.lat,
-        lng: photo.lng,
-        url: photo.url,
-        thumbnailUrl: photo.thumbnailUrl || null,
-        caption: photo.caption || "",
-        date: photo.date || photo.uploadedAt,
-        hikeId: photo.hikeId,
-        hikeName:
-          hikes.find((h) => h.id === photo.hikeId)?.name || "Unknown Hike",
-      }))
-      .filter((photo) => photo.lat && photo.lng);
+    const formattedStandalonePhotos = standalonePhotos.map((photo) => ({
+      id: photo.id,
+      lat: photo.lat,
+      lng: photo.lng,
+      url: photo.url,
+      thumbnailUrl: photo.thumbnailUrl || null,
+      caption: photo.caption || "",
+      date: photo.date || photo.uploadedAt,
+      hikeId: photo.hikeId,
+      hikeName:
+        hikes.find((h) => h.id === photo.hikeId)?.name || "Unknown Hike",
+    }));
 
     // Combine both sources and remove duplicates based on ID
     const photoMap = new Map();

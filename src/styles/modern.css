@@ -1259,8 +1259,43 @@ body.modal-open {
 }
 
 /* ==========================================================================
-   Swiper and Pagination Styles
-   ========================================================================== */
+    Swiper and Pagination Styles
+    ========================================================================== */
+
+/* Instagram Modal Swiper Pagination */
+.instagram-photos .swiper-pagination {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.instagram-photos .swiper-pagination-bullet {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  opacity: 1;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.instagram-photos .swiper-pagination-bullet-active {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 1);
+  transform: scale(1.2);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
 
 .hike-swiper__pagination {
   display: flex;

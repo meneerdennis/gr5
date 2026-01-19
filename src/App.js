@@ -10,7 +10,6 @@ import { useAuth } from "./hooks/useAuth";
 import Layout from "./components/Layout";
 import ElevationProfile from "./components/ElevationProfile";
 import MapView from "./components/MapView";
-import AdminUploadPage from "./components/AdminUploadPage";
 import AdminPhotoManager from "./components/AdminPhotoManager";
 import AdminNoteEditor from "./components/AdminNoteEditor";
 import AdminActivityManager from "./components/AdminActivityManager";
@@ -54,8 +53,9 @@ function App() {
   const { comments } = useComments(selectedHike?.id);
   const noteText = selectedHike?.note || "";
   const showNoteModal = selectedHikeId && noteText;
+  const hikePhotos = photos.filter((p) => p.hikeId === selectedHikeId);
   const selectedPhotoIndex =
-    selectedHike?.photos?.findIndex((p) => p.url === selectedPhotoUrl) || 0;
+    hikePhotos.findIndex((p) => p.url === selectedPhotoUrl) || 0;
 
   // Mobile detection for modal styling
   const [isMobile, setIsMobile] = useState(false);
@@ -218,14 +218,6 @@ function App() {
           element={
             <AdminRoute>
               <Navigate to="/admin/manage" replace />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin/upload"
-          element={
-            <AdminRoute>
-              <AdminUploadPage />
             </AdminRoute>
           }
         />
@@ -411,7 +403,7 @@ function App() {
                     </div>
 
                     {/* Photos Swiper */}
-                    {selectedHike?.photos && selectedHike.photos.length > 0 && (
+                    {hikePhotos && hikePhotos.length > 0 && (
                       <div
                         className="instagram-photos"
                         style={{ position: "relative", flexShrink: 0 }}
@@ -424,18 +416,150 @@ function App() {
                           pagination={{ clickable: true }}
                           initialSlide={selectedPhotoIndex}
                           style={{ height: "400px" }}
+                          onSlideChange={(swiper) => {
+                            // Handle video autoplay when slide becomes active
+                            const activeSlide =
+                              swiper.slides[swiper.activeIndex];
+                            if (activeSlide) {
+                              const videoPlaceholder =
+                                activeSlide.querySelector(
+                                  "[data-video-placeholder]"
+                                );
+                              if (videoPlaceholder) {
+                                // This slide has a video placeholder, autoplay it
+                                const playButton =
+                                  videoPlaceholder.querySelector(
+                                    'div[style*="cursor: pointer"]'
+                                  );
+                                if (playButton) {
+                                  playButton.click();
+                                }
+                              }
+                            }
+
+                            // Pause videos in inactive slides
+                            swiper.slides.forEach((slide, index) => {
+                              if (index !== swiper.activeIndex) {
+                                const video = slide.querySelector("video");
+                                if (video && !video.paused) {
+                                  video.pause();
+                                }
+                              }
+                            });
+                          }}
                         >
-                          {selectedHike.photos.map((photo, index) => (
-                            <SwiperSlide key={index}>
-                              <img
-                                src={photo.url}
-                                alt={photo.caption || `Photo ${index + 1}`}
-                                style={{
-                                  width: "100%",
-                                  height: "400px",
-                                  objectFit: "cover",
-                                }}
-                              />
+                          {hikePhotos.map((photo, index) => (
+                            <SwiperSlide key={photo.id || index}>
+                              {(photo.type &&
+                                photo.type.startsWith("video/")) ||
+                              photo.url?.includes(".mov") ||
+                              photo.url?.includes(".mp4") ||
+                              photo.url?.includes(".avi") ||
+                              photo.url?.includes(".webm") ? (
+                                <div
+                                  data-video-placeholder
+                                  style={{
+                                    position: "relative",
+                                    width: "100%",
+                                    height: "400px",
+                                    backgroundColor: "#000",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: "48px",
+                                      color: "white",
+                                      background: "rgba(0,0,0,0.7)",
+                                      borderRadius: "50%",
+                                      width: "80px",
+                                      height: "80px",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      cursor: "pointer",
+                                      zIndex: 2,
+                                    }}
+                                    onClick={(e) => {
+                                      const container =
+                                        e.target.closest(".swiper-slide");
+                                      if (container) {
+                                        // Replace the entire slide content with video
+                                        container.innerHTML = "";
+                                        const video =
+                                          document.createElement("video");
+                                        video.src = photo.url;
+                                        video.controls = true;
+                                        video.muted = true; // Required for autoplay
+                                        video.playsInline = true;
+                                        video.loop = true; // Loop the video
+                                        video.preload = "auto";
+                                        video.style.cssText =
+                                          "width: 100%; height: 400px; object-fit: cover; background-color: #000;";
+
+                                        // Wait for video to be ready, then autoplay
+                                        video.oncanplay = () => {
+                                          video.play().catch((err) => {
+                                            console.log(
+                                              "Autoplay failed, video ready but blocked:",
+                                              err
+                                            );
+                                          });
+                                        };
+
+                                        video.onloadeddata = () => {
+                                          // Fallback autoplay attempt
+                                          video.play().catch((err) => {
+                                            console.log(
+                                              "Fallback autoplay failed:",
+                                              err
+                                            );
+                                          });
+                                        };
+
+                                        video.onError = () => {
+                                          console.error(
+                                            "Video failed to load:",
+                                            photo.url
+                                          );
+                                          container.innerHTML =
+                                            '<div style="width: 100%; height: 400px; display: flex; align-items: center; justify-content: center; background: #000; color: white; font-size: 24px;">🎥<br/>Video unavailable</div>';
+                                        };
+
+                                        container.appendChild(video);
+                                      }
+                                    }}
+                                  >
+                                    ▶️
+                                  </div>
+                                  <div
+                                    style={{
+                                      position: "absolute",
+                                      bottom: "10px",
+                                      right: "10px",
+                                      color: "white",
+                                      fontSize: "12px",
+                                      background: "rgba(0,0,0,0.5)",
+                                      padding: "2px 6px",
+                                      borderRadius: "4px",
+                                    }}
+                                  >
+                                    Video
+                                  </div>
+                                </div>
+                              ) : (
+                                <img
+                                  src={photo.url}
+                                  alt={photo.caption || `Photo ${index + 1}`}
+                                  style={{
+                                    width: "100%",
+                                    height: "400px",
+                                    objectFit: "cover",
+                                  }}
+                                />
+                              )}
                             </SwiperSlide>
                           ))}
                         </Swiper>

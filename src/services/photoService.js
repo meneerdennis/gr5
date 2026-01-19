@@ -111,87 +111,95 @@ function convertExifDateToISO(exifDate) {
 async function createThumbnailFromFile(file) {
   return new Promise((resolve, reject) => {
     try {
-      // Check if file is HEIC format - browsers don't natively support HEIC
-      const fileName = file.name.toLowerCase();
-      const isHeicFormat =
-        fileName.endsWith(".heic") ||
-        fileName.endsWith(".heif") ||
-        file.type === "image/heic" ||
-        file.type === "image/heif";
+      const fileType = file.type;
 
-      if (isHeicFormat) {
-        console.warn(
-          `Skipping thumbnail creation for HEIC file: ${file.name}. HEIC format is not supported by browsers for thumbnail generation. Original image will be used instead.`
-        );
-        // Don't reject, but resolve with null to indicate no thumbnail was created
+      if (fileType.startsWith("video/")) {
+        // Skip thumbnail creation for videos - they don't need thumbnails
         resolve(null);
-        return;
-      }
+      } else {
+        // Handle image thumbnail creation
+        // Check if file is HEIC format - browsers don't natively support HEIC
+        const fileName = file.name.toLowerCase();
+        const isHeicFormat =
+          fileName.endsWith(".heic") ||
+          fileName.endsWith(".heif") ||
+          file.type === "image/heic" ||
+          file.type === "image/heif";
 
-      const img = new Image();
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      const objectURL = URL.createObjectURL(file);
-
-      img.onload = () => {
-        try {
-          // Calculate new dimensions to maintain aspect ratio with max 200x200
-          let { width, height } = img;
-          const maxSize = 200;
-
-          if (width > height) {
-            if (width > maxSize) {
-              height = (height * maxSize) / width;
-              width = maxSize;
-            }
-          } else {
-            if (height > maxSize) {
-              width = (width * maxSize) / height;
-              height = maxSize;
-            }
-          }
-
-          // Ensure minimum dimensions
-          width = Math.max(1, Math.floor(width));
-          height = Math.max(1, Math.floor(height));
-
-          // Set canvas dimensions
-          canvas.width = width;
-          canvas.height = height;
-
-          // Clear canvas and draw image
-          ctx.clearRect(0, 0, width, height);
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Convert to blob
-          canvas.toBlob(
-            (blob) => {
-              URL.revokeObjectURL(objectURL); // Clean up
-              if (blob && blob.size > 0) {
-                resolve(blob);
-              } else {
-                reject(
-                  new Error(
-                    "Failed to create thumbnail blob - empty or invalid"
-                  )
-                );
-              }
-            },
-            "image/jpeg",
-            0.8
+        if (isHeicFormat) {
+          console.warn(
+            `Skipping thumbnail creation for HEIC file: ${file.name}. HEIC format is not supported by browsers for thumbnail generation. Original image will be used instead.`
           );
-        } catch (error) {
-          URL.revokeObjectURL(objectURL); // Clean up
-          reject(new Error("Failed to process image: " + error.message));
+          // Don't reject, but resolve with null to indicate no thumbnail was created
+          resolve(null);
+          return;
         }
-      };
 
-      img.onerror = (error) => {
-        URL.revokeObjectURL(objectURL); // Clean up
-        reject(new Error("Failed to load image for thumbnail"));
-      };
+        const img = new Image();
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const objectURL = URL.createObjectURL(file);
 
-      img.src = objectURL;
+        img.onload = () => {
+          try {
+            // Calculate new dimensions to maintain aspect ratio with max 200x200
+            let { width, height } = img;
+            const maxSize = 200;
+
+            if (width > height) {
+              if (width > maxSize) {
+                height = (height * maxSize) / width;
+                width = maxSize;
+              }
+            } else {
+              if (height > maxSize) {
+                width = (width * maxSize) / height;
+                height = maxSize;
+              }
+            }
+
+            // Ensure minimum dimensions
+            width = Math.max(1, Math.floor(width));
+            height = Math.max(1, Math.floor(height));
+
+            // Set canvas dimensions
+            canvas.width = width;
+            canvas.height = height;
+
+            // Clear canvas and draw image
+            ctx.clearRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Convert to blob
+            canvas.toBlob(
+              (blob) => {
+                URL.revokeObjectURL(objectURL); // Clean up
+                if (blob && blob.size > 0) {
+                  resolve(blob);
+                } else {
+                  reject(
+                    new Error(
+                      "Failed to create thumbnail blob - empty or invalid"
+                    )
+                  );
+                }
+              },
+              "image/jpeg",
+              0.8
+            );
+          } catch (error) {
+            URL.revokeObjectURL(objectURL); // Clean up
+            reject(new Error("Failed to process image: " + error.message));
+          }
+        };
+
+        img.onerror = (error) => {
+          URL.revokeObjectURL(objectURL); // Clean up
+          reject(new Error("Failed to load image for thumbnail"));
+        };
+
+        img.src = objectURL;
+      }
     } catch (error) {
       reject(new Error("Failed to create thumbnail: " + error.message));
     }
@@ -319,25 +327,18 @@ export async function uploadPhoto(file, hikeId, photoData) {
 
     const photoDoc = await addDoc(collection(db, "photos"), photoMetadata);
 
-    // Add photo to the hike's photos array (only if we have valid coordinates)
-    if (
-      finalLat !== null &&
-      finalLng !== null &&
-      typeof finalLat === "number" &&
-      typeof finalLng === "number"
-    ) {
-      await addPhotoToHike(hikeId, {
-        id: photoDoc.id,
-        url: downloadURL,
-        thumbnailUrl: thumbnailURL,
-        caption: photoData.caption || "",
-        description: photoData.description || "",
-        lat: finalLat,
-        lng: finalLng,
-        date: finalDate,
-        hikeId: hikeId,
-      });
-    }
+    // Add photo to the hike's photos array (always, regardless of coordinates)
+    await addPhotoToHike(hikeId, {
+      id: photoDoc.id,
+      url: downloadURL,
+      thumbnailUrl: thumbnailURL,
+      caption: photoData.caption || "",
+      description: photoData.description || "",
+      lat: finalLat,
+      lng: finalLng,
+      date: finalDate,
+      hikeId: hikeId,
+    });
 
     return {
       success: true,
