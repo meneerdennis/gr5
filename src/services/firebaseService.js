@@ -50,6 +50,8 @@ export async function getHikesFromFirebase() {
         altitude: data.altitude || [],
         time: data.time || [],
         note: data.note || "",
+        start: data.start || "",
+        end: data.end || "",
       });
     });
 

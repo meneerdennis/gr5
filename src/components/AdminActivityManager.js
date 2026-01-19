@@ -17,6 +17,8 @@ function AdminActivityManager() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editingHikeId, setEditingHikeId] = useState(null);
   const [editName, setEditName] = useState("");
+  const [editStart, setEditStart] = useState("");
+  const [editEnd, setEditEnd] = useState("");
   const [editStatus, setEditStatus] = useState(null);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -76,6 +78,8 @@ function AdminActivityManager() {
   const handleEditClick = (hike) => {
     setEditingHikeId(hike.id);
     setEditName(hike.name);
+    setEditStart(hike.start || "");
+    setEditEnd(hike.end || "");
     setEditStatus(null);
   };
 
@@ -84,34 +88,42 @@ function AdminActivityManager() {
 
     try {
       setEditStatus(null);
-      const result = await updateHike(editingHikeId, { name: editName.trim() });
+      const result = await updateHike(editingHikeId, {
+        name: editName.trim(),
+        start: editStart.trim(),
+        end: editEnd.trim(),
+      });
       if (result.success) {
         setEditStatus({
           type: "success",
-          message: "✅ Activity name updated successfully.",
+          message: "✅ Activity updated successfully.",
         });
         await loadHikes();
       } else {
         setEditStatus({
           type: "error",
-          message: `❌ Failed to update activity name: ${result.error}`,
+          message: `❌ Failed to update activity: ${result.error}`,
         });
       }
     } catch (error) {
-      console.error("Error updating hike name:", error);
+      console.error("Error updating hike:", error);
       setEditStatus({
         type: "error",
-        message: `❌ Failed to update activity name: ${error.message}`,
+        message: `❌ Failed to update activity: ${error.message}`,
       });
     } finally {
       setEditingHikeId(null);
       setEditName("");
+      setEditStart("");
+      setEditEnd("");
     }
   };
 
   const handleCancelEdit = () => {
     setEditingHikeId(null);
     setEditName("");
+    setEditStart("");
+    setEditEnd("");
     setEditStatus(null);
   };
 
@@ -266,6 +278,12 @@ function AdminActivityManager() {
                     Type
                   </th>
                   <th className="text-left p-3 font-medium text-gray-200">
+                    Start
+                  </th>
+                  <th className="text-left p-3 font-medium text-gray-200">
+                    End
+                  </th>
+                  <th className="text-left p-3 font-medium text-gray-200">
                     Actions
                   </th>
                 </tr>
@@ -273,7 +291,7 @@ function AdminActivityManager() {
               <tbody>
                 {hikes.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="text-center p-6 text-gray-400">
+                    <td colSpan="7" className="text-center p-6 text-gray-400">
                       No activities found.
                     </td>
                   </tr>
@@ -303,7 +321,32 @@ function AdminActivityManager() {
                         {hike.distanceKm ? hike.distanceKm.toFixed(1) : "N/A"}{" "}
                         km
                       </td>
-                      <td className="p-3 text-gray-300">{hike.type}</td>
+                      <td className="p-3 text-gray-300">
+                        {editingHikeId === hike.id ? (
+                          <input
+                            type="text"
+                            value={editStart}
+                            onChange={(e) => setEditStart(e.target.value)}
+                            className="w-full px-2 py-1 bg-gray-700 text-gray-200 border border-gray-600 rounded"
+                            placeholder="Start location"
+                          />
+                        ) : (
+                          hike.start || "N/A"
+                        )}
+                      </td>
+                      <td className="p-3 text-gray-300">
+                        {editingHikeId === hike.id ? (
+                          <input
+                            type="text"
+                            value={editEnd}
+                            onChange={(e) => setEditEnd(e.target.value)}
+                            className="w-full px-2 py-1 bg-gray-700 text-gray-200 border border-gray-600 rounded"
+                            placeholder="End location"
+                          />
+                        ) : (
+                          hike.end || "N/A"
+                        )}
+                      </td>
                       <td className="p-3 flex space-x-2">
                         {editingHikeId === hike.id ? (
                           <>

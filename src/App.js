@@ -24,6 +24,7 @@ import "swiper/css/pagination";
 import { useViewedActivities } from "./hooks/useViewedActivities";
 
 import { useLikes } from "./hooks/useLikes";
+import { useComments } from "./hooks/useComments";
 import LikeButton from "./components/LikeButton";
 import CommentsSection from "./components/CommentsSection";
 
@@ -78,6 +79,7 @@ function App() {
   // Note modal logic
   const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
   const { likesCount } = useLikes(selectedHike?.id, user?.uid);
+  const { comments } = useComments(selectedHike?.id);
   const noteText = selectedHike?.note || "";
   const showNoteModal = selectedHikeId && noteText;
 
@@ -527,7 +529,7 @@ function App() {
                     justifyContent: "center",
                     zIndex: 2000,
                     padding: isMobile ? "10px" : "20px",
-                    overflowY: isMobile ? "auto" : "hidden",
+                    overflowY: "auto",
                   }}
                 >
                   <div
@@ -541,7 +543,7 @@ function App() {
                       borderRadius: "12px",
                       boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
                       border: "1px solid #e1e5e9",
-                      overflow: isMobile ? "visible" : "hidden",
+                      overflow: isMobile ? "visible" : "auto",
                       display: "flex",
                       flexDirection: "column",
                     }}
@@ -556,6 +558,11 @@ function App() {
                         padding: "12px 16px",
                         borderBottom: "1px solid #e1e5e9",
                         flexShrink: 0,
+                        position: "sticky",
+                        top: 0,
+                        backgroundColor: "white",
+                        zIndex: 10,
+                        color: "#3b3b3b",
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center" }}>
@@ -579,7 +586,8 @@ function App() {
                             {selectedHike?.name || "GR5 Hike"}
                           </div>
                           <div style={{ fontSize: "12px", color: "#8e8e8e" }}>
-                            {formatDate(selectedHike?.startDate)}
+                            {formatDate(selectedHike?.startDate)} |{" "}
+                            {selectedHike?.start} → {selectedHike?.end}
                           </div>
                         </div>
                       </div>
@@ -637,7 +645,8 @@ function App() {
                       style={{
                         padding: "12px 16px",
                         flex: isMobile ? "none" : 1,
-                        overflowY: isMobile ? "visible" : "auto",
+                        overflowY: "visible",
+                        color: "#3b3b3b",
                       }}
                     >
                       {/* Action Buttons */}
@@ -646,11 +655,21 @@ function App() {
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: "16px",
+                          gap: "0px",
                           marginBottom: "12px",
                         }}
                       >
                         <LikeButton activityId={selectedHike.id} />
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            fontWeight: "600",
+                            color: "#262626",
+                            marginRight: "2px",
+                          }}
+                        >
+                          {likesCount || 0}
+                        </span>
                         <button
                           onClick={() => {
                             const commentsSection = document.querySelector(
@@ -667,31 +686,32 @@ function App() {
                             background: "none",
                             border: "none",
                             cursor: "pointer",
+                            marginLeft: "8px",
                           }}
                           title="Comment"
                         >
                           <svg
                             width="24"
                             height="24"
-                            stroke="#000000"
+                            viewBox="0 0 24 24"
+                            fill={comments.length > 0 ? "#0095f6" : "none"}
+                            stroke={comments.length > 0 ? "none" : "#000000"}
                             strokeWidth="2"
-                            viewBox="0 0 122.97 122.88"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
                           >
-                            <path d="M61.44,0a61.46,61.46,0,0,1,54.91,89l6.44,25.74a5.83,5.83,0,0,1-7.25,7L91.62,115A61.43,61.43,0,1,1,61.44,0ZM96.63,26.25a49.78,49.78,0,1,0-9,77.52A5.83,5.83,0,0,1,92.4,103L109,107.77l-4.5-18a5.86,5.86,0,0,1,.51-4.34,49.06,49.06,0,0,0,4.62-11.58,50,50,0,0,0-13-47.62Z" />
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                           </svg>
                         </button>
-                      </div>
-
-                      {/* Likes Count */}
-                      <div
-                        style={{
-                          fontSize: "14px",
-                          fontWeight: "600",
-                          marginBottom: "8px",
-                          color: "#262626",
-                        }}
-                      >
-                        {likesCount || 0} likes
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            fontWeight: "600",
+                            color: "#262626",
+                          }}
+                        >
+                          {comments.length}
+                        </span>
                       </div>
 
                       {/* Caption/Note */}
@@ -699,7 +719,14 @@ function App() {
                         <span style={{ fontWeight: "600", marginRight: "8px" }}>
                           {selectedHike?.name || "GR5 Hike"}
                         </span>
-                        <span style={{ fontSize: "14px", color: "#262626" }}>
+                        <br />
+                        <span
+                          style={{
+                            fontSize: "14px",
+                            color: "#262626",
+                            whiteSpace: "pre-wrap",
+                          }}
+                        >
                           {noteText}
                         </span>
                       </div>
@@ -728,6 +755,8 @@ function App() {
                           backgroundColor: "#fafafa",
                           borderTop: "1px solid #e1e5e9",
                           flexShrink: 0,
+                          position: "sticky",
+                          bottom: 0,
                         }}
                       >
                         {hasPreviousNote ? (
