@@ -336,6 +336,13 @@ function Layout({ children, progress = 0 }) {
                       position="top-right"
                     />
                   )}
+                  {isMobile && (
+                    <ProgressBar
+                      progress={progress}
+                      compact={true}
+                      position="top-right"
+                    />
+                  )}
                 </div>
               </div>
             </div>

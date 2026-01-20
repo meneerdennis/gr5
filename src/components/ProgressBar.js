@@ -5,18 +5,36 @@ function ProgressBar({ progress, compact = false, position = "normal" }) {
 
   if (compact && position === "top-right") {
     return (
-      <div className="fixed top-6 right-6 z-50 glass-card p-4">
-        <div className="modern-progress w-32">
+      <div className="fixed  right-6 z-50 flex  items-center space-y-2">
+        <div
+          style={{
+            width: "15px",
+            height: "80px",
+            background: "rgba(139, 92, 246, 0.2)",
+            borderRadius: "5px",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
           <div
-            className="modern-progress-fill"
-            style={{ width: `${percentage}%` }}
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              width: "100%",
+              height: `${percentage}%`,
+              background: "linear-gradient(135deg, #10b981, #06b6d4)",
+              borderRadius: "8px",
+              transition: "height 0.5s ease-in-out",
+            }}
           />
         </div>
-        <div className="text-center mt-2">
-          <span className="text-sm font-semibold text-gray-700">
-            {percentage}%
-          </span>
-        </div>
+        <span
+          className="text-sm font-semibold text-gray-700"
+          style={{ paddingLeft: "10px" }}
+        >
+          {percentage}%
+        </span>
       </div>
     );
   }
