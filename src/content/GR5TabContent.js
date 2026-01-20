@@ -271,16 +271,41 @@ export default function GR5TabContent({ isMobile }) {
 export function getGR5TextContent() {
   return `
 Wat is de GR5?
-De GR5 is een iconische langeafstandswandelroute die deel uitmaakt van het Europese netwerk van Grande Randonnée-paden.
-"Deux milles kilomètres à pied, ça use les souliers!"
 
-De GR5: feiten & cijfers
-- De GR5 loopt van Hoek van Holland naar Nice (meer dan 2.000 km).
-- Je volgt wit-rood gemarkeerde paden door zeer diverse landschappen.
-- Een volledige thru-hike duurt ongeveer 100 tot 125 stapdagen.
+De GR5 is veel meer dan zomaar een wandelpad. Het is een van de bekendste langeafstandswandelroutes van Europa en voor veel wandelaars een echte droomtocht. De route maakt deel uit van het internationale netwerk van Grande Randonnée (GR)-paden.
 
-Meer informatie:
-https://www.ffrandonnee.fr/
-https://nl.wikipedia.org/wiki/GR_5
+Vanuit Hoek van Holland, aan de Noordzee, slingert de GR5 zich door Nederland, België, Luxemburg en Frankrijk om uiteindelijk te eindigen aan de Middellandse Zee in Nice. Sommige wandelaars starten hun tocht symbolisch met een schelp of een flesje zeewater uit de Noordzee, om datzelfde water maanden later in de Middellandse Zee weer uit te gieten.
+
+"Deux mille kilomètres à pied, ça use les souliers!"
+
+Waarom is de GR5 zo populair?
+
+Wat de GR5 zo bijzonder maakt, is de enorme afwisseling. De wandelaar doorkruist onderweg verschillende landschappen en klimaten.
+
+- Vlakke dijken, polders en veldwegen in Nederland en Vlaanderen
+- Heuvelachtige gebieden zoals de Ardennen en de Vogezen
+- Smalle bergpaden en spectaculaire uitzichten in de Alpen
+
+Over de hele route volg je dezelfde wit-rood gestreepte markeringen. Daardoor is de GR5 goed bewegwijzerd en toegankelijk voor zowel ervaren wandelaars als gemotiveerde beginners.
+
+De GR5 in cijfers
+
+- Lengte: meer dan 2.000 kilometer
+- Landen: Nederland, België, Luxemburg, Frankrijk en een klein stukje Zwitserland
+- Duur: ongeveer 100 tot 125 wandeldagen
+- Type: langeafstandswandeling (thru-hike of in etappes)
+- Hoogte: van zeeniveau tot hoog in de Alpen
+
+Slechts een kleine groep wandelaars legt de GR5 in één keer af. De meeste mensen verdelen de route in etappes, gespreid over meerdere vakanties of jaren.
+
+Meer informatie en handige links
+
+Wie meer wil weten of zelf plannen maakt, kan terecht bij de volgende betrouwbare websites:
+
+- Officiële organisatie van de GR-paden in Frankrijk: https://www.ffrandonnee.fr/
+- Overzicht en geschiedenis van de GR5: https://nl.wikipedia.org/wiki/GR_5
+- Gedetailleerde etappes, kaarten en wandeltips: https://www.gr-infos.com/gr5.htm
+- Europese langeafstandswandelroutes (E2-netwerk): https://www.era-ewv-ferp.org/
+- Verhalen en ervaringen van langeafstandswandelaars: https://www.longdistancepaths.eu/
 `;
 }

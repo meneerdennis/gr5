@@ -3,6 +3,46 @@ import { translateText, getUserLanguage } from "../services/translationService";
 import GR5TabContent, { getGR5TextContent } from "../content/GR5TabContent";
 import AppTabContent, { getAppTextContent } from "../content/AppTabContent";
 
+// Localized button texts
+const buttonTexts = {
+  en: {
+    see: "See Translation",
+    show: "Show Original",
+    translating: "Translating...",
+    same: "The text is already in your language.",
+    error: "Translation failed. Please try again.",
+  },
+  nl: {
+    see: "Vertaling bekijken",
+    show: "Origineel tonen",
+    translating: "Vertalen...",
+    same: "De tekst is al in uw taal.",
+    error: "Vertaling mislukt. Probeer het opnieuw.",
+  },
+  fr: {
+    see: "Voir la traduction",
+    show: "Afficher l'original",
+    translating: "Traduction en cours...",
+    same: "Le texte est déjà dans votre langue.",
+    error: "La traduction a échoué. Veuillez réessayer.",
+  },
+  de: {
+    see: "Übersetzung anzeigen",
+    show: "Original anzeigen",
+    translating: "Übersetzen...",
+    same: "Der Text ist bereits in Ihrer Sprache.",
+    error: "Übersetzung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+  },
+  lt: {
+    see: "Žiūrėti vertimą",
+    show: "Rodyti originalą",
+    translating: "Verčiama...",
+    same: "Tekstas jau yra jūsų kalba.",
+    error: "Vertimas nepavyko. Bandykite dar kartą.",
+  },
+  // Add more languages as needed
+};
+
 function GR5Info({ isOpen, onClose, isMobile }) {
   const [activeTab, setActiveTab] = useState("gr5");
   const [isTranslating, setIsTranslating] = useState(false);
@@ -32,18 +72,26 @@ function GR5Info({ isOpen, onClose, isMobile }) {
       const content = isGR5 ? getGR5TextContent() : getAppTextContent();
       const translated = await translateText(content, userLang);
       if (translated === content) {
-        alert("The content is already in your language.");
+        alert(
+          buttonTexts[userLang]?.same ||
+            "The content is already in your language."
+        );
         setIsTranslating(false);
         return;
       }
       setCurrentTranslated(translated);
       setCurrentShow(true);
     } catch (error) {
-      alert("Translation failed. Please try again.");
+      alert(
+        buttonTexts[userLang]?.error || "Translation failed. Please try again."
+      );
     } finally {
       setIsTranslating(false);
     }
   };
+
+  const isGR5 = activeTab === "gr5";
+  const currentShow = isGR5 ? showTranslatedGR5 : showTranslatedApp;
 
   if (!isOpen) return null;
 
@@ -104,10 +152,11 @@ function GR5Info({ isOpen, onClose, isMobile }) {
                   }}
                 >
                   {isTranslating
-                    ? "Translating..."
-                    : showTranslated
-                      ? "Show Original"
-                      : "Translate"}
+                    ? buttonTexts[getUserLanguage()]?.translating ||
+                      "Translating..."
+                    : currentShow
+                      ? buttonTexts[getUserLanguage()]?.show || "Show Original"
+                      : buttonTexts[getUserLanguage()]?.see || "Translate"}
                 </button>
               )}
           </div>
