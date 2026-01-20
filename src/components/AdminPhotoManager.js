@@ -44,6 +44,7 @@ function AdminPhotoManager() {
     caption: "",
     description: "",
     route: "",
+    name: "",
   });
   const [deletingPhoto, setDeletingPhoto] = useState(null);
   const [filterRoute, setFilterRoute] = useState("");
@@ -56,6 +57,8 @@ function AdminPhotoManager() {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const tableContainerRef = useRef(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   // Upload related states
   const [selectedHike, setSelectedHike] = useState("");
@@ -71,6 +74,10 @@ function AdminPhotoManager() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterRoute, searchTerm]);
 
   const loadData = async () => {
     try {
@@ -110,6 +117,7 @@ function AdminPhotoManager() {
       caption: photo.caption || "",
       description: photo.description || "",
       route: photo.hikeId || "",
+      name: photo.originalName || "",
     });
   };
 
@@ -119,6 +127,7 @@ function AdminPhotoManager() {
       caption: "",
       description: "",
       route: "",
+      name: "",
     });
   };
 
@@ -130,6 +139,7 @@ function AdminPhotoManager() {
         caption: editForm.caption,
         description: editForm.description,
         hikeId: editForm.route,
+        originalName: editForm.name,
       };
 
       await updatePhoto(editingPhoto, updates);
@@ -142,6 +152,7 @@ function AdminPhotoManager() {
         caption: "",
         description: "",
         route: "",
+        name: "",
       });
     } catch (error) {
       console.error("Error updating photo:", error);
@@ -222,6 +233,13 @@ function AdminPhotoManager() {
 
     return matchesRoute && matchesSearch;
   });
+
+  const totalPages = Math.ceil(filteredPhotos.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedPhotos = filteredPhotos.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
 
   // Fix iOS Safari horizontal scroll position bug
   useEffect(() => {
@@ -575,23 +593,18 @@ function AdminPhotoManager() {
                 collection.
               </p>
             </div>
-            <div className="mt-4 sm:mt-0 flex space-x-2">
-              <button onClick={loadData} className="btn btn-secondary">
-                🔄 Refresh
-              </button>
-              {selectedPhotos.size > 0 && (
-                <button onClick={confirmBulkDelete} className="btn btn-danger">
-                  🗑️ Delete Selected ({selectedPhotos.size})
-                </button>
-              )}
-            </div>
           </div>
+        </div>
 
-          {/* Upload Section */}
+        {/* Upload Section */}
+        <div
+          className="glass-card p-4 sm:p-6 mb-4"
+          style={{ marginBottom: "10px" }}
+        >
+          <h2 className="text-xl font-semibold text-gray-100 mb-4">
+            📤 Upload New Media
+          </h2>
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-100 mb-4">
-              📤 Upload New Media
-            </h2>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               {/* Left Column - Form */}
               <div className="space-y-4">
@@ -683,8 +696,8 @@ function AdminPhotoManager() {
                       uploadStatus.type === "success"
                         ? "bg-green-900 bg-opacity-30 text-green-300 border border-green-500 border-opacity-30"
                         : uploadStatus.type === "warning"
-                        ? "bg-yellow-900 bg-opacity-30 text-yellow-300 border border-yellow-500 border-opacity-30"
-                        : "bg-red-900 bg-opacity-30 text-red-300 border border-red-500 border-opacity-30"
+                          ? "bg-yellow-900 bg-opacity-30 text-yellow-300 border border-yellow-500 border-opacity-30"
+                          : "bg-red-900 bg-opacity-30 text-red-300 border border-red-500 border-opacity-30"
                     }`}
                   >
                     <p>{uploadStatus.message}</p>
@@ -713,6 +726,23 @@ function AdminPhotoManager() {
 
               {/* Right Column - Info */}
             </div>
+          </div>
+        </div>
+        {/* Photos Table */}
+        <div className="glass-card p-4 sm:p-6">
+          <h2 className="text-xl font-semibold text-gray-100 mb-4">
+            📷 Manage Media ({filteredPhotos.length})
+          </h2>
+
+          <div className="mb-4 flex space-x-2">
+            <button onClick={loadData} className="btn btn-secondary">
+              🔄 Refresh
+            </button>
+            {selectedPhotos.size > 0 && (
+              <button onClick={confirmBulkDelete} className="btn btn-danger">
+                🗑️ Delete Selected ({selectedPhotos.size})
+              </button>
+            )}
           </div>
 
           {/* Filters */}
@@ -772,7 +802,6 @@ function AdminPhotoManager() {
                       selectedPhotos.size === filteredPhotos.length &&
                       filteredPhotos.length > 0
                     }
-                    ref={tableContainerRef}
                     onChange={toggleSelectAll}
                     className="rounded border-gray-500 text-primary-600 focus:ring-primary-500"
                   />
@@ -796,12 +825,6 @@ function AdminPhotoManager() {
               )}
             </div>
           )}
-        </div>
-        {/* Photos Table */}
-        <div className="glass-card p-4 sm:p-6">
-          <h2 className="text-xl font-semibold text-gray-100 mb-4">
-            📷 Media ({filteredPhotos.length})
-          </h2>
 
           {filteredPhotos.length === 0 ? (
             <div className="text-center py-12">
@@ -816,7 +839,6 @@ function AdminPhotoManager() {
               </p>
             </div>
           ) : (
-            /* Table View */
             <div
               className="overflow-x-auto table-scroll-container"
               ref={tableContainerRef}
@@ -848,7 +870,7 @@ function AdminPhotoManager() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-600">
-                  {filteredPhotos.map((photo) => (
+                  {paginatedPhotos.map((photo) => (
                     <tr
                       key={photo.id}
                       className={`hover:bg-gray-800 hover:bg-opacity-30 ${
@@ -891,7 +913,6 @@ function AdminPhotoManager() {
                                 playIcon.className =
                                   "absolute inset-0 flex items-center justify-center text-2xl bg-gray-800 bg-opacity-50 rounded";
                                 playIcon.onclick = () => openFullImage(photo);
-                                parent.appendChild(playIcon);
                               }}
                             />
                           </div>
@@ -924,6 +945,18 @@ function AdminPhotoManager() {
                       <td className="px-6 py-4">
                         {editingPhoto === photo.id ? (
                           <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={editForm.name}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  name: e.target.value,
+                                })
+                              }
+                              className="input"
+                              placeholder="Enter name..."
+                            />
                             <input
                               type="text"
                               value={editForm.caption}
@@ -1010,6 +1043,31 @@ function AdminPhotoManager() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {filteredPhotos.length > itemsPerPage && (
+            <div className="flex justify-between items-center mt-4">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="btn btn-secondary"
+              >
+                ← Previous
+              </button>
+              <span className="text-gray-300">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="btn btn-secondary"
+              >
+                Next →
+              </button>
             </div>
           )}
         </div>

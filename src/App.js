@@ -26,6 +26,36 @@ import { useLikes } from "./hooks/useLikes";
 import { useComments } from "./hooks/useComments";
 import LikeButton from "./components/LikeButton";
 import CommentsSection from "./components/CommentsSection";
+import { translateText, getUserLanguage } from "./services/translationService";
+
+// Localized button texts
+const buttonTexts = {
+  en: {
+    see: "See Translation",
+    show: "Show Original",
+    same: "The text is already in your language.",
+    error: "Translation failed. Please try again.",
+  },
+  nl: {
+    see: "Vertaling bekijken",
+    show: "Origineel tonen",
+    same: "De tekst is al in uw taal.",
+    error: "Vertaling mislukt. Probeer het opnieuw.",
+  },
+  fr: {
+    see: "Voir la traduction",
+    show: "Afficher l'original",
+    same: "Le texte est déjà dans votre langue.",
+    error: "La traduction a échoué. Veuillez réessayer.",
+  },
+  de: {
+    see: "Übersetzung anzeigen",
+    show: "Original anzeigen",
+    same: "Der Text ist bereits in Ihrer Sprache.",
+    error: "Übersetzung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+  },
+  // Add more languages as needed
+};
 
 function App() {
   const { route, hikes, photos, loading, error } = useHikeData();
@@ -39,6 +69,11 @@ function App() {
   const { markAsViewed } = useViewedActivities();
 
   const { user } = useAuth();
+
+  // Translation state
+  const [translatedNote, setTranslatedNote] = useState("");
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [showTranslated, setShowTranslated] = useState(false);
 
   // Update current walked distance when route changes
   useEffect(() => {
@@ -67,6 +102,13 @@ function App() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Reset translation when hike changes
+  useEffect(() => {
+    setTranslatedNote("");
+    setShowTranslated(false);
+    setIsTranslating(false);
+  }, [selectedHikeId]);
+
   // Helper function to format date
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -91,8 +133,12 @@ function App() {
     if (hasPreviousNote) {
       const previousHike = hikesWithNotes[currentNoteIndex - 1];
       setSelectedHikeId(previousHike.id);
+      setSelectedPhotoUrl(null); // Reset to first photo
       // Mark as viewed when navigating via arrows
       markAsViewed(previousHike.id);
+      // Scroll modal to top
+      const modal = document.querySelector(".instagram-post-modal");
+      if (modal) modal.scrollTo(0, 0);
     }
   };
 
@@ -100,8 +146,43 @@ function App() {
     if (hasNextNote) {
       const nextHike = hikesWithNotes[currentNoteIndex + 1];
       setSelectedHikeId(nextHike.id);
+      setSelectedPhotoUrl(null); // Reset to first photo
       // Mark as viewed when navigating via arrows
       markAsViewed(nextHike.id);
+      // Scroll modal to top
+      const modal = document.querySelector(".instagram-post-modal");
+      if (modal) modal.scrollTo(0, 0);
+    }
+  };
+
+  const handleTranslateNote = async () => {
+    if (translatedNote && showTranslated) {
+      setShowTranslated(false);
+      return;
+    }
+    if (translatedNote) {
+      setShowTranslated(true);
+      return;
+    }
+    setIsTranslating(true);
+    try {
+      const userLang = getUserLanguage();
+      const translated = await translateText(noteText, userLang);
+      if (translated === noteText) {
+        alert(
+          buttonTexts[userLang]?.same || "The text is already in your language."
+        );
+        setIsTranslating(false);
+        return;
+      }
+      setTranslatedNote(translated);
+      setShowTranslated(true);
+    } catch (error) {
+      alert(
+        buttonTexts[userLang]?.error || "Translation failed. Please try again."
+      );
+    } finally {
+      setIsTranslating(false);
     }
   };
 
@@ -357,7 +438,11 @@ function App() {
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center" }}>
-                        <div
+                        <button
+                          onClick={() => {
+                            setSelectedHikeId(null);
+                            setSelectedPhotoUrl(null);
+                          }}
                           style={{
                             width: "32px",
                             height: "32px",
@@ -368,17 +453,21 @@ function App() {
                             justifyContent: "center",
                             marginRight: "12px",
                             fontSize: "16px",
+                            border: "none",
+                            cursor: "pointer",
                           }}
+                          title="View hike on map"
                         >
-                          🏔️
-                        </div>
+                          🌍
+                        </button>
                         <div>
                           <div style={{ fontWeight: "600", fontSize: "14px" }}>
                             {selectedHike?.name || "GR5 Hike"}
                           </div>
                           <div style={{ fontSize: "12px", color: "#8e8e8e" }}>
                             {formatDate(selectedHike?.startDate)} |{" "}
-                            {selectedHike?.start} → {selectedHike?.end}
+                            {selectedHike?.start} → {selectedHike?.end} |{" "}
+                            {selectedHike?.distanceKm?.toFixed(1)} km
                           </div>
                         </div>
                       </div>
@@ -409,6 +498,7 @@ function App() {
                         style={{ position: "relative", flexShrink: 0 }}
                       >
                         <Swiper
+                          key={selectedPhotoIndex}
                           modules={[Navigation, Pagination]}
                           spaceBetween={0}
                           slidesPerView={1}
@@ -643,10 +733,49 @@ function App() {
 
                       {/* Caption/Note */}
                       <div className="instagram-caption">
-                        <span style={{ fontWeight: "600", marginRight: "8px" }}>
-                          {selectedHike?.name || "GR5 Hike"}
-                        </span>
-                        <br />
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          <span style={{ fontWeight: "600" }}>
+                            {selectedHike?.name || "GR5 Hike"}
+                          </span>
+                          {!isTranslating &&
+                            noteText &&
+                            getUserLanguage() !== "nl" && (
+                              <button
+                                onClick={handleTranslateNote}
+                                style={{
+                                  fontSize: "12px",
+                                  color: "#0095f6",
+                                  background: "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  textDecoration: "underline",
+                                }}
+                              >
+                                {showTranslated
+                                  ? buttonTexts[getUserLanguage()]?.show ||
+                                    buttonTexts.en.show
+                                  : buttonTexts[getUserLanguage()]?.see ||
+                                    buttonTexts.en.see}
+                              </button>
+                            )}
+                          {isTranslating && (
+                            <span
+                              style={{
+                                fontSize: "12px",
+                                color: "#8e8e8e",
+                              }}
+                            >
+                              Translating...
+                            </span>
+                          )}
+                        </div>
                         <span
                           style={{
                             fontSize: "14px",
@@ -654,7 +783,7 @@ function App() {
                             whiteSpace: "pre-wrap",
                           }}
                         >
-                          {noteText}
+                          {showTranslated ? translatedNote : noteText}
                         </span>
                       </div>
 
