@@ -54,6 +54,12 @@ const buttonTexts = {
     same: "Der Text ist bereits in Ihrer Sprache.",
     error: "Übersetzung fehlgeschlagen. Bitte versuchen Sie es erneut.",
   },
+  lt: {
+    see: "Žiūrėti vertimą",
+    show: "Rodyti originalą",
+    same: "Tekstas jau yra jūsų kalba.",
+    error: "Vertimas nepavyko. Bandykite dar kartą.",
+  },
   // Add more languages as needed
 };
 

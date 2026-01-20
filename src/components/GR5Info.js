@@ -1,12 +1,55 @@
 import React, { useState } from "react";
+import { translateText, getUserLanguage } from "../services/translationService";
+import GR5TabContent, { getGR5TextContent } from "../content/GR5TabContent";
+import AppTabContent, { getAppTextContent } from "../content/AppTabContent";
 
 function GR5Info({ isOpen, onClose, isMobile }) {
   const [activeTab, setActiveTab] = useState("gr5");
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translatedGR5, setTranslatedGR5] = useState("");
+  const [translatedApp, setTranslatedApp] = useState("");
+  const [showTranslatedGR5, setShowTranslatedGR5] = useState(false);
+  const [showTranslatedApp, setShowTranslatedApp] = useState(false);
+
+  const handleTranslate = async () => {
+    const isGR5 = activeTab === "gr5";
+    const currentTranslated = isGR5 ? translatedGR5 : translatedApp;
+    const currentShow = isGR5 ? showTranslatedGR5 : showTranslatedApp;
+    const setCurrentTranslated = isGR5 ? setTranslatedGR5 : setTranslatedApp;
+    const setCurrentShow = isGR5 ? setShowTranslatedGR5 : setShowTranslatedApp;
+    if (currentTranslated && currentShow) {
+      setCurrentShow(false);
+      return;
+    }
+    if (currentTranslated) {
+      setCurrentShow(true);
+      return;
+    }
+
+    setIsTranslating(true);
+    try {
+      const userLang = getUserLanguage();
+      const content = isGR5 ? getGR5TextContent() : getAppTextContent();
+      const translated = await translateText(content, userLang);
+      if (translated === content) {
+        alert("The content is already in your language.");
+        setIsTranslating(false);
+        return;
+      }
+      setCurrentTranslated(translated);
+      setCurrentShow(true);
+    } catch (error) {
+      alert("Translation failed. Please try again.");
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   if (!isOpen) return null;
 
   return (
     <div
+      onClick={onClose}
       style={{
         position: "fixed",
         top: 0,
@@ -22,6 +65,7 @@ function GR5Info({ isOpen, onClose, isMobile }) {
     >
       <div
         className="glass-card"
+        onClick={(e) => e.stopPropagation()}
         style={{
           padding: "1.5rem",
           maxWidth: "50rem",
@@ -40,7 +84,33 @@ function GR5Info({ isOpen, onClose, isMobile }) {
             marginBottom: "1rem",
           }}
         >
-          <h2 style={{ fontSize: "1.5rem", fontWeight: "bold" }}>Informatie</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <h2 style={{ fontSize: "1.5rem", fontWeight: "bold" }}>
+              Informatie
+            </h2>
+            {(activeTab === "gr5" || activeTab === "route") &&
+              getUserLanguage() !== "nl" && (
+                <button
+                  onClick={handleTranslate}
+                  disabled={isTranslating}
+                  style={{
+                    fontSize: "0.875rem",
+                    color: "#8b5cf6",
+                    background: "none",
+                    border: "none",
+                    cursor: isTranslating ? "not-allowed" : "pointer",
+                    textDecoration: "underline",
+                    opacity: isTranslating ? 0.5 : 1,
+                  }}
+                >
+                  {isTranslating
+                    ? "Translating..."
+                    : showTranslated
+                      ? "Show Original"
+                      : "Translate"}
+                </button>
+              )}
+          </div>
           <button
             onClick={onClose}
             style={{
@@ -93,215 +163,45 @@ function GR5Info({ isOpen, onClose, isMobile }) {
           </button>
         </div>
         <div>
-          {activeTab === "gr5" && (
-            <div>
-              <h3>Wat is de GR5?</h3>
-              {isMobile ? (
-                <>
-                  <p>
-                    De GR5 is een iconische langeafstandswandelroute die deel
-                    uitmaakt van het Europese netwerk van Grande
-                    Randonnée-paden. Zowel in Vlaanderen als in Wallonië is de
-                    GR5 de populairste langeafstandsroute.
-                    <p>
-                      <quote>
-                        "Deux milles kilomètres à pied, ça use les souliers!"
-                      </quote>
-                    </p>
-                  </p>
-                  <h4>De GR5: feiten & cijfers</h4>
-                  <ul>
-                    <li>
-                      De GR5 loopt door Nederland, België, Luxemburg, Frankrijk
-                      en een klein stukje Zwitserland, van Hoek van Holland naar
-                      Nice. Dat is meer dan 2.000 kilometer. Veel wandelaars
-                      scheppen symbolisch een flesje water uit de Noordzee bij
-                      de start, om het aan het eind in de Middellandse Zee te
-                      legen.
-                    </li>
-                    <li>
-                      Je volgt de wit-rood gestreepte markeringen en doorkruist
-                      diverse landschappen en hoogtemeters, van vlakke veldwegen
-                      in Nederland en Vlaanderen tot pittige bergpaden in de
-                      Vogezen en de Alpen.
-                    </li>
-                    <li>
-                      Voor de volledige thru-hike (onafgebroken tocht) reken je
-                      op 100 tot 125 stapdagen. De meeste wandelaars verdelen
-                      het traject in etappes over verschillende vakanties.
-                    </li>
-                  </ul>
-                  <p>
-                    Meer informatie vind je op de officiële website van de
-                    Fédération Française de la Randonnée Pédestre:{" "}
-                    <a
-                      href="https://www.ffrandonnee.fr/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: "#8b5cf6" }}
-                    >
-                      https://www.ffrandonnee.fr/
-                    </a>{" "}
-                    of op Wikipedia:{" "}
-                    <a
-                      href="https://nl.wikipedia.org/wiki/GR_5"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: "#8b5cf6" }}
-                    >
-                      https://nl.wikipedia.org/wiki/GR_5
-                    </a>
-                    .
-                  </p>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "1rem",
-                      alignItems: "center",
-                    }}
-                  >
-                    <img
-                      src="/images/Europa_wandel_E2_GR5_Continent.svg.png"
-                      alt="GR5 route map"
-                      style={{
-                        width: "100%",
-                        maxWidth: "300px",
-                        height: "auto",
-                        borderRadius: "0.5rem",
-                      }}
-                    />
-                    <img
-                      src="/images/wwmelberg.png"
-                      alt="Wandelen in de bergen"
-                      style={{
-                        width: "100%",
-                        maxWidth: "300px",
-                        height: "auto",
-                        borderRadius: "0.5rem",
-                      }}
-                    />
-                    <img
-                      src="/images/GR5_E2.jpg"
-                      alt="GR5 sign"
-                      style={{
-                        width: "100%",
-                        maxWidth: "300px",
-                        height: "auto",
-                        borderRadius: "0.5rem",
-                      }}
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <img
-                    src="/images/wwmelberg.png"
-                    alt="Wandelen in de bergen"
-                    style={{
-                      width: "200px",
-                      height: "auto",
-                      borderRadius: "0.5rem",
-                      float: "left",
-                      marginRight: "1rem",
-                      marginBottom: "1rem",
-                    }}
-                  />
-                  <div style={{ position: "relative" }}>
-                    <img
-                      src="/images/Europa_wandel_E2_GR5_Continent.svg.png"
-                      alt="GR5 route map"
-                      style={{
-                        width: "200px",
-                        height: "auto",
-                        borderRadius: "0.5rem",
-                        float: "right",
-                        marginLeft: "1rem",
-                        marginBottom: "1rem",
-                      }}
-                    />
-
-                    <p>
-                      De GR5 is een iconische langeafstandswandelroute die deel
-                      uitmaakt van het Europese netwerk van Grande
-                      Randonnée-paden. Zowel in Vlaanderen als in Wallonië is de
-                      GR5 de populairste langeafstandsroute.
-                      <p>
-                        <quote>
-                          "Deux milles kilomètres à pied, ça use les souliers!"
-                        </quote>
-                      </p>
-                    </p>
-                    <h4>De GR5: feiten & cijfers</h4>
-                    <ul>
-                      <li>
-                        De GR5 loopt door Nederland, België, Luxemburg,
-                        Frankrijk en een klein stukje Zwitserland, van Hoek van
-                        Holland naar Nice. Dat is meer dan 2.000 kilometer. Veel
-                        wandelaars scheppen symbolisch een flesje water uit de
-                        Noordzee bij de start, om het aan het eind in de
-                        Middellandse Zee te legen.
-                      </li>
-
-                      <li>
-                        Je volgt de wit-rood gestreepte markeringen en
-                        doorkruist diverse landschappen en hoogtemeters, van
-                        vlakke veldwegen in Nederland en Vlaanderen tot pittige
-                        bergpaden in de Vogezen en de Alpen.
-                      </li>
-
-                      <li>
-                        Voor de volledige thru-hike (onafgebroken tocht) reken
-                        je op 100 tot 125 stapdagen. De meeste wandelaars
-                        verdelen het traject in etappes over verschillende
-                        vakanties.
-                      </li>
-                    </ul>
-                    <img
-                      src="/images/GR5_E2.jpg"
-                      alt="GR5 sign"
-                      style={{
-                        width: "200px",
-                        height: "auto",
-                        borderRadius: "0.5rem",
-                        float: "right",
-                        marginLeft: "1rem",
-                        marginBottom: "1rem",
-                      }}
-                    />
-
-                    <p>
-                      Meer informatie vind je op de officiële website van de
-                      Fédération Française de la Randonnée Pédestre:{" "}
-                      <a
-                        href="https://www.ffrandonnee.fr/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: "#8b5cf6" }}
-                      >
-                        https://www.ffrandonnee.fr/
-                      </a>{" "}
-                      of op Wikipedia:{" "}
-                      <a
-                        href="https://nl.wikipedia.org/wiki/GR_5"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: "#8b5cf6" }}
-                      >
-                        https://nl.wikipedia.org/wiki/GR_5
-                      </a>
-                      .
-                    </p>
-                    <div style={{ clear: "both" }}></div>
-                  </div>
-                </>
-              )}
+          {activeTab === "gr5" && showTranslatedGR5 && translatedGR5 && (
+            <div
+              style={{
+                marginBottom: "2rem",
+                padding: "1rem",
+                backgroundColor: "rgba(139, 92, 246, 0.1)",
+                borderRadius: "0.5rem",
+              }}
+            >
+              <h3 style={{ color: "#8b5cf6", marginBottom: "1rem" }}>
+                Translated Content:
+              </h3>
+              <div style={{ whiteSpace: "pre-line", lineHeight: "1.6" }}>
+                {translatedGR5}
+              </div>
             </div>
           )}
-          {activeTab === "route" && (
-            <div>
-              <p>Hier komt meer info over deze app.</p>
+          {activeTab === "gr5" && (!showTranslatedGR5 || !translatedGR5) && (
+            <GR5TabContent isMobile={isMobile} />
+          )}
+          {activeTab === "route" && showTranslatedApp && translatedApp && (
+            <div
+              style={{
+                marginBottom: "2rem",
+                padding: "1rem",
+                backgroundColor: "rgba(139, 92, 246, 0.1)",
+                borderRadius: "0.5rem",
+              }}
+            >
+              <h3 style={{ color: "#8b5cf6", marginBottom: "1rem" }}>
+                Translated Content:
+              </h3>
+              <div style={{ whiteSpace: "pre-line", lineHeight: "1.6" }}>
+                {translatedApp}
+              </div>
             </div>
+          )}
+          {activeTab === "route" && (!showTranslatedApp || !translatedApp) && (
+            <AppTabContent />
           )}
         </div>
       </div>

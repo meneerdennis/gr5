@@ -154,7 +154,7 @@ function TravelJournalIcon({
               {selectedHikeId
                 ? hikes.find((h) => h.id === selectedHikeId)?.name ||
                   "Unnamed Activity"
-                : "selecteer etappe"}
+                : "Travel Journal"}
             </span>
           </div>
 
@@ -190,21 +190,6 @@ function TravelJournalIcon({
               animation: "slideDown 0.3s ease-out",
             }}
           >
-            <div
-              onClick={() => {
-                onClearSelectedHike();
-                setIsDropdownOpen(false);
-              }}
-              style={{
-                padding: "8px 12px",
-                cursor: "pointer",
-                color: "#999",
-                borderBottom: "1px solid #f0f0f0",
-                fontSize: isMobile ? "12px" : "14px",
-              }}
-            >
-              selecteer hier de etappe
-            </div>
             {sortedHikes.map((hike) => (
               <div
                 key={hike.id}

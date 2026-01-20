@@ -3,6 +3,36 @@ import HCaptcha from "@hcaptcha/react-hcaptcha";
 import { useComments } from "../hooks/useComments";
 import { addComment, deleteComment } from "../services/firebaseService";
 import { useAuth } from "../hooks/useAuth";
+import { translateText, getUserLanguage } from "../services/translationService";
+
+// Localized button texts for comments
+const commentButtonTexts = {
+  en: {
+    translate: "Translate",
+    showOriginal: "Show Original",
+    translating: "Translating...",
+  },
+  nl: {
+    translate: "Vertalen",
+    showOriginal: "Origineel tonen",
+    translating: "Vertalen...",
+  },
+  fr: {
+    translate: "Traduire",
+    showOriginal: "Afficher l'original",
+    translating: "Traduction...",
+  },
+  de: {
+    translate: "Übersetzen",
+    showOriginal: "Original anzeigen",
+    translating: "Übersetzen...",
+  },
+  lt: {
+    translate: "Versti",
+    showOriginal: "Rodyti originalą",
+    translating: "Verčiama...",
+  },
+};
 
 function CommentsSection({ activityId }) {
   const { user } = useAuth();
@@ -10,6 +40,8 @@ function CommentsSection({ activityId }) {
   const [newComment, setNewComment] = useState("");
   const [nickname, setNickname] = useState("");
   const [captchaToken, setCaptchaToken] = useState(null);
+  const [commentTranslations, setCommentTranslations] = useState({});
+  const [translatingComments, setTranslatingComments] = useState(new Set());
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,6 +79,56 @@ function CommentsSection({ activityId }) {
     }
   };
 
+  const handleTranslateComment = async (commentId, commentText) => {
+    const currentTranslation = commentTranslations[commentId];
+
+    if (currentTranslation && currentTranslation.showTranslated) {
+      setCommentTranslations((prev) => ({
+        ...prev,
+        [commentId]: { ...currentTranslation, showTranslated: false },
+      }));
+      return;
+    }
+
+    if (currentTranslation && currentTranslation.translatedText) {
+      setCommentTranslations((prev) => ({
+        ...prev,
+        [commentId]: { ...currentTranslation, showTranslated: true },
+      }));
+      return;
+    }
+
+    setTranslatingComments((prev) => new Set(prev).add(commentId));
+
+    try {
+      const userLang = getUserLanguage();
+      const translated = await translateText(commentText, userLang);
+
+      if (translated === commentText) {
+        alert("The comment is already in your language.");
+        setTranslatingComments((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(commentId);
+          return newSet;
+        });
+        return;
+      }
+
+      setCommentTranslations((prev) => ({
+        ...prev,
+        [commentId]: { translatedText: translated, showTranslated: true },
+      }));
+    } catch (error) {
+      alert("Translation failed. Please try again.");
+    } finally {
+      setTranslatingComments((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(commentId);
+        return newSet;
+      });
+    }
+  };
+
   if (loading)
     return (
       <div style={{ fontSize: "14px", color: "#8e8e8e" }}>
@@ -72,23 +154,58 @@ function CommentsSection({ activityId }) {
               <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
                 {comment.nickname}
               </div>
-              <div>{comment.text}</div>
-              {user && comment.uid === user.uid && (
-                <button
-                  onClick={() => handleDelete(comment.id)}
-                  style={{
-                    marginTop: "4px",
-                    fontSize: "12px",
-                    color: "red",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    textDecoration: "underline",
-                  }}
-                >
-                  Delete
-                </button>
-              )}
+              <div style={{ marginBottom: "4px" }}>
+                {commentTranslations[comment.id]?.showTranslated
+                  ? commentTranslations[comment.id].translatedText
+                  : comment.text}
+              </div>
+              <div
+                style={{ display: "flex", gap: "8px", alignItems: "center" }}
+              >
+                {getUserLanguage() !== "nl" && comment.text && (
+                  <button
+                    onClick={() =>
+                      handleTranslateComment(comment.id, comment.text)
+                    }
+                    disabled={translatingComments.has(comment.id)}
+                    style={{
+                      fontSize: "11px",
+                      color: "#0095f6",
+                      background: "none",
+                      border: "none",
+                      cursor: translatingComments.has(comment.id)
+                        ? "not-allowed"
+                        : "pointer",
+                      textDecoration: "underline",
+                      opacity: translatingComments.has(comment.id) ? 0.5 : 1,
+                    }}
+                  >
+                    {translatingComments.has(comment.id)
+                      ? commentButtonTexts[getUserLanguage()]?.translating ||
+                        commentButtonTexts.en.translating
+                      : commentTranslations[comment.id]?.showTranslated
+                        ? commentButtonTexts[getUserLanguage()]?.showOriginal ||
+                          commentButtonTexts.en.showOriginal
+                        : commentButtonTexts[getUserLanguage()]?.translate ||
+                          commentButtonTexts.en.translate}
+                  </button>
+                )}
+                {user && comment.uid === user.uid && (
+                  <button
+                    onClick={() => handleDelete(comment.id)}
+                    style={{
+                      fontSize: "11px",
+                      color: "red",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
