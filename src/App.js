@@ -305,8 +305,11 @@ function App() {
         p.date === photoData.date
     );
     if (photo && photo.hikeId) {
-      setSelectedHikeId(photo.hikeId);
-      setSelectedPhotoUrl(photo.url);
+      // Delay opening the popup until after the height profile has updated
+      setTimeout(() => {
+        setSelectedHikeId(photo.hikeId);
+        setSelectedPhotoUrl(photo.url);
+      }, 3000);
     }
   };
 
