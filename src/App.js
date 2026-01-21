@@ -16,7 +16,7 @@ import { useHikeData } from "./hooks/useHikeData";
 import { useAuth } from "./hooks/useAuth";
 import Layout from "./components/Layout";
 import ElevationProfile from "./components/ElevationProfile";
-const MapView = lazy(() => import("./components/MapView"));
+import MapView from "./components/MapView";
 
 // Lazy load admin components
 const AdminPhotoManager = lazy(() => import("./components/AdminPhotoManager"));
@@ -26,17 +26,14 @@ const AdminActivityManager = lazy(
 );
 const AdminQuoteManager = lazy(() => import("./components/AdminQuoteManager"));
 import AdminRoute from "./components/AdminRoute";
-import { Swiper, SwiperSlide } from "swiper/react";
-import { Navigation, Pagination } from "swiper/modules";
-import "swiper/css";
-import "swiper/css/navigation";
-import "swiper/css/pagination";
 import { useViewedActivities } from "./hooks/useViewedActivities";
 
 import { useLikes } from "./hooks/useLikes";
 import { useComments } from "./hooks/useComments";
 import LikeButton from "./components/LikeButton";
 import CommentsSection from "./components/CommentsSection";
+import SwiperComponent from "./components/SwiperComponent";
+import { SwiperSlide } from "swiper/react";
 import { translateText, getUserLanguage } from "./services/translationService";
 
 // Localized button texts
@@ -113,10 +110,17 @@ function App() {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    const checkMobile = () => {
+      // Use matchMedia for better performance than accessing window.innerWidth
+      const mediaQuery = window.matchMedia("(max-width: 767px)");
+      setIsMobile(mediaQuery.matches);
+
+      const handleChange = (e) => setIsMobile(e.matches);
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    };
+
     checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   // Reset translation when hike changes
@@ -385,31 +389,23 @@ function App() {
 
                 {/* Map Section */}
                 <div id="map-section" className="slide-up p-0 m-0">
-                  <Suspense
-                    fallback={
-                      <div className="flex items-center justify-center h-96 bg-gray-100 rounded-lg">
-                        <div className="text-gray-600">Loading map...</div>
-                      </div>
-                    }
-                  >
-                    <MapView
-                      routePolyline={route.polyline}
-                      hikes={hikes}
-                      photos={photos}
-                      gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
-                      elevationProfile={route.elevationProfile}
-                      walkedDistanceKm={currentWalkedDistance}
-                      hoverPoint={hoverPoint}
-                      onHover={setHoverPoint}
-                      zoomRange={zoomRange}
-                      onZoomChange={setZoomRange}
-                      onWalkedDistanceChange={handleWalkedDistanceChange}
-                      selectedHikeId={selectedHikeId}
-                      onSelectHike={handleSelectHike}
-                      onPhotoClick={handlePhotoClick}
-                      onClearSelectedHike={handleClearSelectedHike}
-                    />
-                  </Suspense>
+                  <MapView
+                    routePolyline={route.polyline}
+                    hikes={hikes}
+                    photos={photos}
+                    gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
+                    elevationProfile={route.elevationProfile}
+                    walkedDistanceKm={currentWalkedDistance}
+                    hoverPoint={hoverPoint}
+                    onHover={setHoverPoint}
+                    zoomRange={zoomRange}
+                    onZoomChange={setZoomRange}
+                    onWalkedDistanceChange={handleWalkedDistanceChange}
+                    selectedHikeId={selectedHikeId}
+                    onSelectHike={handleSelectHike}
+                    onPhotoClick={handlePhotoClick}
+                    onClearSelectedHike={handleClearSelectedHike}
+                  />
                 </div>
               </div>
 
@@ -532,13 +528,8 @@ function App() {
                         className="instagram-photos"
                         style={{ position: "relative", flexShrink: 0 }}
                       >
-                        <Swiper
-                          key={selectedPhotoIndex}
-                          modules={[Navigation, Pagination]}
-                          spaceBetween={0}
-                          slidesPerView={1}
-                          navigation
-                          pagination={{ clickable: true }}
+                        <SwiperComponent
+                          key={selectedHikeId}
                           initialSlide={selectedPhotoIndex}
                           style={{ height: "400px" }}
                           onSlideChange={(swiper) => {
@@ -688,7 +679,7 @@ function App() {
                               )}
                             </SwiperSlide>
                           ))}
-                        </Swiper>
+                        </SwiperComponent>
                       </div>
                     )}
 
@@ -832,7 +823,9 @@ function App() {
                           borderTop: "1px solid #e1e5e9",
                         }}
                       >
-                        <CommentsSection activityId={selectedHike.id} />
+                        <Suspense fallback={<div>Loading comments...</div>}>
+                          <CommentsSection activityId={selectedHike.id} />
+                        </Suspense>
                       </div>
                     </div>
 

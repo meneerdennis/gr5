@@ -271,7 +271,7 @@ function Layout({ children, progress = 0 }) {
                     alt="Hiker"
                     style={{
                       height: "110px",
-                      width: "auto",
+                      width: "110px",
                       marginRight: "10px",
                     }}
                   />
