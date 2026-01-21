@@ -28,6 +28,32 @@ export async function getRouteData() {
     [43.7, 7.26],
   ];
 
+  const CACHE_KEY = "gr5_route_data";
+  const CACHE_TIMESTAMP_KEY = "gr5_route_data_timestamp";
+  const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
+  // Check cache first
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    const cachedTimestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+
+    if (cached && cachedTimestamp) {
+      const cacheAge = Date.now() - parseInt(cachedTimestamp);
+      if (cacheAge < CACHE_DURATION) {
+        const cachedData = JSON.parse(cached);
+        // Still need to calculate walked distance from Firebase
+        const hikes = await getHikesFromFirebase();
+        const walkedDistanceKm = calculateTotalWalkedDistance(hikes);
+        return {
+          ...cachedData,
+          walkedDistanceKm,
+        };
+      }
+    }
+  } catch (cacheError) {
+    console.warn("Error reading from cache:", cacheError);
+  }
+
   // Fetch and parse GPX data
   try {
     const response = await fetch(process.env.PUBLIC_URL + "/gr5.gpx");
@@ -78,12 +104,27 @@ export async function getRouteData() {
     const hikes = await getHikesFromFirebase();
     const walkedDistanceKm = calculateTotalWalkedDistance(hikes);
 
-    return {
+    const routeData = {
       polyline,
       elevationProfile,
       totalDistanceKm,
       walkedDistanceKm,
     };
+
+    // Cache the result (without walkedDistanceKm as it changes)
+    try {
+      const cacheData = {
+        polyline,
+        elevationProfile,
+        totalDistanceKm,
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+      localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
+    } catch (cacheError) {
+      console.warn("Error caching route data:", cacheError);
+    }
+
+    return routeData;
   } catch (error) {
     console.error("Error loading GPX data:", error);
 

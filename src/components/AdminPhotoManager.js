@@ -64,6 +64,7 @@ function AdminPhotoManager() {
   const [selectedHike, setSelectedHike] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [exifPreview, setExifPreview] = useState([]);
   const [formData, setFormData] = useState({
@@ -491,13 +492,47 @@ function AdminPhotoManager() {
 
     setUploading(true);
     setUploadStatus(null);
+    setUploadProgress({
+      current: 0,
+      total: selectedFiles.length,
+      status: "starting",
+      message: "Preparing upload...",
+    });
 
     try {
+      // Progress callback
+      const onProgress = (progress) => {
+        setUploadProgress(progress);
+
+        if (progress.status === "processing") {
+          setUploadProgress({
+            ...progress,
+            message: `Processing ${progress.currentFile}...`,
+          });
+        } else if (progress.status === "success") {
+          setUploadProgress({
+            ...progress,
+            message: `✅ ${progress.currentFile} uploaded successfully`,
+          });
+        } else if (progress.status === "error") {
+          setUploadProgress({
+            ...progress,
+            message: `❌ ${progress.currentFile} failed: ${progress.error}`,
+          });
+        } else if (progress.status === "completed") {
+          setUploadProgress({
+            ...progress,
+            message: `🎉 Upload completed! ${progress.summary.successful}/${progress.summary.total} successful`,
+          });
+        }
+      };
+
       // Upload all selected files, regardless of location data
       const result = await uploadMultiplePhotos(
         selectedFiles,
         selectedHike,
-        formData.caption
+        formData.caption,
+        onProgress
       );
 
       if (result.success) {
@@ -559,6 +594,8 @@ function AdminPhotoManager() {
       });
     } finally {
       setUploading(false);
+      // Clear progress after a delay
+      setTimeout(() => setUploadProgress(null), 3000);
     }
   };
 
@@ -690,6 +727,30 @@ function AdminPhotoManager() {
                   </div>
                 )}
 
+                {uploadProgress && (
+                  <div className="p-3 bg-blue-900 bg-opacity-30 border border-blue-500 border-opacity-30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-blue-300 text-sm font-medium">
+                        Uploading Media...
+                      </span>
+                      <span className="text-blue-200 text-xs">
+                        {uploadProgress.current}/{uploadProgress.total}
+                      </span>
+                    </div>
+                    <div className="w-full bg-blue-900 bg-opacity-50 rounded-full h-2 mb-2">
+                      <div
+                        className="bg-blue-400 h-2 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${(uploadProgress.current / uploadProgress.total) * 100}%`,
+                        }}
+                      ></div>
+                    </div>
+                    <p className="text-blue-200 text-sm">
+                      {uploadProgress.message}
+                    </p>
+                  </div>
+                )}
+
                 {uploadStatus && (
                   <div
                     className={`p-3 rounded-lg ${
@@ -719,7 +780,9 @@ function AdminPhotoManager() {
                   className="w-full btn btn-primary"
                 >
                   {uploading
-                    ? "⏳ Uploading Media..."
+                    ? uploadProgress
+                      ? `⏳ Uploading... ${uploadProgress.current}/${uploadProgress.total}`
+                      : "⏳ Uploading Media..."
                     : `📤 Upload ${selectedFiles.length} Media File(s)`}
                 </button>
               </div>

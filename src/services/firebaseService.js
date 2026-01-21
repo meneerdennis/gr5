@@ -116,7 +116,7 @@ export function getPhotosFromHikes(hikes) {
 }
 
 // Enhanced photo function that combines hike photos and standalone photos
-export async function getAllPhotosWithHikes() {
+export async function getAllPhotosWithHikes(limit = null) {
   try {
     // Get photos from hikes
     const hikes = await getHikesFromFirebase();
@@ -152,7 +152,15 @@ export async function getAllPhotosWithHikes() {
       photoMap.set(photo.id, photo);
     });
 
-    const allPhotos = Array.from(photoMap.values());
+    let allPhotos = Array.from(photoMap.values());
+
+    // Apply limit if specified
+    if (limit && allPhotos.length > limit) {
+      // Sort by date descending (newest first) and take limit
+      allPhotos = allPhotos
+        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+        .slice(0, limit);
+    }
 
     console.log(
       "Total photos after deduplication:",
@@ -161,6 +169,7 @@ export async function getAllPhotosWithHikes() {
       hikePhotos.length,
       ", standalone:",
       formattedStandalonePhotos.length,
+      limit ? `, limited to ${limit}` : "",
       ")"
     );
     return allPhotos;

@@ -8,6 +8,7 @@ export function useHikeData() {
   const [hikes, setHikes] = useState([]);
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [photosLoading, setPhotosLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const loadData = useCallback(async () => {
@@ -20,14 +21,17 @@ export function useHikeData() {
       setRoute(routeData);
       setHikes(hikesData);
 
-      // Extract photos from both hikes and standalone photos collection
+      // Load photos separately after initial data
+      setPhotosLoading(true);
       const photosData = await getAllPhotosWithHikes();
       console.log("Hikes data:", hikesData);
       console.log("Extracted photos (including standalone):", photosData);
       setPhotos(photosData);
+      setPhotosLoading(false);
     } catch (e) {
       console.error(e);
       setError(e);
+      setPhotosLoading(false);
     } finally {
       setLoading(false);
     }
@@ -48,5 +52,13 @@ export function useHikeData() {
     };
   }, [loadData]);
 
-  return { route, hikes, photos, loading, error, refetch: loadData };
+  return {
+    route,
+    hikes,
+    photos,
+    loading,
+    photosLoading,
+    error,
+    refetch: loadData,
+  };
 }

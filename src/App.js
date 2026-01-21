@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  lazy,
+  Suspense,
+} from "react";
 import {
   HashRouter as Router,
   Routes,
@@ -10,10 +17,14 @@ import { useAuth } from "./hooks/useAuth";
 import Layout from "./components/Layout";
 import ElevationProfile from "./components/ElevationProfile";
 import MapView from "./components/MapView";
-import AdminPhotoManager from "./components/AdminPhotoManager";
-import AdminNoteEditor from "./components/AdminNoteEditor";
-import AdminActivityManager from "./components/AdminActivityManager";
-import AdminQuoteManager from "./components/AdminQuoteManager";
+
+// Lazy load admin components
+const AdminPhotoManager = lazy(() => import("./components/AdminPhotoManager"));
+const AdminNoteEditor = lazy(() => import("./components/AdminNoteEditor"));
+const AdminActivityManager = lazy(
+  () => import("./components/AdminActivityManager")
+);
+const AdminQuoteManager = lazy(() => import("./components/AdminQuoteManager"));
 import AdminRoute from "./components/AdminRoute";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Pagination } from "swiper/modules";
@@ -303,41 +314,51 @@ function App() {
         <Route
           path="/admin"
           element={
-            <AdminRoute>
-              <Navigate to="/admin/manage" replace />
-            </AdminRoute>
+            <Suspense fallback={<div>Loading...</div>}>
+              <AdminRoute>
+                <Navigate to="/admin/manage" replace />
+              </AdminRoute>
+            </Suspense>
           }
         />
         <Route
           path="/admin/manage"
           element={
-            <AdminRoute>
-              <AdminPhotoManager />
-            </AdminRoute>
+            <Suspense fallback={<div>Loading...</div>}>
+              <AdminRoute>
+                <AdminPhotoManager />
+              </AdminRoute>
+            </Suspense>
           }
         />
         <Route
           path="/admin/notes"
           element={
-            <AdminRoute>
-              <AdminNoteEditor />
-            </AdminRoute>
+            <Suspense fallback={<div>Loading...</div>}>
+              <AdminRoute>
+                <AdminNoteEditor />
+              </AdminRoute>
+            </Suspense>
           }
         />
         <Route
           path="/admin/activities"
           element={
-            <AdminRoute>
-              <AdminActivityManager />
-            </AdminRoute>
+            <Suspense fallback={<div>Loading...</div>}>
+              <AdminRoute>
+                <AdminActivityManager />
+              </AdminRoute>
+            </Suspense>
           }
         />
         <Route
           path="/admin/quotes"
           element={
-            <AdminRoute>
-              <AdminQuoteManager />
-            </AdminRoute>
+            <Suspense fallback={<div>Loading...</div>}>
+              <AdminRoute>
+                <AdminQuoteManager />
+              </AdminRoute>
+            </Suspense>
           }
         />
 

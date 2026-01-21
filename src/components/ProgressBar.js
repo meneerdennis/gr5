@@ -40,15 +40,20 @@ function ProgressBar({ progress, compact = false, position = "normal" }) {
   }
 
   return (
-    <div
-      className="p-5 mb-6 fade-in"
-      style={{ width: "100%", justifyContent: "center", alignSelf: "center" }}
-    >
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-semibold text-gray-900">Trail Progress</h3>
+    <div className="fade-in" style={{ width: "100%" }}>
+      <div>
+        <h3
+          className="text-xl font-semibold text-gray-900"
+          style={{ margin: "10px 0px 10px 0px" }}
+        >
+          Trail Progress
+        </h3>
       </div>
 
-      <div className="modern-progress mb-4" style={{ height: "12px" }}>
+      <div
+        className="modern-progress mb-4"
+        style={{ height: "20px", marginBottom: "5px" }}
+      >
         <div
           className="modern-progress-fill"
           style={{ width: `${percentage}%` }}

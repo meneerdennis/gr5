@@ -556,16 +556,6 @@ function ElevationProfile({
                 strokeWidth="2"
               />
 
-              {/* Hiker icon */}
-              <image
-                href={process.env.PUBLIC_URL + "/hikersmall.png"}
-                x={markerX - 16}
-                y={height - 45}
-                width="45"
-                height="45"
-                clipPath="circle(50% at 50%)"
-              />
-
               {/* Current position text */}
               <text
                 x={markerX}

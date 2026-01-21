@@ -107,6 +107,101 @@ function convertExifDateToISO(exifDate) {
   return null;
 }
 
+// Resize image to web-friendly size
+async function resizeImageForWeb(file, maxWidth = 1920, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    try {
+      const fileType = file.type;
+
+      if (fileType.startsWith("video/")) {
+        // Skip resizing for videos
+        resolve(file);
+        return;
+      }
+
+      // Check if file is HEIC format - browsers don't natively support HEIC
+      const fileName = file.name.toLowerCase();
+      const isHeicFormat =
+        fileName.endsWith(".heic") ||
+        fileName.endsWith(".heif") ||
+        file.type === "image/heic" ||
+        file.type === "image/heif";
+
+      if (isHeicFormat) {
+        console.warn(
+          `Skipping resize for HEIC file: ${file.name}. HEIC format is not supported by browsers for resizing. Original image will be used.`
+        );
+        resolve(file);
+        return;
+      }
+
+      const img = new Image();
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      const objectURL = URL.createObjectURL(file);
+
+      img.onload = () => {
+        try {
+          let { width, height } = img;
+
+          // Calculate new dimensions to maintain aspect ratio with max width
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+
+          // Ensure minimum dimensions
+          width = Math.max(1, Math.floor(width));
+          height = Math.max(1, Math.floor(height));
+
+          // Set canvas dimensions
+          canvas.width = width;
+          canvas.height = height;
+
+          // Clear canvas and draw image
+          ctx.clearRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convert to blob
+          canvas.toBlob(
+            (blob) => {
+              URL.revokeObjectURL(objectURL); // Clean up
+              if (blob && blob.size > 0) {
+                // Create a new File object with the resized blob
+                const resizedFile = new File([blob], file.name, {
+                  type: "image/jpeg",
+                  lastModified: file.lastModified,
+                });
+                resolve(resizedFile);
+              } else {
+                reject(
+                  new Error(
+                    "Failed to create resized image blob - empty or invalid"
+                  )
+                );
+              }
+            },
+            "image/jpeg",
+            quality
+          );
+        } catch (error) {
+          URL.revokeObjectURL(objectURL); // Clean up
+          reject(new Error("Failed to process image: " + error.message));
+        }
+      };
+
+      img.onerror = (error) => {
+        URL.revokeObjectURL(objectURL); // Clean up
+        reject(new Error("Failed to load image for resizing"));
+      };
+
+      img.src = objectURL;
+    } catch (error) {
+      reject(new Error("Failed to resize image: " + error.message));
+    }
+  });
+}
+
 // Create thumbnail from file
 async function createThumbnailFromFile(file) {
   return new Promise((resolve, reject) => {
@@ -223,6 +318,19 @@ export async function uploadPhoto(file, hikeId, photoData) {
     // Extract EXIF data from the photo
     const exifData = await extractExifData(file);
 
+    // Resize image to web-friendly size if it's an image
+    let fileToUpload = file;
+    try {
+      if (file.type.startsWith("image/")) {
+        console.log("Resizing image for web:", file.name);
+        fileToUpload = await resizeImageForWeb(file);
+        console.log(`Resized from ${file.size} to ${fileToUpload.size} bytes`);
+      }
+    } catch (resizeError) {
+      console.warn("Failed to resize image, using original:", resizeError);
+      fileToUpload = file;
+    }
+
     // Use EXIF data if available, otherwise fall back to provided data
     const finalLat = exifData.lat || photoData.lat;
     const finalLng = exifData.lng || photoData.lng;
@@ -234,9 +342,9 @@ export async function uploadPhoto(file, hikeId, photoData) {
     const fileName = `${hikeId}_${timestamp}_${file.name}`;
     const thumbnailFileName = `thumb_${fileName}`;
 
-    // Upload original file
+    // Upload original file (resized if applicable)
     const storageRef = ref(storage, `photos/${hikeId}/${fileName}`);
-    const snapshot = await uploadBytes(storageRef, file);
+    const snapshot = await uploadBytes(storageRef, fileToUpload);
     const downloadURL = await getDownloadURL(snapshot.ref);
 
     // Create and upload thumbnail
@@ -317,11 +425,13 @@ export async function uploadPhoto(file, hikeId, photoData) {
       fileName: fileName,
       thumbnailFileName: thumbnailFileName,
       originalName: file.name,
-      size: file.size,
+      size: fileToUpload.size,
+      originalSize: file.size,
       type: file.type,
       uploadedAt: new Date().toISOString(),
       hasExifData: !!(exifData.lat && exifData.lng),
       exifData: sanitizeExifData(exifData.exifData),
+      resized: fileToUpload !== file,
       ...photoData,
     };
 
@@ -358,7 +468,12 @@ export async function uploadPhoto(file, hikeId, photoData) {
 }
 
 // Upload multiple photos at once with batch EXIF processing
-export async function uploadMultiplePhotos(files, hikeId, globalCaption = "") {
+export async function uploadMultiplePhotos(
+  files,
+  hikeId,
+  globalCaption = "",
+  onProgress = null
+) {
   try {
     const results = [];
     const errors = [];
@@ -366,6 +481,16 @@ export async function uploadMultiplePhotos(files, hikeId, globalCaption = "") {
     // Process files sequentially to avoid overwhelming the system
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+
+      // Report progress
+      if (onProgress) {
+        onProgress({
+          current: i + 1,
+          total: files.length,
+          currentFile: file.name,
+          status: "processing",
+        });
+      }
 
       try {
         // Create individual photo data
@@ -383,18 +508,66 @@ export async function uploadMultiplePhotos(files, hikeId, globalCaption = "") {
             hasExifData: result.hasExifData,
             exifExtracted: result.exifExtracted,
           });
+
+          // Report success
+          if (onProgress) {
+            onProgress({
+              current: i + 1,
+              total: files.length,
+              currentFile: file.name,
+              status: "success",
+              result: result,
+            });
+          }
         } else {
           errors.push({
             fileName: file.name,
             error: result.error,
           });
+
+          // Report error
+          if (onProgress) {
+            onProgress({
+              current: i + 1,
+              total: files.length,
+              currentFile: file.name,
+              status: "error",
+              error: result.error,
+            });
+          }
         }
       } catch (error) {
         errors.push({
           fileName: file.name,
           error: error.message,
         });
+
+        // Report error
+        if (onProgress) {
+          onProgress({
+            current: i + 1,
+            total: files.length,
+            currentFile: file.name,
+            status: "error",
+            error: error.message,
+          });
+        }
       }
+    }
+
+    // Final progress report
+    if (onProgress) {
+      onProgress({
+        current: files.length,
+        total: files.length,
+        status: "completed",
+        summary: {
+          total: files.length,
+          successful: results.length,
+          failed: errors.length,
+          withExif: results.filter((r) => r.hasExifData).length,
+        },
+      });
     }
 
     return {
@@ -410,6 +583,15 @@ export async function uploadMultiplePhotos(files, hikeId, globalCaption = "") {
     };
   } catch (error) {
     console.error("Error in batch upload:", error);
+
+    // Report final error
+    if (onProgress) {
+      onProgress({
+        status: "failed",
+        error: error.message,
+      });
+    }
+
     return {
       success: false,
       error: error.message,
