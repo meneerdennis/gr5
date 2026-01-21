@@ -2,9 +2,6 @@ import { useEffect } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
 
-// Import leaflet-gpx plugin properly
-import "leaflet-gpx";
-
 function GpxTrack({ url, elevationProfile, onHover }) {
   const map = useMap();
 

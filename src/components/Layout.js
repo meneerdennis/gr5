@@ -285,7 +285,7 @@ function Layout({ children, progress = 0 }) {
                     >
                       <h1
                         className="text-lg md:text-3xl font-bold text-gray-900"
-                        style={{ margin: "5px" }}
+                        style={{ marginTop: "10px" }}
                       >
                         Mijn GR5
                       </h1>
@@ -304,7 +304,7 @@ function Layout({ children, progress = 0 }) {
                           justifyContent: "center",
                           fontSize: "12px",
                           fontWeight: "bold",
-                          marginTop: "10px",
+                          marginTop: "15px",
                         }}
                         title="Meer informatie over GR5"
                       >

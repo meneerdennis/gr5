@@ -13,6 +13,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
+import "leaflet-gpx";
 import PhotoMarkerPopup from "./PhotoMarkerPopup";
 import GpxTrack from "./Gpxtrack";
 import TravelJournalIcon from "./TravelJournalIcon";
@@ -345,6 +346,7 @@ function PhotoMarkers({ photos, onPhotoClick }) {
             mediaElement.style.marginBottom = "0.5rem";
             mediaElement.style.cursor = "pointer";
             mediaElement.style.touchAction = "manipulation";
+            mediaElement.loading = "lazy";
           }
 
           mediaElement.setAttribute(

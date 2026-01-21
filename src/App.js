@@ -16,7 +16,7 @@ import { useHikeData } from "./hooks/useHikeData";
 import { useAuth } from "./hooks/useAuth";
 import Layout from "./components/Layout";
 import ElevationProfile from "./components/ElevationProfile";
-import MapView from "./components/MapView";
+const MapView = lazy(() => import("./components/MapView"));
 
 // Lazy load admin components
 const AdminPhotoManager = lazy(() => import("./components/AdminPhotoManager"));
@@ -385,23 +385,31 @@ function App() {
 
                 {/* Map Section */}
                 <div id="map-section" className="slide-up p-0 m-0">
-                  <MapView
-                    routePolyline={route.polyline}
-                    hikes={hikes}
-                    photos={photos}
-                    gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
-                    elevationProfile={route.elevationProfile}
-                    walkedDistanceKm={currentWalkedDistance}
-                    hoverPoint={hoverPoint}
-                    onHover={setHoverPoint}
-                    zoomRange={zoomRange}
-                    onZoomChange={setZoomRange}
-                    onWalkedDistanceChange={handleWalkedDistanceChange}
-                    selectedHikeId={selectedHikeId}
-                    onSelectHike={handleSelectHike}
-                    onPhotoClick={handlePhotoClick}
-                    onClearSelectedHike={handleClearSelectedHike}
-                  />
+                  <Suspense
+                    fallback={
+                      <div className="flex items-center justify-center h-96 bg-gray-100 rounded-lg">
+                        <div className="text-gray-600">Loading map...</div>
+                      </div>
+                    }
+                  >
+                    <MapView
+                      routePolyline={route.polyline}
+                      hikes={hikes}
+                      photos={photos}
+                      gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
+                      elevationProfile={route.elevationProfile}
+                      walkedDistanceKm={currentWalkedDistance}
+                      hoverPoint={hoverPoint}
+                      onHover={setHoverPoint}
+                      zoomRange={zoomRange}
+                      onZoomChange={setZoomRange}
+                      onWalkedDistanceChange={handleWalkedDistanceChange}
+                      selectedHikeId={selectedHikeId}
+                      onSelectHike={handleSelectHike}
+                      onPhotoClick={handlePhotoClick}
+                      onClearSelectedHike={handleClearSelectedHike}
+                    />
+                  </Suspense>
                 </div>
               </div>
 
@@ -675,6 +683,7 @@ function App() {
                                     height: "400px",
                                     objectFit: "cover",
                                   }}
+                                  loading="lazy"
                                 />
                               )}
                             </SwiperSlide>

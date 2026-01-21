@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="nl">
   <head>
     <meta charset="utf-8" />
@@ -10,6 +10,11 @@
       content="Volg mijn GR5-wandeltocht in realtime! Op MijnGR5.be deel ik foto’s, korte updates en mijn dagelijkse voortgang langs de beroemde GR5-route. Ontdek de mooiste landschappen, leer meer over het wandelen van de GR5 en volg hoe ik stap voor stap mijn avontuur volbreng. Ideaal voor familie, vrienden en alle wandelliefhebbers die het GR5-pad willen volgen."
     />
     <title>Mijn GR5 Avontuur</title>
+
+    <!-- Preload critical resources -->
+    <link rel="preload" href="%PUBLIC_URL%/gr5.gpx" as="fetch" crossorigin />
+    <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="//www.googletagmanager.com" />
     <!-- Google tag (gtag.js) -->
     <script
       async

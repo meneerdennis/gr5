@@ -15,13 +15,17 @@ import {
   onSnapshot,
   where,
   runTransaction,
+  limit,
 } from "firebase/firestore";
 import { getAllPhotos } from "./photoService";
 
-export async function getHikesFromFirebase() {
+export async function getHikesFromFirebase(limit = null) {
   try {
     const hikesCollection = collection(db, "hikes");
-    const q = query(hikesCollection, orderBy("startDate", "asc"));
+    let q = query(hikesCollection, orderBy("startDate", "asc"));
+    if (limit) {
+      q = query(hikesCollection, orderBy("startDate", "asc"), limit(limit));
+    }
     const querySnapshot = await getDocs(q);
 
     const hikes = [];

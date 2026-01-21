@@ -32,7 +32,7 @@ async function resizeImage(buffer, maxWidth = 1920, quality = 80) {
     const resizedBuffer = await image
       .rotate() // Auto-rotate based on EXIF orientation
       .resize(resizeOptions)
-      .jpeg({ quality })
+      .webp({ quality })
       .toBuffer();
 
     return resizedBuffer;
@@ -97,7 +97,7 @@ async function main() {
         // Upload the resized image back
         await file.save(resizedBuffer, {
           metadata: {
-            contentType: "image/jpeg",
+            contentType: "image/webp",
             metadata: {
               resized: "true",
               originalSize: buffer.length.toString(),

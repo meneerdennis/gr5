@@ -15,7 +15,6 @@
     "firebase": "^10.13.0",
     "firebase-admin": "^12.0.0",
     "fit-parser": "^0.10.1",
-    "franc": "^6.2.0",
     "leaflet": "^1.9.4",
     "leaflet-gpx": "^2.2.0",
     "leaflet.markercluster": "^1.5.3",
@@ -24,13 +23,13 @@
     "react-leaflet": "^4.2.1",
     "react-router-dom": "^7.9.6",
     "react-scripts": "5.0.1",
-    "sharp": "^0.34.5",
     "swiper": "^12.0.3",
     "web-vitals": "^2.1.4"
   },
   "devDependencies": {
     "baseline-browser-mapping": "^2.9.16",
-    "gh-pages": "^6.0.0"
+    "gh-pages": "^6.0.0",
+    "sharp": "^0.34.5"
   },
   "scripts": {
     "start": "react-scripts start",
