@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 
 function ActivityList({ hikes, selectedHikeId, onSelectHike }) {
   if (!hikes || hikes.length === 0) {
@@ -9,12 +9,14 @@ function ActivityList({ hikes, selectedHikeId, onSelectHike }) {
     );
   }
 
-  // Sort hikes by date (most recent first)
-  const sortedHikes = [...hikes].sort((a, b) => {
-    const dateA = new Date(a.startDate);
-    const dateB = new Date(b.startDate);
-    return dateB - dateA;
-  });
+  // Memoize sorted hikes to prevent re-sorting on every render
+  const sortedHikes = useMemo(() => {
+    return [...hikes].sort((a, b) => {
+      const dateA = new Date(a.startDate);
+      const dateB = new Date(b.startDate);
+      return dateB - dateA;
+    });
+  }, [hikes]);
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -123,4 +125,11 @@ function ActivityList({ hikes, selectedHikeId, onSelectHike }) {
   );
 }
 
-export default ActivityList;
+// Memoize component to prevent re-renders when parent props haven't changed
+export default React.memo(ActivityList, (prevProps, nextProps) => {
+  return (
+    prevProps.hikes === nextProps.hikes &&
+    prevProps.selectedHikeId === nextProps.selectedHikeId &&
+    prevProps.onSelectHike === nextProps.onSelectHike
+  );
+});

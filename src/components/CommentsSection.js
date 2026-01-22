@@ -58,7 +58,7 @@ function CommentsSection({ activityId }) {
         activityId,
         user.uid,
         newComment.trim(),
-        nickname.trim() || "Anonymous hiker"
+        nickname.trim() || "Anonymous hiker",
       );
       setNewComment("");
       setNickname("");
@@ -279,4 +279,4 @@ function CommentsSection({ activityId }) {
   );
 }
 
-export default CommentsSection;
+export default React.memo(CommentsSection);

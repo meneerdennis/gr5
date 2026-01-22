@@ -1,7 +1,30 @@
 const MYMEMORY_URL = "https://api.mymemory.translated.net/get";
+// Translation cache to prevent duplicate API calls for same text
+const translationCache = new Map();
+
+/**
+ * Get cache key for translation
+ * @param {string} text - Text to translate
+ * @param {string} targetLang - Target language
+ * @returns {string} Cache key
+ */
+function getCacheKey(text, targetLang) {
+  // Create a hash-like key from text and target language
+  return `${targetLang}:${text}`;
+}
 
 export async function translateText(text, targetLang = "en") {
   try {
+    const cacheKey = getCacheKey(text, targetLang);
+
+    // Check cache first
+    if (translationCache.has(cacheKey)) {
+      console.log("Translation cache hit for:", cacheKey.substring(0, 50));
+      return translationCache.get(cacheKey);
+    }
+
+    let translated;
+
     // If text is within limit, translate normally
     if (text.length <= 500) {
       const langpair = `nl|${targetLang}`;
@@ -14,26 +37,36 @@ export async function translateText(text, targetLang = "en") {
       }
 
       const data = await response.json();
-      const translated = data.responseData?.translatedText;
+      translated = data.responseData?.translatedText;
 
       if (!translated) {
         throw new Error("No translation received");
       }
+    } else {
+      // For longer texts, split into chunks and translate each
+      const chunks = splitTextIntoChunks(text, 450); // Leave some buffer
+      const translatedChunks = await Promise.all(
+        chunks.map((chunk) => translateChunk(chunk, targetLang)),
+      );
 
-      return translated;
+      translated = translatedChunks.join(" ");
     }
 
-    // For longer texts, split into chunks and translate each
-    const chunks = splitTextIntoChunks(text, 450); // Leave some buffer
-    const translatedChunks = await Promise.all(
-      chunks.map((chunk) => translateChunk(chunk, targetLang))
-    );
+    // Cache the result
+    translationCache.set(cacheKey, translated);
 
-    return translatedChunks.join(" ");
+    return translated;
   } catch (error) {
     console.error("Translation error:", error);
     throw error;
   }
+}
+
+/**
+ * Clear translation cache (useful for memory management or testing)
+ */
+export function clearTranslationCache() {
+  translationCache.clear();
 }
 
 function splitTextIntoChunks(text, maxLength) {

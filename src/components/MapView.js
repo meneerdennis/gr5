@@ -1,4 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import {
   MapContainer,
   TileLayer,
@@ -21,6 +27,9 @@ import { useViewedActivities } from "../hooks/useViewedActivities";
 
 // Global function for photo modal (will be set by MapView)
 let globalPhotoClickHandler = null;
+
+// Global function to close all photo popups (will be set by PhotoMarkers)
+let globalClosePhotoPopups = null;
 
 const photoIcon = new L.Icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -100,6 +109,31 @@ function ZoomToHike({ bounds }) {
   return null;
 }
 
+// Component to handle panning to selected photo location
+function PanToPhoto({ photoLocation }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (
+      photoLocation &&
+      photoLocation.lat &&
+      photoLocation.lng &&
+      map &&
+      map.getContainer()
+    ) {
+      try {
+        map.flyTo([photoLocation.lat, photoLocation.lng], map.getZoom(), {
+          duration: 0.5,
+        });
+      } catch (error) {
+        console.warn("Error panning to photo:", error);
+      }
+    }
+  }, [photoLocation, map]);
+
+  return null;
+}
+
 // Component to handle photo markers with clustering
 function PhotoMarkers({ photos, onPhotoClick }) {
   const map = useMap();
@@ -157,7 +191,7 @@ function PhotoMarkers({ photos, onPhotoClick }) {
           photos: locationPhotos,
           count: locationPhotos.length,
         };
-      }
+      },
     );
 
     // Use clustering only if there are 5+ unique locations
@@ -234,11 +268,11 @@ function PhotoMarkers({ photos, onPhotoClick }) {
 
           mediaElement.setAttribute(
             "data-photo-url",
-            photo.url.replace(/"/g, '"')
+            photo.url.replace(/"/g, '"'),
           );
           mediaElement.setAttribute(
             "data-photo-caption",
-            (photo.caption || "").replace(/"/g, '"')
+            (photo.caption || "").replace(/"/g, '"'),
           );
           mediaElement.setAttribute("data-photo-date", photo.date || "");
 
@@ -280,7 +314,13 @@ function PhotoMarkers({ photos, onPhotoClick }) {
 
         photoElements.forEach((el) => popupContent.appendChild(el));
 
-        marker.bindPopup(popupContent);
+        // Configure popup to stay open during map movement
+        marker.bindPopup(popupContent, {
+          autoClose: false,
+          closeButton: true,
+          closeOnClick: false,
+          closeOnEscapeKey: true,
+        });
         markers.addLayer(marker);
       });
 
@@ -351,11 +391,11 @@ function PhotoMarkers({ photos, onPhotoClick }) {
 
           mediaElement.setAttribute(
             "data-photo-url",
-            photo.url.replace(/"/g, '"')
+            photo.url.replace(/"/g, '"'),
           );
           mediaElement.setAttribute(
             "data-photo-caption",
-            (photo.caption || "").replace(/"/g, '"')
+            (photo.caption || "").replace(/"/g, '"'),
           );
           mediaElement.setAttribute("data-photo-date", photo.date || "");
 
@@ -397,7 +437,13 @@ function PhotoMarkers({ photos, onPhotoClick }) {
 
         photoElements.forEach((el) => popupContent.appendChild(el));
 
-        marker.bindPopup(popupContent);
+        // Configure popup to stay open during map movement
+        marker.bindPopup(popupContent, {
+          autoClose: false,
+          closeButton: true,
+          closeOnClick: false,
+          closeOnEscapeKey: true,
+        });
         marker.addTo(map);
         individualMarkers.push(marker);
       });
@@ -405,8 +451,76 @@ function PhotoMarkers({ photos, onPhotoClick }) {
       markersRef.current = individualMarkers;
     }
 
+    // Close other photo popups when one opens
+    const handlePopupOpen = (e) => {
+      try {
+        const src = e && e.popup && e.popup._source;
+        if (!src) return;
+
+        // Only act on our photo markers (identified by icon className)
+        const isPhotoMarker =
+          src.options &&
+          src.options.icon &&
+          src.options.icon.options &&
+          src.options.icon.options.className === "photo-marker-icon";
+        if (!isPhotoMarker) return;
+
+        // Gather all photo markers (cluster group's layers or individual array)
+        let allMarkers = [];
+        if (markersRef.current) {
+          if (Array.isArray(markersRef.current)) {
+            allMarkers = markersRef.current;
+          } else if (markersRef.current.getLayers) {
+            allMarkers = markersRef.current.getLayers();
+          }
+        }
+
+        allMarkers.forEach((m) => {
+          if (!m || m === src) return;
+          try {
+            // closePopup is safe to call even if popup is not open
+            m.closePopup && m.closePopup();
+          } catch (err) {
+            /* ignore */
+          }
+        });
+      } catch (err) {
+        console.warn("Error in photo popupopen handler:", err);
+      }
+    };
+
+    map.on("popupopen", handlePopupOpen);
+
+    // Set up global function to close all photo popups
+    globalClosePhotoPopups = () => {
+      try {
+        let allMarkers = [];
+        if (markersRef.current) {
+          if (Array.isArray(markersRef.current)) {
+            allMarkers = markersRef.current;
+          } else if (markersRef.current.getLayers) {
+            allMarkers = markersRef.current.getLayers();
+          }
+        }
+        allMarkers.forEach((m) => {
+          if (!m) return;
+          try {
+            m.closePopup && m.closePopup();
+          } catch (err) {
+            /* ignore */
+          }
+        });
+      } catch (err) {
+        console.warn("Error closing photo popups:", err);
+      }
+    };
+    window.globalClosePhotoPopups = globalClosePhotoPopups;
+
     // Cleanup function
     return () => {
+      map.off("popupopen", handlePopupOpen);
+      globalClosePhotoPopups = null;
+      window.globalClosePhotoPopups = null;
       if (markersRef.current) {
         if (Array.isArray(markersRef.current)) {
           // Individual markers
@@ -429,6 +543,7 @@ function MapInteraction({
   onHover,
   zoomRange,
   onZoomChange,
+  suppressZoomUpdates = false,
 }) {
   const map = useMap();
   const isUpdatingFromZoomRange = useRef(false);
@@ -437,6 +552,7 @@ function MapInteraction({
   const lastMapUpdate = useRef(0);
   const isInitialLoad = useRef(true);
   const isMapReady = useRef(false);
+  const suppressZoomUpdatesRef = useRef(false);
 
   // Ensure map is ready before any operations
   useEffect(() => {
@@ -450,6 +566,11 @@ function MapInteraction({
       }
     }
   }, [map]);
+
+  // Update suppressZoomUpdatesRef when prop changes
+  useEffect(() => {
+    suppressZoomUpdatesRef.current = suppressZoomUpdates;
+  }, [suppressZoomUpdates]);
 
   // Check if current map view matches the zoom range
   const doesMapViewMatchZoomRange = (range) => {
@@ -466,13 +587,16 @@ function MapInteraction({
       const bounds = map.getBounds();
       const pointsInRange = elevationProfile.filter(
         (p) =>
-          p.lat && p.lon && p.distanceKm >= range[0] && p.distanceKm <= range[1]
+          p.lat &&
+          p.lon &&
+          p.distanceKm >= range[0] &&
+          p.distanceKm <= range[1],
       );
 
       if (pointsInRange.length === 0) return false;
 
       const rangeBounds = L.latLngBounds(
-        pointsInRange.map((p) => [p.lat, p.lon])
+        pointsInRange.map((p) => [p.lat, p.lon]),
       );
 
       // Check if the map bounds are approximately equal to the range bounds
@@ -539,12 +663,12 @@ function MapInteraction({
             p.lat &&
             p.lon &&
             p.distanceKm >= zoomRange[0] &&
-            p.distanceKm <= zoomRange[1]
+            p.distanceKm <= zoomRange[1],
         );
 
         if (pointsInRange.length > 0) {
           const bounds = L.latLngBounds(
-            pointsInRange.map((p) => [p.lat, p.lon])
+            pointsInRange.map((p) => [p.lat, p.lon]),
           );
           // Use very minimal padding and preserve current zoom
           map.fitBounds(bounds, { padding: [5, 5], maxZoom: map.getZoom() });
@@ -587,8 +711,9 @@ function MapInteraction({
     };
 
     const handleMoveEnd = () => {
-      // Skip if this move was triggered by elevation profile update
-      if (isUpdatingFromZoomRange.current) return;
+      // Skip if this move was triggered by elevation profile update or if updates are suppressed
+      if (isUpdatingFromZoomRange.current || suppressZoomUpdatesRef.current)
+        return;
 
       // Debounce to prevent rapid updates during panning
       if (interactionTimeout) {
@@ -607,8 +732,8 @@ function MapInteraction({
     };
 
     const handleZoomEnd = () => {
-      // Skip if this zoom was triggered by elevation profile update
-      if (isUpdatingFromZoomRange.current) {
+      // Skip if this zoom was triggered by elevation profile update or if updates are suppressed
+      if (isUpdatingFromZoomRange.current || suppressZoomUpdatesRef.current) {
         isUserZooming.current = false;
         return;
       }
@@ -635,7 +760,7 @@ function MapInteraction({
     const updateElevationProfileFromBounds = (bounds, isZoom) => {
       // Find points within the current map bounds
       const pointsInBounds = elevationProfile.filter(
-        (p) => p.lat && p.lon && bounds.contains([p.lat, p.lon])
+        (p) => p.lat && p.lon && bounds.contains([p.lat, p.lon]),
       );
 
       if (pointsInBounds.length > 0) {
@@ -709,7 +834,7 @@ function MapInteraction({
         if (!point.lat || !point.lon) return;
         const distance = Math.sqrt(
           Math.pow(point.lat - clickedLat, 2) +
-            Math.pow(point.lon - clickedLon, 2)
+            Math.pow(point.lon - clickedLon, 2),
         );
         if (distance < minDistance) {
           minDistance = distance;
@@ -788,20 +913,56 @@ function MapView({
   onSelectHike,
   onPhotoClick,
   onClearSelectedHike,
+  selectedPhotoLocation,
 }) {
   const [currentPosition, setCurrentPosition] = useState(null);
   const [mapReady, setMapReady] = useState(false);
+  const [suppressZoomUpdates, setSuppressZoomUpdates] = useState(false);
+  const suppressZoomUpdatesRef = useRef(false);
 
-  // Set up global photo click handler to use the prop
+  // Memoize filtered photos so PhotoMarkers doesn't recreate markers on every render
+  const filteredPhotos = useMemo(
+    () => photos.filter((p) => p.lat && p.lng),
+    [photos],
+  );
+
+  // Memoize the wrapped photo click handler so it doesn't trigger PhotoMarkers re-render unnecessarily
+  const wrappedPhotoClickHandler = useCallback(
+    (photoData) => {
+      // Close all photo popups immediately
+      if (window.globalClosePhotoPopups) {
+        window.globalClosePhotoPopups();
+      }
+
+      setSuppressZoomUpdates(true);
+      suppressZoomUpdatesRef.current = true;
+
+      // Call the original handler
+      if (onPhotoClick) {
+        onPhotoClick(photoData);
+      }
+
+      // Re-enable zoom updates after 2.5 seconds (popup will have settled by then)
+      const timeout = setTimeout(() => {
+        setSuppressZoomUpdates(false);
+        suppressZoomUpdatesRef.current = false;
+      }, 2500);
+
+      return () => clearTimeout(timeout);
+    },
+    [onPhotoClick],
+  );
+
+  // Set up global photo click handler to use the memoized handler
   useEffect(() => {
-    globalPhotoClickHandler = onPhotoClick;
+    globalPhotoClickHandler = wrappedPhotoClickHandler;
     // Make it available on window for onclick handlers
-    window.globalPhotoClickHandler = onPhotoClick;
+    window.globalPhotoClickHandler = wrappedPhotoClickHandler;
     return () => {
       globalPhotoClickHandler = null;
       window.globalPhotoClickHandler = null;
     };
-  }, [onPhotoClick]);
+  }, [wrappedPhotoClickHandler]);
 
   // Helper function to find current hiker position based on last hike end position
   const findCurrentPosition = () => {
@@ -846,7 +1007,7 @@ function MapView({
     elevationProfile.forEach((point) => {
       if (!point.lat || !point.lon) return;
       const distance = Math.sqrt(
-        Math.pow(point.lat - lat, 2) + Math.pow(point.lon - lon, 2)
+        Math.pow(point.lat - lat, 2) + Math.pow(point.lon - lon, 2),
       );
       if (distance < minDistance) {
         minDistance = distance;
@@ -1005,7 +1166,7 @@ function MapView({
 
             // Shuffle the color palette to mix up the order
             const shuffledPalette = [...colorPalette].sort(
-              () => Math.random() - 0.5
+              () => Math.random() - 0.5,
             );
 
             const hikeColor = shuffledPalette[index % shuffledPalette.length];
@@ -1042,10 +1203,7 @@ function MapView({
           })}
 
           {/* Photo markers with clustering */}
-          <PhotoMarkers
-            photos={photos.filter((p) => p.lat && p.lng)}
-            onPhotoClick={onPhotoClick}
-          />
+          <PhotoMarkers photos={filteredPhotos} onPhotoClick={onPhotoClick} />
 
           {/* Hiker marker - shows current position */}
           {currentPosition && currentPosition.lat && currentPosition.lon && (
@@ -1073,12 +1231,16 @@ function MapView({
           {/* Zoom to selected hike */}
           <ZoomToHike bounds={selectedHikeBounds} />
 
+          {/* Pan to selected photo */}
+          <PanToPhoto photoLocation={selectedPhotoLocation} />
+
           {/* Map interaction handler */}
           <MapInteraction
             elevationProfile={elevationProfile}
             onHover={onHover}
             zoomRange={zoomRange}
             onZoomChange={onZoomChange}
+            suppressZoomUpdates={suppressZoomUpdates}
           />
 
           {/* Map initializer */}

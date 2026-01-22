@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 
 function ElevationProfile({
   elevationProfile,
@@ -43,10 +43,12 @@ function ElevationProfile({
     return smoothed;
   };
 
-  // Apply smoothing if enabled
-  const processedProfile = smoothingEnabled
-    ? applySmoothing(elevationProfile, smoothingWindow)
-    : elevationProfile;
+  // Apply smoothing if enabled - memoize to prevent recalculation on every render
+  const processedProfile = useMemo(() => {
+    return smoothingEnabled
+      ? applySmoothing(elevationProfile, smoothingWindow)
+      : elevationProfile;
+  }, [elevationProfile, smoothingEnabled, smoothingWindow]);
 
   // Responsive dimensions - larger on mobile
   const [dimensions, setDimensions] = useState({ width: 900, height: 80 });
@@ -132,7 +134,7 @@ function ElevationProfile({
       // Check distance to start position
       const startDist = Math.sqrt(
         Math.pow(point.lat - startPos[0], 2) +
-          Math.pow(point.lon - startPos[1], 2)
+          Math.pow(point.lon - startPos[1], 2),
       );
       if (startDist < minStartDist) {
         minStartDist = startDist;
@@ -141,7 +143,7 @@ function ElevationProfile({
 
       // Check distance to end position
       const endDist = Math.sqrt(
-        Math.pow(point.lat - endPos[0], 2) + Math.pow(point.lon - endPos[1], 2)
+        Math.pow(point.lat - endPos[0], 2) + Math.pow(point.lon - endPos[1], 2),
       );
       if (endDist < minEndDist) {
         minEndDist = endDist;
@@ -192,7 +194,7 @@ function ElevationProfile({
       typeof p.distanceKm === "number" &&
       typeof p.elevationM === "number" &&
       p.distanceKm >= visibleStartKm &&
-      p.distanceKm <= visibleEndKm
+      p.distanceKm <= visibleEndKm,
   );
 
   // Calculate max elevation for visible range
@@ -225,53 +227,6 @@ function ElevationProfile({
   // Start and end positions for markers
   const startX = padding;
   const endX = width - padding;
-
-  // Handle mouse wheel zoom
-  const handleWheel = (e) => {
-    e.preventDefault();
-    if (!svgRef.current) return;
-
-    const rect = svgRef.current.getBoundingClientRect();
-    const svgX = ((e.clientX - rect.left) / rect.width) * width;
-
-    // Convert mouse position to distance
-    const mouseDistanceKm =
-      visibleStartKm +
-      ((svgX - padding) / (width - 2 * padding)) * visibleDistanceKm;
-
-    // Zoom factor (negative deltaY = zoom in, positive = zoom out)
-    const zoomFactor = e.deltaY > 0 ? 1.2 : 0.8;
-
-    // Calculate new range centered on mouse position
-    const currentRange = visibleEndKm - visibleStartKm;
-    const newRange = currentRange * zoomFactor;
-
-    // Keep mouse position at same relative location
-    const mouseRatio = (mouseDistanceKm - visibleStartKm) / currentRange;
-    let newStartKm = mouseDistanceKm - newRange * mouseRatio;
-    let newEndKm = mouseDistanceKm + newRange * (1 - mouseRatio);
-
-    // Clamp to total distance bounds
-    if (newStartKm < 0) {
-      newEndKm = Math.min(totalDistanceKm, newEndKm - newStartKm);
-      newStartKm = 0;
-    }
-    if (newEndKm > totalDistanceKm) {
-      newStartKm = Math.max(0, newStartKm - (newEndKm - totalDistanceKm));
-      newEndKm = totalDistanceKm;
-    }
-
-    // Only zoom if range is meaningful (between 10km and total distance)
-    if (
-      newEndKm - newStartKm >= 10 &&
-      newEndKm - newStartKm < totalDistanceKm
-    ) {
-      onZoomChange([newStartKm, newEndKm]);
-    } else if (newEndKm - newStartKm >= totalDistanceKm) {
-      // Reset to full view if zoomed out too far
-      onZoomChange(null);
-    }
-  };
 
   // Handle mouse move on elevation profile
   const handleMouseMove = (e) => {
@@ -329,6 +284,76 @@ function ElevationProfile({
       (hoverPoint.elevationM / maxElevation) * (height - 2 * padding);
   }
 
+  // Setup wheel event listener with access to all calculated variables
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const handleWheel = (e) => {
+      // Prevent the default scroll behavior and stop propagation
+      e.preventDefault();
+      e.stopPropagation();
+
+      const rect = svg.getBoundingClientRect();
+      const svgX = ((e.clientX - rect.left) / rect.width) * width;
+
+      // Convert mouse position to distance
+      const mouseDistanceKm =
+        visibleStartKm +
+        ((svgX - padding) / (width - 2 * padding)) * visibleDistanceKm;
+
+      // Zoom factor (negative deltaY = zoom in, positive = zoom out)
+      const zoomFactor = e.deltaY > 0 ? 1.2 : 0.8;
+
+      // Calculate new range centered on mouse position
+      const currentRange = visibleEndKm - visibleStartKm;
+      const newRange = currentRange * zoomFactor;
+
+      // Keep mouse position at same relative location
+      const mouseRatio = (mouseDistanceKm - visibleStartKm) / currentRange;
+      let newStartKm = mouseDistanceKm - newRange * mouseRatio;
+      let newEndKm = mouseDistanceKm + newRange * (1 - mouseRatio);
+
+      // Clamp to total distance bounds
+      if (newStartKm < 0) {
+        newEndKm = Math.min(totalDistanceKm, newEndKm - newStartKm);
+        newStartKm = 0;
+      }
+      if (newEndKm > totalDistanceKm) {
+        newStartKm = Math.max(0, newStartKm - (newEndKm - totalDistanceKm));
+        newEndKm = totalDistanceKm;
+      }
+
+      // Only zoom if range is meaningful (between 10km and total distance)
+      if (
+        newEndKm - newStartKm >= 10 &&
+        newEndKm - newStartKm < totalDistanceKm
+      ) {
+        onZoomChange([newStartKm, newEndKm]);
+      } else if (newEndKm - newStartKm >= totalDistanceKm) {
+        // Reset to full view if zoomed out too far
+        onZoomChange(null);
+      }
+    };
+
+    // Add wheel listener with { passive: false } to allow preventDefault
+    svg.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      svg.removeEventListener("wheel", handleWheel);
+    };
+  }, [
+    onZoomChange,
+    totalDistanceKm,
+    zoomRange,
+    width,
+    height,
+    padding,
+    visibleStartKm,
+    visibleEndKm,
+    visibleDistanceKm,
+  ]);
+
   return (
     <div className="elevation-chart  fade-in">
       {/* <div className="flex items-center justify-between mb-6">
@@ -358,10 +383,11 @@ function ElevationProfile({
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
           onDoubleClick={handleDoubleClick}
-          onWheel={handleWheel}
           className="cursor-crosshair rounded-lg"
           style={{
             borderRadius: "1rem",
+            touchAction: "none",
+            overflow: "visible",
           }}
         >
           {/* Define gradient for mountain silhouette */}
@@ -455,7 +481,7 @@ function ElevationProfile({
 
             // Filter points within this hike's range and visible range
             const hikePoints = validData.filter(
-              (p) => p.distanceKm >= hikeStartKm && p.distanceKm <= hikeEndKm
+              (p) => p.distanceKm >= hikeStartKm && p.distanceKm <= hikeEndKm,
             );
 
             if (hikePoints.length < 2) return null;
@@ -600,4 +626,4 @@ function ElevationProfile({
   );
 }
 
-export default ElevationProfile;
+export default React.memo(ElevationProfile);
