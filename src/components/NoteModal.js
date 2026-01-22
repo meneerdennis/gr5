@@ -49,6 +49,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
     translatedNote,
     isTranslating,
     showTranslated,
+    openModal,
     closeModal,
     setPhotoUrl,
     setPhotoLocation,
@@ -105,28 +106,20 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
   const goToPreviousNote = () => {
     if (hasPreviousNote) {
       const previousHike = hikesWithNotes[currentNoteIndex - 1];
-      // Close and reopen modal with new hike
-      closeModal();
-      setTimeout(() => {
-        // This would be handled by context in real implementation
-        markAsViewed(previousHike.id);
-        const modal = document.querySelector(".instagram-post-modal");
-        if (modal) modal.scrollTo(0, 0);
-      }, 0);
+      openModal(previousHike.id);
+      markAsViewed(previousHike.id);
+      const modal = document.querySelector(".instagram-post-modal");
+      if (modal) modal.scrollTo(0, 0);
     }
   };
 
   const goToNextNote = () => {
     if (hasNextNote) {
       const nextHike = hikesWithNotes[currentNoteIndex + 1];
-      // Close and reopen modal with new hike
-      closeModal();
-      setTimeout(() => {
-        // This would be handled by context in real implementation
-        markAsViewed(nextHike.id);
-        const modal = document.querySelector(".instagram-post-modal");
-        if (modal) modal.scrollTo(0, 0);
-      }, 0);
+      openModal(nextHike.id);
+      markAsViewed(nextHike.id);
+      const modal = document.querySelector(".instagram-post-modal");
+      if (modal) modal.scrollTo(0, 0);
     }
   };
 
