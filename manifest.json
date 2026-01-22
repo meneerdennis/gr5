@@ -1,0 +1,45 @@
+{
+  "name": "Mijn GR5 Avontuur",
+  "short_name": "GR5",
+  "description": "Volg mijn GR5-wandeltocht in realtime! Op MijnGR5.be deel ik foto's, korte updates en mijn dagelijkse voortgang langs de beroemde GR5-route.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0ea5e9",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "32x32 64x64",
+      "type": "image/x-icon",
+      "purpose": "any"
+    },
+    {
+      "src": "/hiker.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/hiker.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/hiker.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/hiker.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ]
+}
