@@ -80,7 +80,7 @@ function AppContent() {
 
   // Note modal state
   const { markAsViewed } = useViewedActivities();
-  const { openModal } = useNoteModal();
+  const { openModal, selectedPhotoLocation } = useNoteModal();
 
   const { user } = useAuth();
 
@@ -294,6 +294,7 @@ function AppContent() {
                   onSelectHike={handleSelectHike}
                   onPhotoClick={handlePhotoClick}
                   onClearSelectedHike={handleClearSelectedHike}
+                  selectedPhotoLocation={selectedPhotoLocation}
                 />
               </div>
             </div>

@@ -691,7 +691,7 @@ function MapInteraction({
     // Reset flag after animation completes
     setTimeout(() => {
       isUpdatingFromZoomRange.current = false;
-    }, 300);
+    }, 100);
   }, [map, elevationProfile, zoomRange]);
 
   // Handle map interactions (zoom and pan) to update elevation profile zoom range
@@ -728,7 +728,7 @@ function MapInteraction({
         } catch (error) {
           console.warn("Error handling move end:", error);
         }
-      }, 400); // Wait 400ms after user stops panning
+      }, 200); // Wait 400ms after user stops panning
     };
 
     const handleZoomEnd = () => {
@@ -753,7 +753,7 @@ function MapInteraction({
           console.warn("Error handling zoom end:", error);
           isUserZooming.current = false;
         }
-      }, 600); // Wait 600ms after user stops zooming
+      }, 200); // Wait 600ms after user stops zooming
     };
 
     // Function to update elevation profile based on current map bounds
