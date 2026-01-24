@@ -79,6 +79,13 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
     resetTranslation();
   }, [selectedHikeId, resetTranslation]);
 
+  // Mark hike as viewed when modal opens or hike changes
+  useEffect(() => {
+    if (selectedHikeId) {
+      markAsViewed(selectedHikeId);
+    }
+  }, [selectedHikeId, markAsViewed]);
+
   // Get selected hike
   const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
   const { likesCount } = useLikes(selectedHike?.id, user?.uid);
@@ -107,7 +114,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
     if (hasPreviousNote) {
       const previousHike = hikesWithNotes[currentNoteIndex - 1];
       openModal(previousHike.id);
-      markAsViewed(previousHike.id);
+      // markAsViewed will be called by useEffect when selectedHikeId changes
       const modal = document.querySelector(".instagram-post-modal");
       if (modal) modal.scrollTo(0, 0);
     }
@@ -117,7 +124,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
     if (hasNextNote) {
       const nextHike = hikesWithNotes[currentNoteIndex + 1];
       openModal(nextHike.id);
-      markAsViewed(nextHike.id);
+      // markAsViewed will be called by useEffect when selectedHikeId changes
       const modal = document.querySelector(".instagram-post-modal");
       if (modal) modal.scrollTo(0, 0);
     }

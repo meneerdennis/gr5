@@ -25,14 +25,16 @@ function getCacheDuration(url) {
 // Files to cache immediately
 const STATIC_FILES = [
   "/",
-  "/static/js/bundle.js",
-  "/static/css/main.css",
+  "/index.html",
+  "/manifest.json",
   "/gr5.gpx",
   "/favicon.ico",
+  "/appicon.png",
   "/hikersmall.png",
   "/hiker.png",
   "/hiker2.png",
   "/hikersmall2.png",
+  "/hikersmall3.png",
   "/travel_journal_button_transparent.png",
 ];
 
@@ -41,7 +43,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
       return cache.addAll(STATIC_FILES);
-    })
+    }),
   );
   self.skipWaiting();
 });
@@ -59,9 +61,9 @@ self.addEventListener("activate", (event) => {
           ) {
             return caches.delete(cacheName);
           }
-        })
+        }),
       );
-    })
+    }),
   );
   self.clients.claim();
 });
@@ -109,7 +111,7 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         });
-      })
+      }),
     );
     return;
   }
@@ -156,7 +158,7 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         });
-      })
+      }),
     );
     return;
   }
@@ -166,6 +168,6 @@ self.addEventListener("fetch", (event) => {
     fetch(request).catch(() => {
       // Fallback to cache for offline
       return caches.match(request);
-    })
+    }),
   );
 });

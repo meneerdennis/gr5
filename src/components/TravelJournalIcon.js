@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useViewedActivities } from "../hooks/useViewedActivities";
+import { useViewedActivitiesContext } from "../contexts/ViewedActivitiesContext";
 
 // Add slideDown animation
 const slideDownKeyframes = `
@@ -30,7 +30,8 @@ function TravelJournalIcon({
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const { markAsViewed, getUnreadCount, isViewed } = useViewedActivities();
+  const { markAsViewed, getUnreadCount, isViewed, loading } =
+    useViewedActivitiesContext();
   const dropdownRef = useRef(null);
 
   // Mobile detection
@@ -49,7 +50,7 @@ function TravelJournalIcon({
   });
 
   // Get unread activities count for the notification badge
-  const unreadCount = getUnreadCount(sortedHikes);
+  const unreadCount = loading ? 0 : getUnreadCount(sortedHikes);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -81,8 +82,8 @@ function TravelJournalIcon({
   };
 
   // Handle activity selection and mark as viewed
-  const handleActivitySelect = (hikeId) => {
-    // Mark activity as viewed
+  const handleActivitySelect = async (hikeId) => {
+    // Mark activity as viewed (async, but we don't wait for it to keep UI responsive)
     markAsViewed(hikeId);
 
     // Call the original onSelectHike function

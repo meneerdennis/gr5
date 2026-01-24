@@ -18,6 +18,10 @@ import Layout from "./components/Layout";
 import ElevationProfile from "./components/ElevationProfile";
 import MapView from "./components/MapView";
 import { NoteModalProvider, useNoteModal } from "./contexts/NoteModalContext";
+import {
+  ViewedActivitiesProvider,
+  useViewedActivitiesContext,
+} from "./contexts/ViewedActivitiesContext";
 import NoteModal from "./components/NoteModal";
 
 // Lazy load admin components
@@ -28,7 +32,6 @@ const AdminActivityManager = lazy(
 );
 const AdminQuoteManager = lazy(() => import("./components/AdminQuoteManager"));
 import AdminRoute from "./components/AdminRoute";
-import { useViewedActivities } from "./hooks/useViewedActivities";
 
 import { useLikes } from "./hooks/useLikes";
 import { useComments } from "./hooks/useComments";
@@ -79,7 +82,7 @@ function AppContent() {
   const [currentWalkedDistance, setCurrentWalkedDistance] = useState(0);
 
   // Note modal state
-  const { markAsViewed } = useViewedActivities();
+  const { markAsViewed } = useViewedActivitiesContext();
   const { openModal, selectedPhotoLocation } = useNoteModal();
 
   const { user } = useAuth();
@@ -320,9 +323,11 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <NoteModalProvider>
-        <AppContent />
-      </NoteModalProvider>
+      <ViewedActivitiesProvider>
+        <NoteModalProvider>
+          <AppContent />
+        </NoteModalProvider>
+      </ViewedActivitiesProvider>
     </Router>
   );
 }

@@ -108,8 +108,8 @@ function convertExifDateToISO(exifDate) {
 }
 
 // Resize image to web-friendly size
-async function resizeImageForWeb(file, maxWidth = 1920, quality = 0.8) {
-  return new Promise((resolve, reject) => {
+async function resizeImageForWeb(file, maxWidth = 800, quality = 0.75) {
+  return new Promise(async (resolve, reject) => {
     try {
       const fileType = file.type;
 
@@ -128,11 +128,42 @@ async function resizeImageForWeb(file, maxWidth = 1920, quality = 0.8) {
         file.type === "image/heif";
 
       if (isHeicFormat) {
-        console.warn(
-          `Skipping resize for HEIC file: ${file.name}. HEIC format is not supported by browsers for resizing. Original image will be used.`
+        console.log(
+          `Processing HEIC file: ${file.name}. Converting to JPEG for resizing.`,
         );
-        resolve(file);
-        return;
+        try {
+          // Convert HEIC to JPEG using heic2any
+          const heic2any = require("heic2any");
+          const jpegBuffer = await heic2any({
+            blob: file,
+            toType: "image/jpeg",
+            quality: 0.75,
+          });
+
+          // Create a new File object from the JPEG buffer
+          const jpegFile = new File(
+            [jpegBuffer],
+            file.name.replace(/\.(heic|heif)$/i, ".jpg"),
+            {
+              type: "image/jpeg",
+              lastModified: file.lastModified,
+            },
+          );
+
+          console.log(`Successfully converted HEIC to JPEG: ${file.name}`);
+          // Continue with resizing the converted JPEG file
+          file = jpegFile;
+        } catch (conversionError) {
+          console.error(
+            `Failed to convert HEIC file ${file.name}:`,
+            conversionError,
+          );
+          console.warn(
+            `Using original HEIC file without resizing: ${file.name}`,
+          );
+          resolve(file);
+          return;
+        }
       }
 
       const img = new Image();
@@ -176,13 +207,13 @@ async function resizeImageForWeb(file, maxWidth = 1920, quality = 0.8) {
               } else {
                 reject(
                   new Error(
-                    "Failed to create resized image blob - empty or invalid"
-                  )
+                    "Failed to create resized image blob - empty or invalid",
+                  ),
                 );
               }
             },
             "image/jpeg",
-            quality
+            quality,
           );
         } catch (error) {
           URL.revokeObjectURL(objectURL); // Clean up
@@ -223,7 +254,7 @@ async function createThumbnailFromFile(file) {
 
         if (isHeicFormat) {
           console.warn(
-            `Skipping thumbnail creation for HEIC file: ${file.name}. HEIC format is not supported by browsers for thumbnail generation. Original image will be used instead.`
+            `Skipping thumbnail creation for HEIC file: ${file.name}. HEIC format is not supported by browsers for thumbnail generation. Original image will be used instead.`,
           );
           // Don't reject, but resolve with null to indicate no thumbnail was created
           resolve(null);
@@ -274,13 +305,13 @@ async function createThumbnailFromFile(file) {
                 } else {
                   reject(
                     new Error(
-                      "Failed to create thumbnail blob - empty or invalid"
-                    )
+                      "Failed to create thumbnail blob - empty or invalid",
+                    ),
                   );
                 }
               },
               "image/jpeg",
-              0.8
+              0.8,
             );
           } catch (error) {
             URL.revokeObjectURL(objectURL); // Clean up
@@ -357,7 +388,7 @@ export async function uploadPhoto(file, hikeId, photoData) {
       if (thumbnailBlob === null) {
         console.log(
           "Thumbnail creation skipped for unsupported format:",
-          file.name
+          file.name,
         );
         thumbnailURL = null;
       } else {
@@ -365,11 +396,11 @@ export async function uploadPhoto(file, hikeId, photoData) {
 
         const thumbnailStorageRef = ref(
           storage,
-          `photos/${hikeId}/${thumbnailFileName}`
+          `photos/${hikeId}/${thumbnailFileName}`,
         );
         const thumbnailSnapshot = await uploadBytes(
           thumbnailStorageRef,
-          thumbnailBlob
+          thumbnailBlob,
         );
         thumbnailURL = await getDownloadURL(thumbnailSnapshot.ref);
         console.log("Thumbnail uploaded successfully:", thumbnailURL);
@@ -379,7 +410,7 @@ export async function uploadPhoto(file, hikeId, photoData) {
         "Failed to create/upload thumbnail for",
         file.name,
         ":",
-        thumbnailError
+        thumbnailError,
       );
       // Continue without thumbnail - it's not critical
     }
@@ -402,7 +433,7 @@ export async function uploadPhoto(file, hikeId, photoData) {
               (item) =>
                 typeof item === "string" ||
                 typeof item === "number" ||
-                typeof item === "boolean"
+                typeof item === "boolean",
             ))
         ) {
           sanitized[key] = value;
@@ -472,7 +503,7 @@ export async function uploadMultiplePhotos(
   files,
   hikeId,
   globalCaption = "",
-  onProgress = null
+  onProgress = null,
 ) {
   try {
     const results = [];
@@ -625,7 +656,7 @@ export async function getPhotosForHike(hikeId) {
     const photosQuery = query(
       collection(db, "photos"),
       where("hikeId", "==", hikeId),
-      orderBy("uploadedAt", "desc")
+      orderBy("uploadedAt", "desc"),
     );
 
     const querySnapshot = await getDocs(photosQuery);
@@ -655,7 +686,7 @@ export async function getAllPhotos() {
     // Get all photos and filter out deleted ones client-side
     const photosQuery = query(
       collection(db, "photos"),
-      orderBy("uploadedAt", "desc")
+      orderBy("uploadedAt", "desc"),
     );
 
     const querySnapshot = await getDocs(photosQuery);
@@ -706,12 +737,12 @@ export async function deletePhoto(photoId, hikeId) {
       if (storageError.code === "storage/object-not-found") {
         console.log(
           "Original image not found in storage (may have been already deleted):",
-          `photos/${photoData.hikeId}/${photoData.fileName}`
+          `photos/${photoData.hikeId}/${photoData.fileName}`,
         );
       } else {
         console.warn(
           "Failed to delete original image from storage:",
-          storageError
+          storageError,
         );
       }
     }
@@ -727,12 +758,12 @@ export async function deletePhoto(photoId, hikeId) {
         if (thumbnailError.code === "storage/object-not-found") {
           console.log(
             "Thumbnail not found in storage (may have been already deleted):",
-            `photos/${photoData.hikeId}/${photoData.thumbnailFileName}`
+            `photos/${photoData.hikeId}/${photoData.thumbnailFileName}`,
           );
         } else {
           console.warn(
             "Failed to delete thumbnail from storage:",
-            thumbnailError
+            thumbnailError,
           );
         }
       }
@@ -750,7 +781,7 @@ export async function deletePhoto(photoId, hikeId) {
       const hikeData = hikeDoc.data();
       const currentPhotos = hikeData.photos || [];
       const updatedPhotos = currentPhotos.filter(
-        (photo) => photo.id !== photoId
+        (photo) => photo.id !== photoId,
       );
 
       await updateDoc(hikeRef, {
@@ -844,7 +875,7 @@ export async function createThumbnail(imageUrl, maxWidth = 50, maxHeight = 50) {
 export async function updateMultiplePhotos(updates) {
   try {
     const promises = updates.map(({ photoId, updates: photoUpdates }) =>
-      updatePhoto(photoId, photoUpdates)
+      updatePhoto(photoId, photoUpdates),
     );
 
     const results = await Promise.all(promises);
@@ -893,7 +924,7 @@ export async function createThumbnailForPhoto(photoId, photoUrl, hikeId) {
       }`;
       const thumbnailStorageRef = ref(
         storage,
-        `photos/${hikeId}/${thumbnailFileName}`
+        `photos/${hikeId}/${thumbnailFileName}`,
       );
 
       // Convert data URL to blob
@@ -925,7 +956,7 @@ export async function createThumbnailsForExistingPhotos() {
   try {
     const photos = await getAllPhotos();
     const photosWithoutThumbnails = photos.filter(
-      (photo) => !photo.thumbnailUrl
+      (photo) => !photo.thumbnailUrl,
     );
 
     const results = [];
@@ -935,7 +966,7 @@ export async function createThumbnailsForExistingPhotos() {
         const result = await createThumbnailForPhoto(
           photo.id,
           photo.url,
-          photo.hikeId
+          photo.hikeId,
         );
         results.push({
           photoId: photo.id,
@@ -976,7 +1007,7 @@ export async function getPhotosWithThumbnails() {
       photos.map(async (photo) => ({
         ...photo,
         thumbnail: photo.thumbnailUrl || (await createThumbnail(photo.url)),
-      }))
+      })),
     );
 
     return photosWithThumbnails;
@@ -1039,7 +1070,7 @@ export async function cleanupOrphanedStorageFiles() {
     // Get all photos from Firestore
     const allPhotosQuery = query(
       collection(db, "photos"),
-      orderBy("uploadedAt", "desc")
+      orderBy("uploadedAt", "desc"),
     );
     const querySnapshot = await getDocs(allPhotosQuery);
 
@@ -1053,7 +1084,7 @@ export async function cleanupOrphanedStorageFiles() {
       }
       if (photoData.thumbnailFileName) {
         validFilePaths.add(
-          `photos/${photoData.hikeId}/${photoData.thumbnailFileName}`
+          `photos/${photoData.hikeId}/${photoData.thumbnailFileName}`,
         );
       }
     });
@@ -1067,7 +1098,7 @@ export async function cleanupOrphanedStorageFiles() {
     // that supports file listing
 
     console.log(
-      "Storage cleanup completed. Note: Manual verification recommended."
+      "Storage cleanup completed. Note: Manual verification recommended.",
     );
     console.log("Valid file paths:", Array.from(validFilePaths));
 

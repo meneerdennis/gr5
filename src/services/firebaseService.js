@@ -174,7 +174,7 @@ export async function getAllPhotosWithHikes(limit = null) {
       ", standalone:",
       formattedStandalonePhotos.length,
       limit ? `, limited to ${limit}` : "",
-      ")"
+      ")",
     );
     return allPhotos;
   } catch (error) {
@@ -328,7 +328,7 @@ export function parseGPX(gpxContent) {
   for (let i = 1; i < sampledLat.length; i++) {
     distance += haversineDistance(
       [sampledLat[i - 1], sampledLng[i - 1]],
-      [sampledLat[i], sampledLng[i]]
+      [sampledLat[i], sampledLng[i]],
     );
   }
 
@@ -410,7 +410,7 @@ export async function parseFIT(fitBuffer) {
         time.push(
           record.timestamp
             ? new Date(record.timestamp * 1000).toISOString()
-            : null
+            : null,
         );
       }
     });
@@ -455,7 +455,7 @@ export async function parseFIT(fitBuffer) {
     for (let i = 1; i < sampledLat.length; i++) {
       distance += haversineDistance(
         [sampledLat[i - 1], sampledLng[i - 1]],
-        [sampledLat[i], sampledLng[i]]
+        [sampledLat[i], sampledLng[i]],
       );
     }
 
@@ -487,7 +487,7 @@ export async function parseFIT(fitBuffer) {
       error.message.includes("stringToParse")
     ) {
       throw new Error(
-        "FIT file parsing is not supported in the browser. Please use GPX files instead, or install a browser-compatible FIT parser library."
+        "FIT file parsing is not supported in the browser. Please use GPX files instead, or install a browser-compatible FIT parser library.",
       );
     }
     throw error;
@@ -604,7 +604,7 @@ export async function toggleLike(activityId, uid) {
         transaction.set(
           activityRef,
           { likesCount: Math.max(0, currentCount - 1) },
-          { merge: true }
+          { merge: true },
         );
         return false;
       } else {
@@ -616,7 +616,7 @@ export async function toggleLike(activityId, uid) {
         transaction.set(
           activityRef,
           { likesCount: currentCount + 1 },
-          { merge: true }
+          { merge: true },
         );
         return true;
       }
@@ -631,7 +631,7 @@ export async function addComment(
   activityId,
   uid,
   text,
-  nickname = "Anonymous hiker"
+  nickname = "Anonymous hiker",
 ) {
   const commentsRef = collection(db, "hikes", activityId, "comments");
   try {
@@ -651,7 +651,7 @@ export async function addComment(
     await setDoc(
       activityRef,
       { commentsCount: currentCount + 1 },
-      { merge: true }
+      { merge: true },
     );
     return docRef.id;
   } catch (error) {
@@ -674,7 +674,7 @@ export async function deleteComment(activityId, commentId, uid) {
       await setDoc(
         activityRef,
         { commentsCount: Math.max(0, currentCount - 1) },
-        { merge: true }
+        { merge: true },
       );
       return true;
     } else {
@@ -683,5 +683,78 @@ export async function deleteComment(activityId, commentId, uid) {
   } catch (error) {
     console.error("Error deleting comment:", error);
     throw error;
+  }
+}
+
+// User preferences and viewed activities functions
+
+export async function getViewedActivitiesFromFirebase(uid) {
+  try {
+    const userPrefsRef = doc(db, "userPreferences", uid);
+    const userPrefsDoc = await getDoc(userPrefsRef);
+
+    if (userPrefsDoc.exists()) {
+      const data = userPrefsDoc.data();
+      return data.viewedActivities || [];
+    }
+
+    return [];
+  } catch (error) {
+    console.error("Error fetching viewed activities from Firebase:", error);
+    return [];
+  }
+}
+
+export async function saveViewedActivitiesToFirebase(uid, viewedActivities) {
+  try {
+    const userPrefsRef = doc(db, "userPreferences", uid);
+    await setDoc(
+      userPrefsRef,
+      {
+        viewedActivities: viewedActivities,
+        lastUpdated: serverTimestamp(),
+      },
+      { merge: true },
+    );
+    return { success: true };
+  } catch (error) {
+    console.error("Error saving viewed activities to Firebase:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function markActivityAsViewedInFirebase(uid, activityId) {
+  try {
+    const viewedActivities = await getViewedActivitiesFromFirebase(uid);
+    if (!viewedActivities.includes(activityId)) {
+      viewedActivities.push(activityId);
+      await saveViewedActivitiesToFirebase(uid, viewedActivities);
+    }
+    return { success: true };
+  } catch (error) {
+    console.error("Error marking activity as viewed:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function markMultipleActivitiesAsViewedInFirebase(
+  uid,
+  activityIds,
+) {
+  try {
+    const viewedActivities = await getViewedActivitiesFromFirebase(uid);
+    const newViewedActivities = [...viewedActivities];
+
+    activityIds.forEach((id) => {
+      if (!newViewedActivities.includes(id)) {
+        newViewedActivities.push(id);
+      }
+    });
+
+    await saveViewedActivitiesToFirebase(uid, newViewedActivities);
+    return { success: true };
+  } catch (error) {
+    console.error("Error marking multiple activities as viewed:", error);
+    return { success: false, error: error.message };
   }
 }
