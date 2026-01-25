@@ -14,6 +14,7 @@ import {
 } from "react-router-dom";
 import { useHikeData } from "./hooks/useHikeData";
 import { useAuth } from "./hooks/useAuth";
+import { useNotifications } from "./hooks/useNotifications";
 import Layout from "./components/Layout";
 import ElevationProfile from "./components/ElevationProfile";
 import MapView from "./components/MapView";
@@ -86,6 +87,9 @@ function AppContent() {
   const { openModal, selectedPhotoLocation, hikeBounds } = useNoteModal();
 
   const { user } = useAuth();
+
+  // Initialize notifications for PWA users
+  useNotifications();
 
   // Update current walked distance when route changes
   useEffect(() => {

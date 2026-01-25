@@ -63,8 +63,42 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
   const [isMobile, setIsMobile] = useState(false);
   const isInitialSlideRef = useRef(true);
 
+  // Swipe down to close
+  const [swipeStart, setSwipeStart] = useState(null);
+  const [swipeDistance, setSwipeDistance] = useState(0);
+  const backdropRef = useRef(null);
+  const SWIPE_THRESHOLD = 100; // pixels
+
   // Get selected hike early (before useEffects that need it)
   const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
+
+  // Handle touch events for swipe-down-to-close
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 1) {
+      setSwipeStart(e.touches[0].clientY);
+      setSwipeDistance(0);
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (swipeStart !== null && e.touches.length === 1) {
+      const currentY = e.touches[0].clientY;
+      const distance = currentY - swipeStart;
+
+      // Only track downward swipes
+      if (distance > 0) {
+        setSwipeDistance(distance);
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (swipeDistance > SWIPE_THRESHOLD) {
+      closeModal();
+    }
+    setSwipeStart(null);
+    setSwipeDistance(0);
+  };
 
   useEffect(() => {
     const checkMobile = () => {
@@ -213,19 +247,23 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
 
   return (
     <div
+      ref={backdropRef}
       className="note-modal-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           closeModal();
         }
       }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       style={{
         position: "fixed",
         top: 0,
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        backgroundColor: `rgba(0, 0, 0, ${0.8 - swipeDistance / 500})`,
         display: "flex",
         alignItems: isMobile ? "flex-start" : "center",
         justifyContent: "center",
@@ -234,6 +272,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
           ? "calc(10px + env(safe-area-inset-top)) 10px 10px 10px"
           : "20px",
         overflowY: "auto",
+        transition: swipeStart === null ? "background-color 0.2s ease" : "none",
       }}
     >
       <div
@@ -250,6 +289,9 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
           overflow: isMobile ? "visible" : "auto",
           display: "flex",
           flexDirection: "column",
+          transform: `translateY(${Math.max(0, swipeDistance)}px)`,
+          transition: swipeStart === null ? "transform 0.3s ease" : "none",
+          opacity: Math.max(0.3, 1 - swipeDistance / 300),
         }}
       >
         {/* Instagram Header */}
