@@ -371,6 +371,10 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
                   }
                 });
               }}
+              lazy={{
+                loadPrevNext: true,
+                loadPrevNextAmount: 1,
+              }}
             >
               {hikePhotos.map((photo, index) => (
                 <SwiperSlide key={photo.id || index}>
@@ -415,7 +419,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
                             video.muted = true;
                             video.playsInline = true;
                             video.loop = true;
-                            video.preload = "auto";
+                            video.preload = "metadata";
                             video.style.cssText =
                               "width: 100%; height: 400px; object-fit: cover; background-color: #000;";
 
@@ -467,7 +471,8 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
                         height: "400px",
                         objectFit: "cover",
                       }}
-                      loading="lazy"
+                      loading={index <= selectedPhotoIndex + 1 ? "eager" : "lazy"}
+                      decoding={index === selectedPhotoIndex ? "sync" : "async"}
                     />
                   )}
                 </SwiperSlide>
