@@ -8,7 +8,6 @@ import {
 } from "../services/firebaseService";
 import { db } from "../services/firebase";
 import { doc, deleteDoc } from "firebase/firestore";
-import { sendHikeNotification } from "../services/notificationService";
 
 function AdminActivityManager() {
   const [hikes, setHikes] = useState([]);
@@ -23,8 +22,6 @@ function AdminActivityManager() {
   const [editStatus, setEditStatus] = useState(null);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [notificationStatus, setNotificationStatus] = useState(null);
-  const [sendingNotification, setSendingNotification] = useState(null);
 
   useEffect(() => {
     loadHikes();
@@ -181,39 +178,6 @@ function AdminActivityManager() {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const handleSendNotification = async (hikeId, hikeName) => {
-    setSendingNotification(hikeId);
-    setNotificationStatus(null);
-
-    try {
-      const result = await sendHikeNotification(
-        hikeId,
-        hikeName,
-        `New hike available: ${hikeName} is ready to explore!`,
-      );
-
-      if (result.success) {
-        setNotificationStatus({
-          type: "success",
-          message: `✅ Notification sent to ${result.result.successCount} users`,
-        });
-      } else {
-        setNotificationStatus({
-          type: "error",
-          message: `❌ Failed to send notification: ${result.error}`,
-        });
-      }
-    } catch (error) {
-      console.error("Error sending notification:", error);
-      setNotificationStatus({
-        type: "error",
-        message: `❌ Error: ${error.message}`,
-      });
-    } finally {
-      setSendingNotification(null);
-    }
-  };
-
   if (loading) {
     return (
       <div className="p-4 sm:p-6">
@@ -294,18 +258,6 @@ function AdminActivityManager() {
               }`}
             >
               <p>{uploadStatus.message}</p>
-            </div>
-          )}
-
-          {notificationStatus && (
-            <div
-              className={`p-3 rounded-lg mb-4 ${
-                notificationStatus.type === "success"
-                  ? "bg-green-900 bg-opacity-30 text-green-300 border border-green-500 border-opacity-30"
-                  : "bg-red-900 bg-opacity-30 text-red-300 border border-red-500 border-opacity-30"
-              }`}
-            >
-              <p>{notificationStatus.message}</p>
             </div>
           )}
 
@@ -424,25 +376,6 @@ function AdminActivityManager() {
                               className="btn btn-danger text-sm"
                             >
                               🗑️ Delete
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleSendNotification(hike.id, hike.name)
-                              }
-                              disabled={sendingNotification === hike.id}
-                              className="btn btn-info text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Send notification to all PWA users"
-                            >
-                              {sendingNotification === hike.id ? (
-                                <>
-                                  <span className="inline-block animate-spin mr-1">
-                                    ⏳
-                                  </span>
-                                  Sending...
-                                </>
-                              ) : (
-                                "🔔 Notify"
-                              )}
                             </button>
                           </>
                         )}

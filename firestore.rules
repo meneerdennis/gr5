@@ -38,5 +38,15 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow write: if request.auth != null && request.auth.uid == uid;
     }
+
+    // User FCM tokens - owner can manage their own token doc
+    match /userTokens/{uid} {
+      // Allow the owner to read their own token doc via get
+      allow get: if request.auth != null && request.auth.uid == uid;
+      // Disallow listing the entire collection from clients
+      allow list: if false;
+      // Allow the owner to create/update/delete their token doc
+      allow create, update, delete: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }
