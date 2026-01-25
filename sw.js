@@ -1,3 +1,71 @@
+importScripts(
+  "https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js",
+);
+importScripts(
+  "https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js",
+);
+
+// Initialize Firebase in the service worker (only if not already initialized)
+if (!firebase.apps.length) {
+  firebase.initializeApp({
+    apiKey: "AIzaSyBpLt_m7gVJqHqQLBh-9qjWI0YFNVH5K3I",
+    authDomain: "gr-5-4df65.firebaseapp.com",
+    projectId: "gr-5-4df65",
+    storageBucket: "gr-5-4df65.appspot.com",
+    messagingSenderId: "604938319065",
+    appId: "1:604938319065:web:e9e8c0c5c4e6e4c7e4c7c7",
+  });
+}
+
+const messaging = firebase.messaging();
+
+// Handle background notifications
+messaging.onBackgroundMessage((payload) => {
+  console.log("Background notification received:", payload);
+
+  const notificationTitle = payload.notification?.title || "GR5 Notification";
+  const notificationOptions = {
+    body: payload.notification?.body || "New update available",
+    icon: "/hiker.png",
+    badge: "/hikersmall.png",
+    tag: payload.data?.hikeId || "gr5-notification",
+    data: payload.data || {},
+  };
+
+  return self.registration.showNotification(
+    notificationTitle,
+    notificationOptions,
+  );
+});
+
+// Handle notification clicks
+self.addEventListener("notificationclick", (event) => {
+  console.log("Notification clicked:", event.notification);
+
+  event.notification.close();
+
+  const data = event.notification.data;
+  const urlToOpen = data?.link || "/";
+
+  event.waitUntil(
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((windowClients) => {
+        // Check if there's already a window with the target URL open
+        for (let i = 0; i < windowClients.length; i++) {
+          const client = windowClients[i];
+          if (client.url === urlToOpen && "focus" in client) {
+            return client.focus();
+          }
+        }
+        // If not, open a new window
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen);
+        }
+      }),
+  );
+});
+
 const CACHE_NAME = "gr5-cache-v2";
 const STATIC_CACHE = "gr5-static-v2";
 const IMAGE_CACHE = "gr5-images-v2";
