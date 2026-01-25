@@ -1,42 +1,50 @@
-importScripts(
-  "https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js",
-);
-importScripts(
-  "https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js",
-);
-
-// Initialize Firebase in the service worker (only if not already initialized)
-if (!firebase.apps.length) {
-  firebase.initializeApp({
-    apiKey: "AIzaSyBpLt_m7gVJqHqQLBh-9qjWI0YFNVH5K3I",
-    authDomain: "gr-5-4df65.firebaseapp.com",
-    projectId: "gr-5-4df65",
-    storageBucket: "gr-5-4df65.appspot.com",
-    messagingSenderId: "604938319065",
-    appId: "1:604938319065:web:e9e8c0c5c4e6e4c7e4c7c7",
-  });
-}
-
-const messaging = firebase.messaging();
-
-// Handle background notifications
-messaging.onBackgroundMessage((payload) => {
-  console.log("Background notification received:", payload);
-
-  const notificationTitle = payload.notification?.title || "GR5 Notification";
-  const notificationOptions = {
-    body: payload.notification?.body || "New update available",
-    icon: "/hiker.png",
-    badge: "/hikersmall.png",
-    tag: payload.data?.hikeId || "gr5-notification",
-    data: payload.data || {},
-  };
-
-  return self.registration.showNotification(
-    notificationTitle,
-    notificationOptions,
+try {
+  importScripts(
+    "https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js",
   );
-});
+  importScripts(
+    "https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js",
+  );
+
+  // Initialize Firebase in the service worker (only if not already initialized)
+  if (self.firebase && !firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyBpLt_m7gVJqHqQLBh-9qjWI0YFNVH5K3I",
+      authDomain: "gr-5-4df65.firebaseapp.com",
+      projectId: "gr-5-4df65",
+      storageBucket: "gr-5-4df65.appspot.com",
+      messagingSenderId: "604938319065",
+      appId: "1:604938319065:web:e9e8c0c5c4e6e4c7e4c7c7",
+    });
+  }
+
+  if (self.firebase) {
+    const messaging = firebase.messaging();
+
+    // Handle background notifications
+    messaging.onBackgroundMessage((payload) => {
+      console.log("Background notification received:", payload);
+
+      const notificationTitle =
+        payload.notification?.title || "GR5 Notification";
+      const notificationOptions = {
+        body: payload.notification?.body || "New update available",
+        icon: "/hiker.png",
+        badge: "/hikersmall.png",
+        tag: payload.data?.hikeId || "gr5-notification",
+        data: payload.data || {},
+      };
+
+      return self.registration.showNotification(
+        notificationTitle,
+        notificationOptions,
+      );
+    });
+  }
+} catch (e) {
+  // If Firebase scripts fail to load (some browsers/platforms), continue without push
+  console.warn("SW: Firebase messaging not available:", e);
+}
 
 // Handle notification clicks
 self.addEventListener("notificationclick", (event) => {
@@ -66,9 +74,10 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-const CACHE_NAME = "gr5-cache-v2";
-const STATIC_CACHE = "gr5-static-v2";
-const IMAGE_CACHE = "gr5-images-v2";
+// Bump cache versions to force fresh assets after deploy
+const CACHE_NAME = "gr5-cache-v3";
+const STATIC_CACHE = "gr5-static-v3";
+const IMAGE_CACHE = "gr5-images-v3";
 
 // Cache durations (in milliseconds)
 const STATIC_CACHE_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -140,6 +149,16 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // Handle navigation requests: app-shell fallback to index.html
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((resp) => resp)
+        .catch(() => caches.match("/index.html")),
+    );
+    return;
+  }
 
   // Handle Firebase Storage images
   if (
