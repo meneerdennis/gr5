@@ -134,6 +134,40 @@ function PanToPhoto({ photoLocation }) {
   return null;
 }
 
+// Component to handle zooming to hike bounds
+function ZoomToHikeBounds({ hikeBounds }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (
+      hikeBounds &&
+      hikeBounds.south !== undefined &&
+      hikeBounds.west !== undefined &&
+      hikeBounds.north !== undefined &&
+      hikeBounds.east !== undefined &&
+      map &&
+      map.getContainer()
+    ) {
+      try {
+        const bounds = L.latLngBounds(
+          [hikeBounds.south, hikeBounds.west],
+          [hikeBounds.north, hikeBounds.east],
+        );
+        // Zoom as close as possible with minimal padding to show entire hike
+        map.fitBounds(bounds, {
+          padding: [20, 20],
+          maxZoom: 18,
+          animate: true,
+        });
+      } catch (error) {
+        console.warn("Error zooming to hike bounds:", error);
+      }
+    }
+  }, [hikeBounds, map]);
+
+  return null;
+}
+
 // Component to handle photo markers with clustering
 function PhotoMarkers({ photos, onPhotoClick }) {
   const map = useMap();
@@ -914,6 +948,7 @@ function MapView({
   onPhotoClick,
   onClearSelectedHike,
   selectedPhotoLocation,
+  hikeBounds,
 }) {
   const [currentPosition, setCurrentPosition] = useState(null);
   const [mapReady, setMapReady] = useState(false);
@@ -1233,6 +1268,9 @@ function MapView({
 
           {/* Pan to selected photo */}
           <PanToPhoto photoLocation={selectedPhotoLocation} />
+
+          {/* Zoom to hike bounds (from note modal) */}
+          <ZoomToHikeBounds hikeBounds={hikeBounds} />
 
           {/* Map interaction handler */}
           <MapInteraction

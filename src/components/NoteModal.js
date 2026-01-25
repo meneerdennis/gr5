@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Suspense } from "react";
 import { useNoteModal } from "../contexts/NoteModalContext";
 import { useLikes } from "../hooks/useLikes";
@@ -53,6 +53,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
     closeModal,
     setPhotoUrl,
     setPhotoLocation,
+    setBounds,
     resetTranslation,
     setTranslation,
     setTranslatingState,
@@ -60,6 +61,10 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
 
   // Mobile detection for modal styling
   const [isMobile, setIsMobile] = useState(false);
+  const isInitialSlideRef = useRef(true);
+
+  // Get selected hike early (before useEffects that need it)
+  const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -77,7 +82,28 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
   // Reset translation when hike changes
   useEffect(() => {
     resetTranslation();
+    isInitialSlideRef.current = true;
   }, [selectedHikeId, resetTranslation]);
+
+  // Set map bounds to show entire hike when modal opens
+  useEffect(() => {
+    if (selectedHikeId && selectedHike) {
+      // Calculate bounds from hike's photo locations
+      const photoLocations = photos
+        .filter((p) => p.hikeId === selectedHikeId && p.lat && p.lng)
+        .map((p) => ({ lat: p.lat, lng: p.lng }));
+
+      if (photoLocations.length > 0) {
+        const bounds = {
+          south: Math.min(...photoLocations.map((p) => p.lat)),
+          west: Math.min(...photoLocations.map((p) => p.lng)),
+          north: Math.max(...photoLocations.map((p) => p.lat)),
+          east: Math.max(...photoLocations.map((p) => p.lng)),
+        };
+        setBounds(bounds);
+      }
+    }
+  }, [selectedHikeId, selectedHike, photos, setBounds]);
 
   // Mark hike as viewed when modal opens or hike changes
   useEffect(() => {
@@ -86,8 +112,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
     }
   }, [selectedHikeId, markAsViewed]);
 
-  // Get selected hike
-  const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
+  // Get derived values from selected hike
   const { likesCount } = useLikes(selectedHike?.id, user?.uid);
   const { comments } = useComments(selectedHike?.id);
   const noteText = selectedHike?.note || "";
@@ -110,13 +135,26 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
   const hasNextNote = currentNoteIndex < hikesWithNotes.length - 1;
 
   // Navigation functions
+  const scrollModalToTop = () => {
+    setTimeout(() => {
+      if (isMobile) {
+        // On mobile, scroll the backdrop since modal has overflow: visible
+        const backdrop = document.querySelector(".note-modal-backdrop");
+        if (backdrop) backdrop.scrollTo(0, 0);
+      } else {
+        // On desktop, scroll the modal itself
+        const modal = document.querySelector(".instagram-post-modal");
+        if (modal) modal.scrollTo(0, 0);
+      }
+    }, 0);
+  };
+
   const goToPreviousNote = () => {
     if (hasPreviousNote) {
       const previousHike = hikesWithNotes[currentNoteIndex - 1];
       openModal(previousHike.id);
       // markAsViewed will be called by useEffect when selectedHikeId changes
-      const modal = document.querySelector(".instagram-post-modal");
-      if (modal) modal.scrollTo(0, 0);
+      scrollModalToTop();
     }
   };
 
@@ -125,8 +163,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
       const nextHike = hikesWithNotes[currentNoteIndex + 1];
       openModal(nextHike.id);
       // markAsViewed will be called by useEffect when selectedHikeId changes
-      const modal = document.querySelector(".instagram-post-modal");
-      if (modal) modal.scrollTo(0, 0);
+      scrollModalToTop();
     }
   };
 
@@ -193,7 +230,9 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
         alignItems: isMobile ? "flex-start" : "center",
         justifyContent: "center",
         zIndex: 2000,
-        padding: isMobile ? "10px" : "20px",
+        padding: isMobile
+          ? "calc(10px + env(safe-area-inset-top)) 10px 10px 10px"
+          : "20px",
         overflowY: "auto",
       }}
     >
@@ -291,13 +330,20 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
                 const activePhoto = hikePhotos[swiper.activeIndex];
                 if (activePhoto) {
                   setPhotoUrl(activePhoto.url);
-                  if (activePhoto.lat && activePhoto.lng) {
+                  // Only pan to photo if not the initial slide - let zoom-to-hike-bounds handle initial view
+                  if (
+                    !isInitialSlideRef.current &&
+                    activePhoto.lat &&
+                    activePhoto.lng
+                  ) {
                     setPhotoLocation({
                       lat: activePhoto.lat,
                       lng: activePhoto.lng,
                     });
                   }
                 }
+                // Mark that we've shown the initial slide
+                isInitialSlideRef.current = false;
 
                 // Handle video autoplay when slide becomes active
                 const activeSlide = swiper.slides[swiper.activeIndex];

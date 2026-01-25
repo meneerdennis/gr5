@@ -11,6 +11,7 @@ export function NoteModalProvider({ children }) {
   const [selectedHikeId, setSelectedHikeId] = useState(null);
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState(null);
   const [selectedPhotoLocation, setSelectedPhotoLocation] = useState(null);
+  const [hikeBounds, setHikeBounds] = useState(null);
   const [translatedNote, setTranslatedNote] = useState("");
   const [isTranslating, setIsTranslating] = useState(false);
   const [showTranslated, setShowTranslated] = useState(false);
@@ -26,6 +27,7 @@ export function NoteModalProvider({ children }) {
     setSelectedHikeId(null);
     setSelectedPhotoUrl(null);
     setSelectedPhotoLocation(null);
+    setHikeBounds(null);
     setTranslatedNote("");
     setShowTranslated(false);
     setIsTranslating(false);
@@ -39,6 +41,11 @@ export function NoteModalProvider({ children }) {
   // Update photo location (for map panning)
   const setPhotoLocation = useCallback((location) => {
     setSelectedPhotoLocation(location);
+  }, []);
+
+  // Update hike bounds (for map zoom to fit hike)
+  const setBounds = useCallback((bounds) => {
+    setHikeBounds(bounds);
   }, []);
 
   // Reset translation state (when changing hikes)
@@ -63,6 +70,7 @@ export function NoteModalProvider({ children }) {
     selectedHikeId,
     selectedPhotoUrl,
     selectedPhotoLocation,
+    hikeBounds,
     translatedNote,
     isTranslating,
     showTranslated,
@@ -70,6 +78,7 @@ export function NoteModalProvider({ children }) {
     closeModal,
     setPhotoUrl,
     setPhotoLocation,
+    setBounds,
     resetTranslation,
     setTranslation,
     setTranslatingState,
