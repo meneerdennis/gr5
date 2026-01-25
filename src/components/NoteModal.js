@@ -471,7 +471,9 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
                         height: "400px",
                         objectFit: "cover",
                       }}
-                      loading={index <= selectedPhotoIndex + 1 ? "eager" : "lazy"}
+                      loading={
+                        index <= selectedPhotoIndex + 1 ? "eager" : "lazy"
+                      }
                       decoding={index === selectedPhotoIndex ? "sync" : "async"}
                     />
                   )}
