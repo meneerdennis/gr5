@@ -18,6 +18,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import EXIF from "exif-js";
+import heic2any from "heic2any";
 
 // Extract EXIF data from image file
 function extractExifData(file) {
@@ -108,7 +109,7 @@ function convertExifDateToISO(exifDate) {
 }
 
 // Resize image to web-friendly size
-async function resizeImageForWeb(file, maxWidth = 800, quality = 0.75) {
+async function resizeImageForWeb(file, maxWidth = 600, quality = 0.75) {
   return new Promise(async (resolve, reject) => {
     try {
       const fileType = file.type;
@@ -133,7 +134,6 @@ async function resizeImageForWeb(file, maxWidth = 800, quality = 0.75) {
         );
         try {
           // Convert HEIC to JPEG using heic2any
-          const heic2any = require("heic2any");
           const jpegBuffer = await heic2any({
             blob: file,
             toType: "image/jpeg",
@@ -773,21 +773,65 @@ export async function deletePhoto(photoId, hikeId) {
     await deleteDoc(photoRef);
     console.log("Photo document deleted from Firestore:", photoId);
 
-    // Remove from hike's photos array
-    const hikeRef = doc(db, "hikes", hikeId);
-    const hikeDoc = await getDoc(hikeRef);
+    // Remove from hike's photos array with proper matching
+    try {
+      // Use the hikeId from the photo data to ensure we remove from the correct hike
+      const correctHikeId = photoData.hikeId || hikeId;
 
-    if (hikeDoc.exists()) {
-      const hikeData = hikeDoc.data();
-      const currentPhotos = hikeData.photos || [];
-      const updatedPhotos = currentPhotos.filter(
-        (photo) => photo.id !== photoId,
+      if (!correctHikeId) {
+        console.warn("No hikeId found in photo data or parameters");
+        throw new Error("Cannot determine which hike to update");
+      }
+
+      const hikeRef = doc(db, "hikes", correctHikeId);
+      const hikeDoc = await getDoc(hikeRef);
+
+      if (hikeDoc.exists()) {
+        const hikeData = hikeDoc.data();
+        const currentPhotos = hikeData.photos || [];
+
+        console.log(
+          `Current photos array length before filtering: ${currentPhotos.length}`,
+          `Looking for photoId: ${photoId}`,
+        );
+
+        // Filter out the photo by comparing the id property
+        // This ensures we match by ID regardless of other properties
+        const updatedPhotos = currentPhotos.filter((photo) => {
+          if (!photo) {
+            console.warn("Found null/undefined photo in array");
+            return false;
+          }
+          const matches = photo.id === photoId;
+          if (matches) {
+            console.log(`Found matching photo to remove: ${photo.id}`);
+          }
+          return !matches; // Keep photos that DON'T match
+        });
+
+        // Only update if photos array changed
+        if (updatedPhotos.length !== currentPhotos.length) {
+          await updateDoc(hikeRef, {
+            photos: updatedPhotos,
+          });
+          console.log(
+            `✓ Photo removed from hike photos array. Before: ${currentPhotos.length}, After: ${updatedPhotos.length}`,
+          );
+        } else {
+          console.warn(
+            `⚠️ Photo ${photoId} not found in hike ${correctHikeId} photos array. This may indicate the photo was already removed or the hikeId mismatch.`,
+          );
+        }
+      } else {
+        console.warn(`Hike ${correctHikeId} not found in Firestore`);
+      }
+    } catch (hikeUpdateError) {
+      console.error(
+        "Error removing photo from hike photos array:",
+        hikeUpdateError,
       );
-
-      await updateDoc(hikeRef, {
-        photos: updatedPhotos,
-      });
-      console.log("Photo removed from hike photos array");
+      // Don't fail the entire deletion if hike update fails
+      // The photo is already deleted from storage and Firestore
     }
 
     console.log("Photo completely deleted (Firestore + Storage):", photoId);
@@ -1059,6 +1103,83 @@ export async function debugPhotoDeletion(photoId) {
   } catch (error) {
     console.error("Error debugging photo deletion:", error);
     return { success: false, error: error.message };
+  }
+}
+
+// Find and clean up orphaned photo references in hikes
+export async function cleanupOrphanedPhotoReferences() {
+  try {
+    console.log("Starting cleanup of orphaned photo references...");
+
+    // Get all hikes
+    const hikesQuery = query(collection(db, "hikes"));
+    const hikesSnapshot = await getDocs(hikesQuery);
+
+    // Get all valid photo IDs from the photos collection
+    const photosQuery = query(collection(db, "photos"));
+    const photosSnapshot = await getDocs(photosQuery);
+    const validPhotoIds = new Set();
+
+    photosSnapshot.forEach((doc) => {
+      validPhotoIds.add(doc.id);
+    });
+
+    console.log(`Found ${validPhotoIds.size} valid photos in database`);
+
+    let totalOrphaned = 0;
+    let hikesUpdated = 0;
+
+    // Check each hike for orphaned photo references
+    for (const hikeDoc of hikesSnapshot.docs) {
+      const hikeData = hikeDoc.data();
+      const currentPhotos = hikeData.photos || [];
+
+      if (currentPhotos.length === 0) continue;
+
+      // Filter out any photos that don't exist in the photos collection
+      const cleanedPhotos = currentPhotos.filter((photo) => {
+        if (!photo || !photo.id) {
+          console.warn(`Invalid photo object in hike ${hikeDoc.id}:`, photo);
+          return false;
+        }
+        const isValid = validPhotoIds.has(photo.id);
+        if (!isValid) {
+          console.warn(
+            `Found orphaned photo reference: ${photo.id} in hike ${hikeDoc.id}`,
+          );
+          totalOrphaned++;
+        }
+        return isValid;
+      });
+
+      // Update hike if we removed any orphaned references
+      if (cleanedPhotos.length < currentPhotos.length) {
+        await updateDoc(doc(db, "hikes", hikeDoc.id), {
+          photos: cleanedPhotos,
+        });
+        console.log(
+          `✓ Updated hike ${hikeDoc.id}: removed ${
+            currentPhotos.length - cleanedPhotos.length
+          } orphaned references`,
+        );
+        hikesUpdated++;
+      }
+    }
+
+    console.log(
+      `Cleanup complete: ${totalOrphaned} orphaned references removed from ${hikesUpdated} hikes`,
+    );
+    return {
+      success: true,
+      totalOrphaned,
+      hikesUpdated,
+    };
+  } catch (error) {
+    console.error("Error cleaning up orphaned photo references:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
   }
 }
 

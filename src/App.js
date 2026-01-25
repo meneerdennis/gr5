@@ -322,13 +322,13 @@ function AppContent() {
 
 function App() {
   return (
-    <Router>
+    <NoteModalProvider>
       <ViewedActivitiesProvider>
-        <NoteModalProvider>
+        <Router>
           <AppContent />
-        </NoteModalProvider>
+        </Router>
       </ViewedActivitiesProvider>
-    </Router>
+    </NoteModalProvider>
   );
 }
 

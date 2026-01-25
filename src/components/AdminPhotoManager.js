@@ -95,7 +95,7 @@ function AdminPhotoManager() {
       const photosWithThumbnails = photosData.map((photo) => {
         const thumbnail = photo.thumbnailUrl || photo.url;
         console.log(
-          `Photo ${photo.id}: thumbnailUrl=${photo.thumbnailUrl}, using=${thumbnail}`
+          `Photo ${photo.id}: thumbnailUrl=${photo.thumbnailUrl}, using=${thumbnail}`,
         );
         return {
           ...photo,
@@ -182,21 +182,18 @@ function AdminPhotoManager() {
       console.log(
         "Deleting photo:",
         deletingPhoto.id,
-        deletingPhoto.originalName
+        deletingPhoto.originalName,
       );
       const result = await deletePhoto(deletingPhoto.id, deletingPhoto.hikeId);
 
       if (result.success) {
         console.log("Photo deleted successfully");
-        // Reload photos to reflect changes
-        await loadData();
         setDeletingPhoto(null);
 
-        // Notify main app to refetch photos
-        window.dispatchEvent(new CustomEvent("photoUploaded"));
-        // Restore body scroll
+        // Restore body scroll BEFORE showing success message
         document.body.style.overflow = "unset";
         document.body.classList.remove("modal-open");
+
         // Show success message briefly
         const successMsg = document.createElement("div");
         successMsg.textContent = "Photo deleted successfully!";
@@ -213,7 +210,21 @@ function AdminPhotoManager() {
           box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         `;
         document.body.appendChild(successMsg);
-        setTimeout(() => document.body.removeChild(successMsg), 3000);
+        setTimeout(() => {
+          if (document.body.contains(successMsg)) {
+            document.body.removeChild(successMsg);
+          }
+        }, 3000);
+
+        // Reload photos to reflect changes - MUST complete before closing modal
+        try {
+          await loadData();
+        } catch (loadError) {
+          console.error("Error reloading photos after deletion:", loadError);
+        }
+
+        // Notify main app to refetch photos
+        window.dispatchEvent(new CustomEvent("photoUploaded"));
       } else {
         throw new Error(result.error || "Unknown error occurred");
       }
@@ -239,7 +250,7 @@ function AdminPhotoManager() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedPhotos = filteredPhotos.slice(
     startIndex,
-    startIndex + itemsPerPage
+    startIndex + itemsPerPage,
   );
 
   // Fix iOS Safari horizontal scroll position bug
@@ -260,7 +271,7 @@ function AdminPhotoManager() {
             tableContainerRef.current.scrollLeft = 0;
             console.log(
               "Applied secondary scroll fix, scrollLeft:",
-              tableContainerRef.current.scrollLeft
+              tableContainerRef.current.scrollLeft,
             );
           }
         }, 50);
@@ -308,7 +319,7 @@ function AdminPhotoManager() {
 
       if (result.success) {
         alert(
-          `Successfully created thumbnails for ${result.successful} photos. ${result.failed} failed.`
+          `Successfully created thumbnails for ${result.successful} photos. ${result.failed} failed.`,
         );
         // Reload photos to reflect the changes
         await loadData();
@@ -334,7 +345,7 @@ function AdminPhotoManager() {
 
   const getMapCenterFromPhotos = () => {
     const photosWithLocation = filteredPhotos.filter(
-      (p) => p.lat && p.lng && !isNaN(p.lat) && !isNaN(p.lng)
+      (p) => p.lat && p.lng && !isNaN(p.lat) && !isNaN(p.lng),
     );
 
     if (photosWithLocation.length === 0) return [46.8182, 8.2275];
@@ -397,34 +408,57 @@ function AdminPhotoManager() {
     const photosToDelete = Array.from(selectedPhotos);
 
     try {
-      const deletePromises = photosToDelete.map((photoId) => {
+      // Process deletions SEQUENTIALLY to avoid race conditions on hike document
+      // This ensures each deletion completes before the next one starts
+      let successful = 0;
+      let failed = 0;
+
+      for (const photoId of photosToDelete) {
         const photo = photos.find((p) => p.id === photoId);
-        return photo
-          ? deletePhoto(photo.id, photo.hikeId)
-          : Promise.resolve({ success: false });
-      });
+        if (!photo) {
+          failed++;
+          console.warn(`Photo ${photoId} not found in local state`);
+          continue;
+        }
 
-      const results = await Promise.all(deletePromises);
-      const successful = results.filter((r) => r.success).length;
-      const failed = results.filter((r) => !r.success).length;
+        try {
+          const result = await deletePhoto(photo.id, photo.hikeId);
+          if (result.success) {
+            successful++;
+            console.log(`✓ Successfully deleted photo ${photoId}`);
+          } else {
+            failed++;
+            console.warn(`✗ Failed to delete photo ${photoId}:`, result.error);
+          }
+        } catch (deleteError) {
+          failed++;
+          console.error(`Error deleting photo ${photoId}:`, deleteError);
+        }
 
-      // Reload photos to reflect changes
-      await loadData();
-      setSelectedPhotos(new Set());
+        // Small delay between deletions to ensure Firestore writes complete
+        // This is optional but helps ensure database consistency
+        if (photosToDelete.length > 1) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+      }
+
+      // Close modal BEFORE reloading
       setShowBulkDeleteModal(false);
+      setSelectedPhotos(new Set());
 
-      // Notify main app to refetch photos
-      window.dispatchEvent(new CustomEvent("photoUploaded"));
+      // Restore body scroll BEFORE showing message
+      document.body.style.overflow = "unset";
+      document.body.classList.remove("modal-open");
 
       // Show success message
-      const message = `Successfully deleted ${successful} photo(s)`;
+      const message = `Successfully deleted ${successful} photo(s)${failed > 0 ? `, ${failed} failed` : ""}`;
       const successMsg = document.createElement("div");
       successMsg.textContent = message;
       successMsg.style.cssText = `
         position: fixed;
         top: 20px;
         right: 20px;
-        background: #10b981;
+        background: ${failed > 0 ? "#f97316" : "#10b981"};
         color: white;
         padding: 12px 20px;
         border-radius: 8px;
@@ -433,7 +467,21 @@ function AdminPhotoManager() {
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
       `;
       document.body.appendChild(successMsg);
-      setTimeout(() => document.body.removeChild(successMsg), 3000);
+      setTimeout(() => {
+        if (document.body.contains(successMsg)) {
+          document.body.removeChild(successMsg);
+        }
+      }, 3000);
+
+      // Reload photos to reflect changes - MUST complete before returning
+      try {
+        await loadData();
+      } catch (loadError) {
+        console.error("Error reloading photos after bulk deletion:", loadError);
+      }
+
+      // Notify main app to refetch photos
+      window.dispatchEvent(new CustomEvent("photoUploaded"));
 
       if (failed > 0) {
         console.warn(`${failed} photos failed to delete`);
@@ -441,11 +489,11 @@ function AdminPhotoManager() {
     } catch (error) {
       console.error("Error during bulk delete:", error);
       alert("Failed to delete some photos: " + error.message);
-    } finally {
-      setBulkDeleting(false);
-      // Restore body scroll
+      // Restore body scroll on error
       document.body.style.overflow = "unset";
       document.body.classList.remove("modal-open");
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -532,7 +580,7 @@ function AdminPhotoManager() {
         selectedFiles,
         selectedHike,
         formData.caption,
-        onProgress
+        onProgress,
       );
 
       if (result.success) {
@@ -555,7 +603,7 @@ function AdminPhotoManager() {
         const details = [];
         uploaded.forEach((photo) => {
           details.push(
-            `📸 ${photo.fileName} ${photo.exifExtracted ? "📍" : ""}`
+            `📸 ${photo.fileName} ${photo.exifExtracted ? "📍" : ""}`,
           );
         });
         failed.forEach((fail) => {
@@ -576,8 +624,12 @@ function AdminPhotoManager() {
         setExifPreview([]);
         event.target.value = "";
 
-        // Reload photos to show new uploads
-        await loadData();
+        // Reload photos to show new uploads - MUST complete before clearing uploading state
+        try {
+          await loadData();
+        } catch (loadError) {
+          console.error("Error reloading photos after upload:", loadError);
+        }
 
         // Notify main app to refetch photos
         window.dispatchEvent(new CustomEvent("photoUploaded"));
@@ -594,8 +646,8 @@ function AdminPhotoManager() {
       });
     } finally {
       setUploading(false);
-      // Clear progress after a delay
-      setTimeout(() => setUploadProgress(null), 3000);
+      // Clear progress after a delay to show completion message
+      setTimeout(() => setUploadProgress(null), 2000);
     }
   };
 
@@ -966,7 +1018,7 @@ function AdminPhotoManager() {
                               onError={(e) => {
                                 console.warn(
                                   "Table video thumbnail failed to load:",
-                                  photo.url
+                                  photo.url,
                                 );
                                 // Fallback to a play icon overlay on a placeholder
                                 e.target.style.display = "none";
@@ -988,7 +1040,7 @@ function AdminPhotoManager() {
                             onError={(e) => {
                               console.warn(
                                 "Table thumbnail failed to load:",
-                                photo.url
+                                photo.url,
                               );
                               e.target.src = photo.url; // Fallback to original
                             }}
@@ -1155,13 +1207,13 @@ function AdminPhotoManager() {
                 onLoad={() =>
                   console.log(
                     "Modal video loaded successfully:",
-                    showFullImage.url
+                    showFullImage.url,
                   )
                 }
                 onError={(e) => {
                   console.error(
                     "Modal video failed to load:",
-                    showFullImage.url
+                    showFullImage.url,
                   );
                   console.log("Error target:", e.target);
                   console.log("Error src:", e.target.src);
@@ -1172,12 +1224,12 @@ function AdminPhotoManager() {
                   ) {
                     console.log(
                       "Falling back to backup video:",
-                      showFullImage.backupUrl
+                      showFullImage.backupUrl,
                     );
                     e.target.src = showFullImage.backupUrl;
                   } else {
                     console.log(
-                      "All video sources failed, showing error state"
+                      "All video sources failed, showing error state",
                     );
                     e.target.style.display = "none";
                   }
@@ -1195,13 +1247,13 @@ function AdminPhotoManager() {
                 onLoad={() =>
                   console.log(
                     "Modal image loaded successfully:",
-                    showFullImage.url
+                    showFullImage.url,
                   )
                 }
                 onError={(e) => {
                   console.error(
                     "Modal image failed to load:",
-                    showFullImage.url
+                    showFullImage.url,
                   );
                   console.log("Error target:", e.target);
                   console.log("Error src:", e.target.src);
@@ -1212,12 +1264,12 @@ function AdminPhotoManager() {
                   ) {
                     console.log(
                       "Falling back to backup image:",
-                      showFullImage.backupUrl
+                      showFullImage.backupUrl,
                     );
                     e.target.src = showFullImage.backupUrl;
                   } else {
                     console.log(
-                      "All image sources failed, showing error state"
+                      "All image sources failed, showing error state",
                     );
                     e.target.style.display = "none";
                   }
@@ -1255,7 +1307,7 @@ function AdminPhotoManager() {
                 onError={(e) => {
                   console.warn(
                     "Delete modal thumbnail failed to load:",
-                    deletingPhoto.url
+                    deletingPhoto.url,
                   );
                   e.target.style.display = "none";
                 }}
