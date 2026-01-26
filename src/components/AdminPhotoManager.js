@@ -257,7 +257,6 @@ function AdminPhotoManager() {
   useEffect(() => {
     const fixScrollPosition = () => {
       if (tableContainerRef.current) {
-        console.log("Fixing scroll position to 0");
         // Multiple approaches to ensure scroll position is 0
         tableContainerRef.current.scrollLeft = 0;
 
@@ -269,10 +268,6 @@ function AdminPhotoManager() {
         setTimeout(() => {
           if (tableContainerRef.current) {
             tableContainerRef.current.scrollLeft = 0;
-            console.log(
-              "Applied secondary scroll fix, scrollLeft:",
-              tableContainerRef.current.scrollLeft,
-            );
           }
         }, 50);
       }
