@@ -5,7 +5,10 @@ import {
   addHikeToFirebase,
   parseGPX,
   parseFIT,
+  markHikeAsNotified,
 } from "../services/firebaseService";
+import { sendHikeNotification } from "../services/notificationService";
+import { auth } from "../services/firebase";
 import { db } from "../services/firebase";
 import { doc, deleteDoc } from "firebase/firestore";
 
@@ -22,6 +25,8 @@ function AdminActivityManager() {
   const [editStatus, setEditStatus] = useState(null);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState(null);
+  const [notifyingHikeId, setNotifyingHikeId] = useState(null);
 
   useEffect(() => {
     loadHikes();
@@ -174,6 +179,72 @@ function AdminActivityManager() {
     }
   };
 
+  const handleNotifyUsers = async (hike) => {
+    if (!hike?.id) return;
+
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        setNotificationStatus({
+          type: "error",
+          message: "❌ Please sign in to send notifications.",
+        });
+        return;
+      }
+      if (currentUser.isAnonymous) {
+        setNotificationStatus({
+          type: "error",
+          message:
+            "❌ Anonymous users cannot send notifications. Please sign in with Google.",
+        });
+        return;
+      }
+      setNotificationStatus(null);
+      setNotifyingHikeId(hike.id);
+      const payload = {
+        hikeId: hike.id,
+        hikeName: hike.name,
+        message: hike.name
+          ? `New hike: ${hike.name}`
+          : "A new hike is available.",
+        force: true,
+      };
+      const notifyResult = await sendHikeNotification(payload);
+      if (notifyResult.success) {
+        await markHikeAsNotified(hike.id);
+        const metaParts = [];
+        if (typeof notifyResult.sent === "number") {
+          metaParts.push(`sent ${notifyResult.sent}`);
+        }
+        if (typeof notifyResult.failed === "number") {
+          metaParts.push(`failed ${notifyResult.failed}`);
+        }
+        if (typeof notifyResult.removed === "number") {
+          metaParts.push(`removed ${notifyResult.removed}`);
+        }
+        const metaSuffix = metaParts.length ? ` (${metaParts.join(", ")})` : "";
+        setNotificationStatus({
+          type: "success",
+          message: `✅ Notification sent for activity: ${hike.name}${metaSuffix}`,
+        });
+        await loadHikes();
+      } else {
+        setNotificationStatus({
+          type: "error",
+          message: `❌ Failed to send notification: ${notifyResult.error}`,
+        });
+      }
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      setNotificationStatus({
+        type: "error",
+        message: `❌ Failed to send notification: ${error.message}`,
+      });
+    } finally {
+      setNotifyingHikeId(null);
+    }
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString();
   };
@@ -258,6 +329,18 @@ function AdminActivityManager() {
               }`}
             >
               <p>{uploadStatus.message}</p>
+            </div>
+          )}
+
+          {notificationStatus && (
+            <div
+              className={`p-3 rounded-lg mb-4 ${
+                notificationStatus.type === "success"
+                  ? "bg-green-900 bg-opacity-30 text-green-300 border border-green-500 border-opacity-30"
+                  : "bg-red-900 bg-opacity-30 text-red-300 border border-red-500 border-opacity-30"
+              }`}
+            >
+              <p>{notificationStatus.message}</p>
             </div>
           )}
 
@@ -370,6 +453,17 @@ function AdminActivityManager() {
                               className="btn btn-primary text-sm"
                             >
                               ✏️ Edit
+                            </button>
+                            <button
+                              onClick={() => handleNotifyUsers(hike)}
+                              className="btn btn-secondary text-sm"
+                              disabled={notifyingHikeId === hike.id}
+                            >
+                              {notifyingHikeId === hike.id
+                                ? "📣 Notifying..."
+                                : hike.notifiedAt
+                                  ? "📣 Notify Again"
+                                  : "📣 Notify Users"}
                             </button>
                             <button
                               onClick={() => handleDeleteClick(hike)}

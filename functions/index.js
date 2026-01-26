@@ -68,3 +68,132 @@ exports.notifyNewComment = functions.firestore
       console.error("Error sending notification email:", error);
     }
   });
+
+exports.sendHikeNotification = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Authentication required.",
+    );
+  }
+
+  const provider = context.auth?.token?.firebase?.sign_in_provider;
+  if (provider === "anonymous") {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Anonymous users cannot send notifications.",
+    );
+  }
+
+  const adminEmails = process.env.ADMIN_EMAILS
+    ? process.env.ADMIN_EMAILS.split(",").map((email) => email.trim())
+    : [];
+  const email = context.auth?.token?.email || "";
+  if (adminEmails.length > 0 && !adminEmails.includes(email)) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Not authorized to send notifications.",
+    );
+  }
+
+  const hikeId = data?.hikeId;
+  const hikeName = data?.hikeName || "";
+  const message = data?.message || "";
+  const force = Boolean(data?.force);
+  console.log("sendHikeNotification input", {
+    hikeId,
+    hikeName,
+    message,
+    force,
+  });
+  if (!hikeId) {
+    throw new functions.https.HttpsError("invalid-argument", "Missing hikeId.");
+  }
+
+  const hikeDoc = await admin.firestore().doc(`hikes/${hikeId}`).get();
+  if (!hikeDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "Hike not found.");
+  }
+
+  const hike = hikeDoc.data() || {};
+  const title = "New GR5 hike posted";
+  const body = message
+    ? message
+    : hike?.name
+      ? `New hike: ${hike.name}`
+      : "A new hike is available.";
+
+  const tokenSnapshot = await admin.firestore().collection("userTokens").get();
+  const rawTokens = tokenSnapshot.docs
+    .flatMap((doc) => doc.data()?.tokens || [])
+    .filter((token) => typeof token === "string" && token.trim().length > 0)
+    .map((token) => token.trim());
+  const tokens = Array.from(new Set(rawTokens));
+
+  console.log("Found tokens:", tokens.length);
+  if (tokens.length > 0) {
+    console.log("Sample tokens:", tokens.slice(0, 3));
+  }
+  if (tokens.length === 0) {
+    return { sent: 0, failed: 0, message: "No tokens registered." };
+  }
+
+  let sent = 0;
+  let failed = 0;
+  const tokensToDelete = [];
+
+  for (const token of tokens) {
+    try {
+      await admin.messaging().send({
+        token,
+        notification: {
+          title,
+          body,
+        },
+        data: {
+          hikeId: String(hikeId),
+          hikeName: String(hikeName || hike?.name || ""),
+          message: String(message || ""),
+        },
+        webpush: {
+          notification: {
+            icon: "/hiker.png",
+          },
+        },
+      });
+      sent += 1;
+    } catch (error) {
+      failed += 1;
+      const errorCode = error?.code || "";
+      console.error("Error sending to token:", token, errorCode);
+      if (
+        errorCode.includes("registration-token-not-registered") ||
+        errorCode.includes("invalid-registration-token")
+      ) {
+        tokensToDelete.push(token);
+      }
+    }
+  }
+
+  if (tokensToDelete.length > 0) {
+    const userTokenSnapshot = await admin
+      .firestore()
+      .collection("userTokens")
+      .get();
+
+    const batch = admin.firestore().batch();
+    userTokenSnapshot.docs.forEach((doc) => {
+      const data = doc.data() || {};
+      const existingTokens = Array.isArray(data.tokens) ? data.tokens : [];
+      const nextTokens = existingTokens.filter(
+        (token) => !tokensToDelete.includes(token),
+      );
+      if (nextTokens.length !== existingTokens.length) {
+        batch.set(doc.ref, { tokens: nextTokens }, { merge: true });
+      }
+    });
+    await batch.commit();
+  }
+
+  return { sent, failed, removed: tokensToDelete.length, force };
+});

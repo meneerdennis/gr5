@@ -1,26 +1,47 @@
-import React, { useState } from "react";
-import { signInWithPopup, signOut } from "firebase/auth";
+import React, { useEffect, useState } from "react";
+import { getRedirectResult, signInWithRedirect, signOut } from "firebase/auth";
 import { auth, googleProvider } from "../services/firebase";
 
 function LoginPage({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const handleRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (isMounted && result?.user) {
+          onLoginSuccess(result.user);
+        }
+      } catch (error) {
+        console.error("Redirect sign in error:", error);
+        if (isMounted) {
+          setError("Failed to sign in with Google. Please try again.");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    handleRedirect();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [onLoginSuccess]);
+
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
       setError("");
-
-      const result = await signInWithPopup(auth, googleProvider);
-
-      // Check if sign in was successful
-      if (result.user) {
-        onLoginSuccess(result.user);
-      }
+      await signInWithRedirect(auth, googleProvider);
     } catch (error) {
       console.error("Sign in error:", error);
       setError("Failed to sign in with Google. Please try again.");
-    } finally {
       setLoading(false);
     }
   };

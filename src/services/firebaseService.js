@@ -57,6 +57,7 @@ export async function getHikesFromFirebase(limit = null) {
         note: data.note || "",
         start: data.start || "",
         end: data.end || "",
+        notifiedAt: data.notifiedAt || null,
       });
     });
 
@@ -110,6 +111,7 @@ export function subscribeToHikes(onUpdate, onError, limitCount = null) {
             note: data.note || "",
             start: data.start || "",
             end: data.end || "",
+            notifiedAt: data.notifiedAt || null,
           });
         });
         onUpdate(hikes);
@@ -582,6 +584,20 @@ export async function updateHike(hikeId, updates) {
   }
 }
 
+// Mark a hike as notified for users
+export async function markHikeAsNotified(hikeId) {
+  try {
+    const { doc, updateDoc, serverTimestamp } =
+      await import("firebase/firestore");
+    const hikeRef = doc(db, "hikes", hikeId);
+    await updateDoc(hikeRef, { notifiedAt: serverTimestamp() });
+    return { success: true };
+  } catch (error) {
+    console.error("Error marking hike as notified:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 // Quotes functions
 export async function getQuotesFromFirebase() {
   try {
@@ -739,6 +755,7 @@ export async function getViewedActivitiesFromFirebase(uid) {
     if (!auth.currentUser || auth.currentUser.uid !== uid) {
       return [];
     }
+    await auth.currentUser.getIdToken();
     const userPrefsRef = doc(db, "userPreferences", uid);
     const userPrefsDoc = await getDoc(userPrefsRef);
 
@@ -749,13 +766,19 @@ export async function getViewedActivitiesFromFirebase(uid) {
 
     return [];
   } catch (error) {
-    console.error("Error fetching viewed activities from Firebase:", error);
+    if (error?.code !== "permission-denied") {
+      console.error("Error fetching viewed activities from Firebase:", error);
+    }
     return [];
   }
 }
 
 export async function saveViewedActivitiesToFirebase(uid, viewedActivities) {
   try {
+    if (!auth.currentUser || auth.currentUser.uid !== uid) {
+      return { success: false, error: "Not authenticated" };
+    }
+    await auth.currentUser.getIdToken();
     const userPrefsRef = doc(db, "userPreferences", uid);
     await setDoc(
       userPrefsRef,
@@ -767,7 +790,9 @@ export async function saveViewedActivitiesToFirebase(uid, viewedActivities) {
     );
     return { success: true };
   } catch (error) {
-    console.error("Error saving viewed activities to Firebase:", error);
+    if (error?.code !== "permission-denied") {
+      console.error("Error saving viewed activities to Firebase:", error);
+    }
     return { success: false, error: error.message };
   }
 }

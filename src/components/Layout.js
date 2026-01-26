@@ -3,6 +3,7 @@ import ProgressBar from "./ProgressBar";
 import { getQuotesFromFirebase } from "../services/firebaseService";
 import emailjs from "@emailjs/browser";
 import GR5Info from "./GR5Info";
+import { useNotifications } from "../hooks/useNotifications";
 
 function ContactModal({ isOpen, onClose }) {
   const [formData, setFormData] = useState({
@@ -26,7 +27,7 @@ function ContactModal({ isOpen, onClose }) {
           from_email: formData.email,
           message: formData.message,
         },
-        process.env.REACT_APP_EMAILJS_PUBLIC_KEY
+        process.env.REACT_APP_EMAILJS_PUBLIC_KEY,
       );
       alert("Message sent successfully!");
       setFormData({ name: "", email: "", message: "" });
@@ -36,7 +37,7 @@ function ContactModal({ isOpen, onClose }) {
       alert(
         `Failed to send message: ${
           error?.text || error?.message || "Unknown error"
-        }`
+        }`,
       );
     }
   };
@@ -209,6 +210,25 @@ function Layout({ children, progress = 0 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGR5InfoOpen, setIsGR5InfoOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const {
+    canReceiveNotifications,
+    notificationPermission,
+    subscribeForNotifications,
+    tokenReady,
+    error: notificationError,
+    lastMessage,
+  } = useNotifications();
+  const [toastMessage, setToastMessage] = useState(null);
+
+  useEffect(() => {
+    if (!lastMessage?.notification) return;
+    const title = lastMessage.notification.title || "New update";
+    const body = lastMessage.notification.body || "";
+    setToastMessage({ title, body });
+
+    const timer = setTimeout(() => setToastMessage(null), 6000);
+    return () => clearTimeout(timer);
+  }, [lastMessage]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -372,8 +392,50 @@ function Layout({ children, progress = 0 }) {
               justifyContent: "center",
               gap: "1rem",
               alignItems: "center",
+              flexWrap: "wrap",
             }}
           >
+            <button
+              onClick={subscribeForNotifications}
+              disabled={
+                canReceiveNotifications || notificationPermission === "denied"
+              }
+              style={{
+                color: canReceiveNotifications ? "#10b981" : "#8b5cf6",
+                background: "none",
+                border: "1px solid currentColor",
+                borderRadius: "999px",
+                cursor:
+                  canReceiveNotifications || notificationPermission === "denied"
+                    ? "default"
+                    : "pointer",
+                padding: "0.35rem 0.75rem",
+                fontSize: "0.75rem",
+                opacity:
+                  canReceiveNotifications || notificationPermission === "denied"
+                    ? 0.7
+                    : 1,
+              }}
+              title="Enable push notifications"
+            >
+              {canReceiveNotifications
+                ? tokenReady
+                  ? "🔔 Notifications enabled"
+                  : "🔔 Enabling notifications..."
+                : notificationPermission === "denied"
+                  ? "🔕 Notifications blocked"
+                  : "🔔 Enable notifications"}
+            </button>
+            {notificationError && (
+              <span
+                style={{
+                  color: "#ef4444",
+                  fontSize: "0.75rem",
+                }}
+              >
+                {notificationError}
+              </span>
+            )}
             <a
               onClick={() => setIsModalOpen(true)}
               title="Contact me"
@@ -443,6 +505,30 @@ function Layout({ children, progress = 0 }) {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
+      {toastMessage && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "1.5rem",
+            right: "1.5rem",
+            zIndex: 9999,
+            background: "rgba(15, 23, 42, 0.95)",
+            color: "white",
+            padding: "0.75rem 1rem",
+            borderRadius: "0.75rem",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
+            maxWidth: "320px",
+            fontSize: "0.85rem",
+          }}
+          role="status"
+          aria-live="polite"
+        >
+          <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>
+            {toastMessage.title}
+          </div>
+          <div style={{ opacity: 0.9 }}>{toastMessage.body}</div>
+        </div>
+      )}
       <GR5Info
         isOpen={isGR5InfoOpen}
         onClose={() => setIsGR5InfoOpen(false)}

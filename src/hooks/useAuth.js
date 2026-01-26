@@ -17,6 +17,14 @@ export function useAuth() {
 
   useEffect(() => {
     if (!loading && !user) {
+      const isAdminRoute =
+        typeof window !== "undefined" &&
+        window.location?.hash?.includes("/admin");
+
+      if (isAdminRoute) {
+        return;
+      }
+
       // Sign in anonymously if not authenticated
       signInAnonymously(auth).catch((error) => {
         console.error("Anonymous sign-in failed:", error);

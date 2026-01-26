@@ -34,6 +34,8 @@
     "sharp": "^0.34.5"
   },
   "scripts": {
+    "prestart": "node scripts/generate-firebase-config.js",
+    "prebuild": "node scripts/generate-firebase-config.js",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
