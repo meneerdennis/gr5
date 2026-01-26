@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import HCaptcha from "@hcaptcha/react-hcaptcha";
 import { useComments } from "../hooks/useComments";
 import { addComment, deleteComment } from "../services/firebaseService";
 import { useAuth } from "../hooks/useAuth";
 import { translateText, getUserLanguage } from "../services/translationService";
+import { useViewedCommentsContext } from "../contexts/ViewedCommentsContext";
 
 // Localized button texts for comments
 const commentButtonTexts = {
@@ -37,11 +38,17 @@ const commentButtonTexts = {
 function CommentsSection({ activityId }) {
   const { user } = useAuth();
   const { comments, loading } = useComments(activityId);
+  const { markCommentsAsViewed } = useViewedCommentsContext();
   const [newComment, setNewComment] = useState("");
   const [nickname, setNickname] = useState("");
   const [captchaToken, setCaptchaToken] = useState(null);
   const [commentTranslations, setCommentTranslations] = useState({});
   const [translatingComments, setTranslatingComments] = useState(new Set());
+
+  useEffect(() => {
+    if (!activityId || loading) return;
+    markCommentsAsViewed(activityId, comments.length);
+  }, [activityId, comments.length, loading, markCommentsAsViewed]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -60,6 +67,13 @@ function CommentsSection({ activityId }) {
         newComment.trim(),
         nickname.trim() || "Anonymous hiker",
       );
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("commentAdded", {
+            detail: { activityId, uid: user.uid },
+          }),
+        );
+      }
       setNewComment("");
       setNickname("");
       setCaptchaToken(null); // Reset captcha

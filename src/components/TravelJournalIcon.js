@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useViewedActivitiesContext } from "../contexts/ViewedActivitiesContext";
+import { useViewedCommentsContext } from "../contexts/ViewedCommentsContext";
+import { useAuth } from "../hooks/useAuth";
 
 // Add slideDown animation
 const slideDownKeyframes = `
@@ -30,8 +32,20 @@ function TravelJournalIcon({
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const { markAsViewed, getUnreadCount, isViewed, loading } =
-    useViewedActivitiesContext();
+  const {
+    markAsViewed,
+    getUnreadCount,
+    isViewed,
+    loading: activitiesLoading,
+  } = useViewedActivitiesContext();
+  const { user } = useAuth();
+  const {
+    hasNewComments,
+    markCommentsAsViewed,
+    loading: commentsLoading,
+    hasStoredData,
+  } = useViewedCommentsContext();
+  const [commentCountOverrides, setCommentCountOverrides] = useState({});
   const dropdownRef = useRef(null);
 
   // Mobile detection
@@ -50,7 +64,56 @@ function TravelJournalIcon({
   });
 
   // Get unread activities count for the notification badge
-  const unreadCount = loading ? 0 : getUnreadCount(sortedHikes);
+  const unreadHikeCount = activitiesLoading ? 0 : getUnreadCount(sortedHikes);
+  const unreadCommentCount = commentsLoading
+    ? 0
+    : sortedHikes.filter((hike) => {
+        const currentCommentsCount =
+          (commentCountOverrides[hike.id] ?? hike.commentsCount) || 0;
+        return hasNewComments(hike.id, currentCommentsCount);
+      }).length;
+  const unreadCount = unreadHikeCount + unreadCommentCount;
+
+  useEffect(() => {
+    if (commentsLoading || hasStoredData || !hikes?.length) return;
+    hikes.forEach((hike) => {
+      markCommentsAsViewed(hike.id, hike.commentsCount || 0);
+    });
+  }, [commentsLoading, hasStoredData, hikes, markCommentsAsViewed]);
+
+  useEffect(() => {
+    if (!hikes?.length) return;
+    setCommentCountOverrides((prev) => {
+      const next = { ...prev };
+      hikes.forEach((hike) => {
+        const baseCount = hike.commentsCount || 0;
+        next[hike.id] = Math.max(next[hike.id] || 0, baseCount);
+      });
+      return next;
+    });
+  }, [hikes]);
+
+  useEffect(() => {
+    const handleCommentAdded = (event) => {
+      const activityId = event?.detail?.activityId;
+      const eventUid = event?.detail?.uid;
+      if (user?.uid && eventUid === user.uid) return;
+      if (!activityId) return;
+      setCommentCountOverrides((prev) => {
+        const currentBase =
+          prev[activityId] ||
+          hikes.find((hike) => hike.id === activityId)?.commentsCount ||
+          0;
+        return {
+          ...prev,
+          [activityId]: currentBase + 1,
+        };
+      });
+    };
+
+    window.addEventListener("commentAdded", handleCommentAdded);
+    return () => window.removeEventListener("commentAdded", handleCommentAdded);
+  }, [hikes, user?.uid]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -85,6 +148,10 @@ function TravelJournalIcon({
   const handleActivitySelect = async (hikeId) => {
     // Mark activity as viewed (async, but we don't wait for it to keep UI responsive)
     markAsViewed(hikeId);
+    const selectedHike = hikes.find((hike) => hike.id === hikeId);
+    const currentCommentsCount =
+      (commentCountOverrides[hikeId] ?? selectedHike?.commentsCount) || 0;
+    markCommentsAsViewed(hikeId, currentCommentsCount);
 
     // Call the original onSelectHike function
     onSelectHike(hikeId);
@@ -191,54 +258,123 @@ function TravelJournalIcon({
               animation: "slideDown 0.3s ease-out",
             }}
           >
-            {sortedHikes.map((hike) => (
-              <div
-                key={hike.id}
-                onClick={() => {
-                  handleActivitySelect(hike.id);
-                  setIsDropdownOpen(false);
-                }}
-                style={{
-                  padding: "8px 12px",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  backgroundColor:
-                    selectedHikeId === hike.id ? "#f0f8ff" : "white",
-                  color: "#333",
-                  borderBottom: "1px solid #f0f0f0",
-                  fontSize: isMobile ? "12px" : "14px",
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = "#f5f5f5";
-                  e.target.style.color = "#333";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor =
-                    selectedHikeId === hike.id ? "#f0f8ff" : "white";
-                  e.target.style.color = "#333";
-                }}
+            <div
+              style={{
+                padding: "6px 10px",
+                fontSize: isMobile ? "10px" : "11px",
+                color: "#5f6b7a",
+                borderBottom: "1px solid #f0f0f0",
+                backgroundColor: "#f9fbfd",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+              }}
+            >
+              <span
+                style={{ display: "flex", alignItems: "center", gap: "4px" }}
               >
-                <span>
-                  {hike.name || "Unnamed Activity"}
-                  {hike.distanceKm && ` (${hike.distanceKm.toFixed(1)} km)`}
-                </span>
-                {!isViewed(hike.id) && (
-                  <span
-                    style={{
-                      width: "8px",
-                      height: "8px",
-                      borderRadius: "50%",
-                      backgroundColor: "#0066cc",
-                      display: "inline-block",
-                      marginLeft: "8px",
+                <span
+                  style={{
+                    width: "6px",
+                    height: "6px",
+                    borderRadius: "50%",
+                    backgroundColor: "#0066cc",
+                    display: "inline-block",
+                  }}
+                />
+                New hike
+              </span>
+              <span
+                style={{ display: "flex", alignItems: "center", gap: "4px" }}
+              >
+                <span
+                  style={{
+                    width: "6px",
+                    height: "6px",
+                    borderRadius: "50%",
+                    backgroundColor: "#2ecc71",
+                    display: "inline-block",
+                  }}
+                />
+                New comment
+              </span>
+            </div>
+            {sortedHikes.map((hike) =>
+              (() => {
+                const currentCommentsCount =
+                  (commentCountOverrides[hike.id] ?? hike.commentsCount) || 0;
+                return (
+                  <div
+                    key={hike.id}
+                    onClick={() => {
+                      handleActivitySelect(hike.id);
+                      setIsDropdownOpen(false);
                     }}
-                    title="New activity"
-                  />
-                )}
-              </div>
-            ))}
+                    style={{
+                      padding: "8px 12px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      backgroundColor:
+                        selectedHikeId === hike.id ? "#f0f8ff" : "white",
+                      color: "#333",
+                      borderBottom: "1px solid #f0f0f0",
+                      fontSize: isMobile ? "12px" : "14px",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#f5f5f5";
+                      e.target.style.color = "#333";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor =
+                        selectedHikeId === hike.id ? "#f0f8ff" : "white";
+                      e.target.style.color = "#333";
+                    }}
+                  >
+                    <span>
+                      {hike.name || "Unnamed Activity"}
+                      {hike.distanceKm && ` (${hike.distanceKm.toFixed(1)} km)`}
+                    </span>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                        marginLeft: "8px",
+                      }}
+                    >
+                      {!isViewed(hike.id) && (
+                        <span
+                          style={{
+                            width: "8px",
+                            height: "8px",
+                            borderRadius: "50%",
+                            backgroundColor: "#0066cc",
+                            display: "inline-block",
+                          }}
+                          title="New hike"
+                        />
+                      )}
+                      {hasNewComments(hike.id, currentCommentsCount) && (
+                        <span
+                          style={{
+                            width: "8px",
+                            height: "8px",
+                            borderRadius: "50%",
+                            backgroundColor: "#2ecc71",
+                            display: "inline-block",
+                          }}
+                          title="New comment"
+                        />
+                      )}
+                    </span>
+                  </div>
+                );
+              })(),
+            )}
           </div>
         )}
 

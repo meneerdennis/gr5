@@ -1,7 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getRouteData } from "../services/routeService";
 import { getStravaHikes } from "../services/stravaService";
-import { getAllPhotosWithHikes } from "../services/firebaseService";
+import {
+  getAllPhotosWithHikes,
+  subscribeToHikes,
+  decodePolyline,
+} from "../services/firebaseService";
 
 export function useHikeData() {
   const [route, setRoute] = useState(null);
@@ -52,6 +56,33 @@ export function useHikeData() {
   useEffect(() => {
     loadData();
 
+    const unsubscribe = subscribeToHikes(
+      (hikesData) => {
+        const mapped = hikesData.map((hike) => ({
+          id: hike.id || hike.stravaId,
+          stravaId: hike.stravaId,
+          distanceKm: hike.distanceKm,
+          startDate: hike.startDate,
+          type: hike.type,
+          name: hike.name,
+          description: hike.description,
+          commentsCount: hike.commentsCount || 0,
+          polyline: hike.polyline ? decodePolyline(hike.polyline) : [],
+          latlng: hike.latlng || [],
+          altitude: hike.altitude || [],
+          time: hike.time || [],
+          photos: hike.photos || [],
+          note: hike.note || "",
+          start: hike.start || "",
+          end: hike.end || "",
+        }));
+        setHikes(mapped);
+      },
+      (error) => {
+        console.error("Error receiving live hikes:", error);
+      },
+    );
+
     // Listen for photo upload events with debouncing to prevent multiple rapid reloads
     const handlePhotoUpload = () => {
       // Clear existing timeout
@@ -70,6 +101,9 @@ export function useHikeData() {
       window.removeEventListener("photoUploaded", handlePhotoUpload);
       if (photoUploadTimeoutRef.current) {
         clearTimeout(photoUploadTimeoutRef.current);
+      }
+      if (unsubscribe) {
+        unsubscribe();
       }
     };
   }, [loadData, reloadPhotos]);

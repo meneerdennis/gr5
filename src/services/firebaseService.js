@@ -48,6 +48,7 @@ export async function getHikesFromFirebase(limit = null) {
         elapsedTimeSec: data.elapsedTimeSec,
         startDate: data.startDate,
         type: data.type,
+        commentsCount: data.commentsCount || 0,
         polyline: data.polyline,
         photos: data.photos || [],
         latlng,
@@ -63,6 +64,67 @@ export async function getHikesFromFirebase(limit = null) {
   } catch (error) {
     console.error("Error fetching hikes from Firebase:", error);
     return [];
+  }
+}
+
+export function subscribeToHikes(onUpdate, onError, limitCount = null) {
+  try {
+    const hikesCollection = collection(db, "hikes");
+    let q = query(hikesCollection, orderBy("startDate", "asc"));
+    if (limitCount) {
+      q = query(
+        hikesCollection,
+        orderBy("startDate", "asc"),
+        limit(limitCount),
+      );
+    }
+
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const hikes = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          const latlng = [];
+          if (data.lat && data.lng && data.lat.length === data.lng.length) {
+            for (let i = 0; i < data.lat.length; i++) {
+              latlng.push([data.lat[i], data.lng[i]]);
+            }
+          }
+          hikes.push({
+            id: doc.id,
+            stravaId: data.stravaId,
+            name: data.name,
+            description: data.description,
+            distanceKm: data.distanceKm,
+            movingTimeSec: data.movingTimeSec,
+            elapsedTimeSec: data.elapsedTimeSec,
+            startDate: data.startDate,
+            type: data.type,
+            commentsCount: data.commentsCount || 0,
+            polyline: data.polyline,
+            photos: data.photos || [],
+            latlng,
+            altitude: data.altitude || [],
+            time: data.time || [],
+            note: data.note || "",
+            start: data.start || "",
+            end: data.end || "",
+          });
+        });
+        onUpdate(hikes);
+      },
+      (error) => {
+        console.error("Error subscribing to hikes:", error);
+        if (onError) onError(error);
+      },
+    );
+
+    return unsubscribe;
+  } catch (error) {
+    console.error("Error setting up hike subscription:", error);
+    if (onError) onError(error);
+    return () => {};
   }
 }
 
@@ -642,17 +704,9 @@ export async function addComment(
       createdAt: serverTimestamp(),
       approved: true,
     });
-    // Update count
+    // Update count (atomic)
     const activityRef = doc(db, "hikes", activityId);
-    const activityDoc = await getDoc(activityRef);
-    const currentCount = activityDoc.exists()
-      ? activityDoc.data().commentsCount || 0
-      : 0;
-    await setDoc(
-      activityRef,
-      { commentsCount: currentCount + 1 },
-      { merge: true },
-    );
+    await updateDoc(activityRef, { commentsCount: increment(1) });
     return docRef.id;
   } catch (error) {
     console.error("Error adding comment:", error);
@@ -667,15 +721,7 @@ export async function deleteComment(activityId, commentId, uid) {
     if (commentDoc.exists() && commentDoc.data().uid === uid) {
       await deleteDoc(commentRef);
       const activityRef = doc(db, "hikes", activityId);
-      const activityDoc = await getDoc(activityRef);
-      const currentCount = activityDoc.exists()
-        ? activityDoc.data().commentsCount || 0
-        : 0;
-      await setDoc(
-        activityRef,
-        { commentsCount: Math.max(0, currentCount - 1) },
-        { merge: true },
-      );
+      await updateDoc(activityRef, { commentsCount: increment(-1) });
       return true;
     } else {
       throw new Error("Comment not found or not owned by user");

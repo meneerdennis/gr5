@@ -22,6 +22,7 @@ import {
   ViewedActivitiesProvider,
   useViewedActivitiesContext,
 } from "./contexts/ViewedActivitiesContext";
+import { ViewedCommentsProvider } from "./contexts/ViewedCommentsContext";
 import NoteModal from "./components/NoteModal";
 
 // Lazy load admin components
@@ -86,7 +87,6 @@ function AppContent() {
   const { openModal, selectedPhotoLocation, hikeBounds } = useNoteModal();
 
   const { user } = useAuth();
-
 
   // Update current walked distance when route changes
   useEffect(() => {
@@ -326,9 +326,11 @@ function App() {
   return (
     <NoteModalProvider>
       <ViewedActivitiesProvider>
-        <Router>
-          <AppContent />
-        </Router>
+        <ViewedCommentsProvider>
+          <Router>
+            <AppContent />
+          </Router>
+        </ViewedCommentsProvider>
       </ViewedActivitiesProvider>
     </NoteModalProvider>
   );

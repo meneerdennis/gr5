@@ -13,6 +13,7 @@ export async function getStravaHikes() {
       type: hike.type,
       name: hike.name,
       description: hike.description,
+      commentsCount: hike.commentsCount || 0,
       polyline: hike.polyline ? decodePolyline(hike.polyline) : [],
       latlng: hike.latlng || [],
       altitude: hike.altitude || [],
