@@ -1,6 +1,8 @@
 /* eslint-disable no-undef */
 importScripts("/firebase-config.js");
-importScripts("https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js");
+importScripts(
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js",
+);
 importScripts(
   "https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js",
 );
@@ -27,8 +29,9 @@ if (!self.__FIREBASE_CONFIG__) {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(
-      (clientList) => {
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
         for (const client of clientList) {
           if (client.url && "focus" in client) {
             return client.focus();
@@ -38,7 +41,6 @@ self.addEventListener("notificationclick", (event) => {
           return self.clients.openWindow("/");
         }
         return null;
-      },
-    ),
+      }),
   );
 });
