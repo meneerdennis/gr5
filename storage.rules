@@ -1,54 +1,16 @@
 rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Hikes collection - read access for everyone, write restricted
-    match /hikes/{hikeId} {
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Public photo access; uploads allowed for everyone, updates/deletes require auth
+    match /photos/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null;
-      match /likes/{uid} {
-        // Allow read for everyone
-        allow read;
-        // Allow create/delete only by owner
-        allow create, delete: if request.auth != null && request.auth.uid == uid;
-      }
-      match /comments/{commentId} {
-        // Allow read only if approved
-        allow read: if resource.data.approved == true;
-        // Allow create by authenticated users
-        allow create: if request.auth != null;
-        // Allow delete only by owner
-        allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
-      }
-    }
-    
-    match /quotes/{quote} {
-      allow read: if true;  // Allow anyone to read quotes
-      allow write: if request.auth != null;  // Require auth for writes
-    }
-    
-    // Photos collection - allow read and write for photo uploads
-    match /photos/{document} {
-      allow read: if true;
-      allow create: if true; // Allow photo creation without auth for now
+      allow create: if true;
       allow update, delete: if request.auth != null;
     }
-    
-        // User preferences - allow read and write only by the user themselves
-    match /userPreferences/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if request.auth != null && request.auth.uid == uid;
+
+    // Default deny for all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
   }
-  
-      // User tokens - private per user
-    match /userTokens/{userId} {
-      allow read, write: if request.auth.uid == userId;
-    }
-    
-    // Notification logs - readable by authenticated users
-    match /notificationLog/{document=**} {
-      allow read: if request.auth.uid != null;
-      allow create: if request.auth.uid != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.admin == true;
-    }
-}
 }

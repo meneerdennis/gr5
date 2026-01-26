@@ -1,4 +1,4 @@
-import { db } from "./firebase";
+import { db, auth } from "./firebase";
 import {
   collection,
   query,
@@ -690,6 +690,9 @@ export async function deleteComment(activityId, commentId, uid) {
 
 export async function getViewedActivitiesFromFirebase(uid) {
   try {
+    if (!auth.currentUser || auth.currentUser.uid !== uid) {
+      return [];
+    }
     const userPrefsRef = doc(db, "userPreferences", uid);
     const userPrefsDoc = await getDoc(userPrefsRef);
 

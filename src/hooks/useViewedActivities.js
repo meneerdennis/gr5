@@ -10,7 +10,7 @@ import {
 // Custom hook for managing viewed activities (localStorage primary, Firebase backup)
 // This ensures activities persist immediately and survive hard refreshes
 export const useViewedActivities = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [viewedActivities, setViewedActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const STORAGE_KEY = "gr5_viewed_activities";
@@ -32,7 +32,7 @@ export const useViewedActivities = () => {
 
   // Sync localStorage to Firebase when user logs in
   useEffect(() => {
-    if (!user?.uid || loading) return;
+    if (!user?.uid || loading || authLoading) return;
 
     const syncWithFirebase = async () => {
       try {
@@ -52,7 +52,7 @@ export const useViewedActivities = () => {
     };
 
     syncWithFirebase();
-  }, [user?.uid, loading, viewedActivities]);
+  }, [user?.uid, loading, authLoading, viewedActivities]);
 
   // Mark an activity as viewed
   const markAsViewed = useCallback(
