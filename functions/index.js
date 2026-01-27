@@ -1,9 +1,12 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
+const axios = require("axios");
+const { onRequest } = require("firebase-functions/v2/https");
 require("dotenv").config();
 
 admin.initializeApp();
+const db = admin.firestore();
 
 // Configure nodemailer with your email service
 const transporter = nodemailer.createTransport({
@@ -15,6 +18,98 @@ const transporter = nodemailer.createTransport({
 });
 
 // Push notification function removed; leaving file for other functions only.
+
+// Strava webhook helpers
+const STRAVA_CLIENT_ID = process.env.STRAVA_CLIENT_ID;
+const STRAVA_CLIENT_SECRET = process.env.STRAVA_CLIENT_SECRET;
+const STRAVA_REFRESH_TOKEN = process.env.STRAVA_REFRESH_TOKEN;
+
+async function getAccessToken() {
+  if (!STRAVA_CLIENT_ID || !STRAVA_CLIENT_SECRET || !STRAVA_REFRESH_TOKEN) {
+    console.error("❌ STRAVA_* environment variables ontbreken");
+    throw new Error("Missing STRAVA env vars");
+  }
+
+  const resp = await axios.post("https://www.strava.com/api/v3/oauth/token", {
+    client_id: STRAVA_CLIENT_ID,
+    client_secret: STRAVA_CLIENT_SECRET,
+    refresh_token: STRAVA_REFRESH_TOKEN,
+    grant_type: "refresh_token",
+  });
+
+  const data = resp.data;
+  console.log("✅ Access token (webhook) verkregen, scope:", data.scope);
+  return data.access_token;
+}
+
+async function importSingleActivity(activityId) {
+  const accessToken = await getAccessToken();
+
+  const actResp = await axios.get(
+    `https://www.strava.com/api/v3/activities/${activityId}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      params: { include_all_efforts: false },
+    },
+  );
+  const act = actResp.data;
+
+  console.log("➡️ Nieuwe GR5-activiteit via webhook:", act.name);
+
+  let photos = [];
+  try {
+    const photosResp = await axios.get(
+      `https://www.strava.com/api/v3/activities/${activityId}/photos`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: { size: 600 },
+      },
+    );
+
+    const items = Array.isArray(photosResp.data) ? photosResp.data : [];
+    photos = items
+      .map((p) => {
+        const urls = p.urls || {};
+        const url600 = urls["600"] || urls["0"] || null;
+        return {
+          id: p.id || p.unique_id || null,
+          url: url600,
+          caption: p.caption || null,
+        };
+      })
+      .filter((p) => !!p.url);
+  } catch (err) {
+    if (err.response && err.response.data) {
+      console.error("❌ Fout bij ophalen foto's:", err.response.data);
+    } else {
+      console.error("❌ Fout bij ophalen foto's:", err.message || err);
+    }
+  }
+
+  const polyline =
+    act.map && act.map.summary_polyline ? act.map.summary_polyline : null;
+
+  const hikeData = {
+    stravaId: act.id,
+    name: act.name,
+    description: act.description || "",
+    note: act.description || "",
+    distanceKm: act.distance ? act.distance / 1000 : null,
+    movingTimeSec: act.moving_time || null,
+    elapsedTimeSec: act.elapsed_time || null,
+    startDate: act.start_date || null,
+    type: act.type,
+    polyline,
+    photos,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  await db.collection("hikes").doc(String(act.id)).set(hikeData, {
+    merge: true,
+  });
+
+  console.log("✅ GR5-hike opgeslagen vanuit webhook:", act.name);
+}
 
 exports.notifyNewComment = functions.firestore
   .document("hikes/{hikeId}/comments/{commentId}")
@@ -66,6 +161,142 @@ exports.notifyNewComment = functions.firestore
       );
     } catch (error) {
       console.error("Error sending notification email:", error);
+    }
+
+    // Push notifications to users who previously commented on this hike
+    try {
+      const commentUid = comment?.uid || null;
+      const isApproved = comment?.approved !== false;
+      if (!isApproved) return;
+
+      const commentsSnapshot = await admin
+        .firestore()
+        .collection(`hikes/${hikeId}/comments`)
+        .get();
+
+      const commenterUids = new Set();
+      commentsSnapshot.forEach((doc) => {
+        const data = doc.data() || {};
+        if (data.uid && data.uid !== commentUid) {
+          commenterUids.add(data.uid);
+        }
+      });
+
+      const uniqueUids = Array.from(commenterUids);
+      if (uniqueUids.length === 0) return;
+
+      const tokenDocs = [];
+      const tokenRefs = uniqueUids.map((uid) =>
+        admin.firestore().collection("userTokens").doc(uid),
+      );
+
+      const chunkSize = 20;
+      for (let i = 0; i < tokenRefs.length; i += chunkSize) {
+        const chunk = tokenRefs.slice(i, i + chunkSize);
+        const chunkDocs = await admin.firestore().getAll(...chunk);
+        tokenDocs.push(...chunkDocs);
+      }
+
+      const rawTokens = tokenDocs.flatMap((doc) => {
+        if (!doc.exists) return [];
+        const data = doc.data() || {};
+        const tokensMeta = data.tokensMeta || {};
+        const metaTokens = Object.keys(tokensMeta);
+        const tokensArray = Array.isArray(data.tokens) ? data.tokens : [];
+        return [...metaTokens, ...tokensArray];
+      });
+
+      const normalizedTokens = rawTokens
+        .filter((token) => typeof token === "string" && token.trim().length > 0)
+        .map((token) => token.trim());
+      const tokens = Array.from(new Set(normalizedTokens));
+
+      if (tokens.length === 0) return;
+
+      const nickname = comment?.nickname || "Someone";
+      const rawText = comment?.text || "";
+      const snippet =
+        rawText.length > 120 ? `${rawText.slice(0, 117)}...` : rawText;
+      const title = `New comment on ${hikeName}`;
+      const body = snippet
+        ? `${nickname}: ${snippet}`
+        : `${nickname} commented.`;
+
+      const tokenChunks = [];
+      const maxTokens = 400;
+      for (let i = 0; i < tokens.length; i += maxTokens) {
+        tokenChunks.push(tokens.slice(i, i + maxTokens));
+      }
+
+      const responses = [];
+      for (const chunk of tokenChunks) {
+        const response = await admin.messaging().sendEachForMulticast({
+          tokens: chunk,
+          data: {
+            title: String(title),
+            body: String(body),
+            hikeId: String(hikeId),
+            hikeName: String(hikeName || ""),
+            type: "comment",
+            icon: "/hiker.png",
+          },
+        });
+        responses.push(response);
+      }
+
+      const failedTokens = [];
+      responses.forEach((response, index) => {
+        const chunk = tokenChunks[index] || [];
+        response.responses.forEach((res, idx) => {
+          if (res.success) return;
+          const errorCode = res.error?.code || "";
+          if (
+            errorCode.includes("registration-token-not-registered") ||
+            errorCode.includes("invalid-registration-token")
+          ) {
+            failedTokens.push(chunk[idx]);
+          }
+        });
+      });
+
+      if (failedTokens.length > 0) {
+        const userTokenSnapshot = await admin
+          .firestore()
+          .collection("userTokens")
+          .get();
+
+        const batch = admin.firestore().batch();
+        userTokenSnapshot.docs.forEach((doc) => {
+          const data = doc.data() || {};
+          const existingTokens = Array.isArray(data.tokens) ? data.tokens : [];
+          const nextTokens = existingTokens.filter(
+            (token) => !failedTokens.includes(token),
+          );
+          const updateData = { tokens: nextTokens };
+
+          const existingMeta = data.tokensMeta || {};
+          failedTokens.forEach((token) => {
+            if (existingMeta[token]) {
+              updateData[`tokensMeta.${token}`] =
+                admin.firestore.FieldValue.delete();
+            }
+          });
+
+          if (
+            nextTokens.length !== existingTokens.length ||
+            Object.keys(updateData).length > 1
+          ) {
+            batch.update(doc.ref, updateData);
+          }
+        });
+        await batch.commit();
+      }
+
+      console.log(
+        `Notified ${tokens.length} tokens for comment on hike ${hikeId}.`,
+      );
+    } catch (error) {
+      console.error("Error sending comment push notifications:", error);
     }
   });
 
@@ -210,3 +441,36 @@ exports.sendHikeNotification = functions.https.onCall(async (data, context) => {
 
   return { sent, failed, removed: tokensToDelete.length, force };
 });
+
+exports.stravaWebhook = onRequest(
+  { region: "us-central1" },
+  async (req, res) => {
+    if (req.method === "GET") {
+      console.log(
+        "✅ Strava webhook verificatie-request ontvangen:",
+        req.query,
+      );
+      return res.json({ "hub.challenge": req.query["hub.challenge"] });
+    }
+
+    if (req.method === "POST") {
+      const event = req.body;
+      console.log("📩 Webhook event:", JSON.stringify(event));
+
+      if (
+        event.object_type === "activity" &&
+        (event.aspect_type === "create" || event.aspect_type === "update")
+      ) {
+        try {
+          await importSingleActivity(event.object_id);
+        } catch (err) {
+          console.error("❌ Fout bij verwerken activiteit:", err);
+        }
+      }
+
+      return res.status(200).send("OK");
+    }
+
+    return res.status(405).send("Method not allowed");
+  },
+);

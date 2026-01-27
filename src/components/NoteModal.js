@@ -62,26 +62,41 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
   // Mobile detection for modal styling
   const [isMobile, setIsMobile] = useState(false);
   const isInitialSlideRef = useRef(true);
+  const [loadedPhotos, setLoadedPhotos] = useState({});
 
   // Swipe down to close
   const [swipeStart, setSwipeStart] = useState(null);
   const [swipeDistance, setSwipeDistance] = useState(0);
   const backdropRef = useRef(null);
+  const modalRef = useRef(null);
+  const canSwipeToCloseRef = useRef(false);
   const SWIPE_THRESHOLD = 100; // pixels
 
   // Get selected hike early (before useEffects that need it)
   const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
 
   // Handle touch events for swipe-down-to-close
+  const isScrollAtTop = () => {
+    if (isMobile) {
+      return (backdropRef.current?.scrollTop || 0) <= 0;
+    }
+    return (modalRef.current?.scrollTop || 0) <= 0;
+  };
+
   const handleTouchStart = (e) => {
     if (e.touches.length === 1) {
+      canSwipeToCloseRef.current = isScrollAtTop();
       setSwipeStart(e.touches[0].clientY);
       setSwipeDistance(0);
     }
   };
 
   const handleTouchMove = (e) => {
-    if (swipeStart !== null && e.touches.length === 1) {
+    if (
+      swipeStart !== null &&
+      e.touches.length === 1 &&
+      canSwipeToCloseRef.current
+    ) {
       const currentY = e.touches[0].clientY;
       const distance = currentY - swipeStart;
 
@@ -93,11 +108,12 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
   };
 
   const handleTouchEnd = () => {
-    if (swipeDistance > SWIPE_THRESHOLD) {
+    if (canSwipeToCloseRef.current && swipeDistance > SWIPE_THRESHOLD) {
       closeModal();
     }
     setSwipeStart(null);
     setSwipeDistance(0);
+    canSwipeToCloseRef.current = false;
   };
 
   useEffect(() => {
@@ -117,6 +133,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
   useEffect(() => {
     resetTranslation();
     isInitialSlideRef.current = true;
+    setLoadedPhotos({});
   }, [selectedHikeId, resetTranslation]);
 
   // Set map bounds to show entire hike when modal opens
@@ -276,6 +293,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
       }}
     >
       <div
+        ref={modalRef}
         className="instagram-post-modal"
         style={{
           maxWidth: "500px",
@@ -505,19 +523,53 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
                       </div>
                     </div>
                   ) : (
-                    <img
-                      src={photo.url}
-                      alt={photo.caption || `Photo ${index + 1}`}
-                      style={{
-                        width: "100%",
-                        height: "400px",
-                        objectFit: "cover",
-                      }}
-                      loading={
-                        index <= selectedPhotoIndex + 1 ? "eager" : "lazy"
-                      }
-                      decoding={index === selectedPhotoIndex ? "sync" : "async"}
-                    />
+                    <div
+                      className="photo-loading-wrapper"
+                      style={{ height: "400px" }}
+                    >
+                      <div
+                        className={`photo-loading-skeleton${
+                          loadedPhotos[photo.id || photo.url || index]
+                            ? " is-loaded"
+                            : ""
+                        }`}
+                      >
+                        <div className="photo-loading-shimmer" />
+                        <div className="photo-loading-spinner" />
+                      </div>
+                      <img
+                        src={photo.url}
+                        alt={photo.caption || `Photo ${index + 1}`}
+                        className={`photo-image${
+                          loadedPhotos[photo.id || photo.url || index]
+                            ? " is-loaded"
+                            : ""
+                        }`}
+                        loading={
+                          index <= selectedPhotoIndex + 1 ? "eager" : "lazy"
+                        }
+                        decoding={
+                          index === selectedPhotoIndex ? "sync" : "async"
+                        }
+                        fetchPriority={
+                          index === selectedPhotoIndex ? "high" : "auto"
+                        }
+                        onLoad={() => {
+                          const key = photo.id || photo.url || index;
+                          setLoadedPhotos((prev) => ({
+                            ...prev,
+                            [key]: true,
+                          }));
+                        }}
+                        onError={() => {
+                          const key = photo.id || photo.url || index;
+                          setLoadedPhotos((prev) => ({
+                            ...prev,
+                            [key]: true,
+                          }));
+                        }}
+                      />
+                    </div>
                   )}
                 </SwiperSlide>
               ))}
