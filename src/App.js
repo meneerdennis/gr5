@@ -77,7 +77,8 @@ const buttonTexts = {
 };
 
 function AppContent() {
-  const { route, hikes, photos, loading, error } = useHikeData();
+  const { route, hikes, photos, loading, error, refreshUpdates, refreshing } =
+    useHikeData();
   const [hoverPoint, setHoverPoint] = useState(null);
   const [zoomRange, setZoomRange] = useState(null);
   const [currentWalkedDistance, setCurrentWalkedDistance] = useState(0);
@@ -103,7 +104,7 @@ function AppContent() {
 
   if (loading)
     return (
-      <Layout>
+      <Layout onRefresh={refreshUpdates} refreshInProgress={refreshing}>
         <div className="glass-card p-8 text-center">
           <div className="bounce-in">
             <div className="text-6xl mb-4">🥾</div>
@@ -123,7 +124,7 @@ function AppContent() {
 
   if (error)
     return (
-      <Layout>
+      <Layout onRefresh={refreshUpdates} refreshInProgress={refreshing}>
         <div className="glass-card p-8 text-center">
           <div className="bounce-in">
             <div className="text-6xl mb-4">⚠️</div>
@@ -144,7 +145,7 @@ function AppContent() {
 
   if (!route)
     return (
-      <Layout>
+      <Layout onRefresh={refreshUpdates} refreshInProgress={refreshing}>
         <div className="glass-card p-8 text-center">
           <div className="bounce-in">
             <div className="text-6xl mb-4">🗺️</div>
@@ -264,7 +265,11 @@ function AppContent() {
       <Route
         path="/"
         element={
-          <Layout progress={progress}>
+          <Layout
+            progress={progress}
+            onRefresh={refreshUpdates}
+            refreshInProgress={refreshing}
+          >
             {/* Main Dashboard Grid */}
             <div className="grid grid-cols-1 gap-6">
               {/* Elevation Profile Section */}

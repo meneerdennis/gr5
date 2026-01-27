@@ -302,6 +302,115 @@ exports.notifyNewComment = functions.firestore
     }
   });
 
+exports.updateHikeCommentCount = functions.firestore
+  .document("hikes/{hikeId}/comments/{commentId}")
+  .onWrite(async (change, context) => {
+    const before = change.before.exists ? change.before.data() : null;
+    const after = change.after.exists ? change.after.data() : null;
+
+    const beforeApproved = before?.approved === true;
+    const afterApproved = after?.approved === true;
+
+    let delta = 0;
+    if (!before && afterApproved) {
+      delta = 1;
+    } else if (before && !after) {
+      delta = beforeApproved ? -1 : 0;
+    } else if (before && after) {
+      if (!beforeApproved && afterApproved) delta = 1;
+      if (beforeApproved && !afterApproved) delta = -1;
+    }
+
+    if (delta === 0) return null;
+
+    const hikeId = context.params.hikeId;
+    const countRef = admin
+      .firestore()
+      .collection("hikeCommentCounts")
+      .doc(hikeId);
+    const hikeRef = admin.firestore().doc(`hikes/${hikeId}`);
+
+    return admin.firestore().runTransaction(async (tx) => {
+      const countSnap = await tx.get(countRef);
+      const currentCount = countSnap.exists
+        ? Number(countSnap.data()?.count || 0)
+        : 0;
+      const nextCount = Math.max(0, currentCount + delta);
+
+      tx.set(
+        countRef,
+        {
+          hikeId,
+          count: nextCount,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      tx.set(hikeRef, { commentsCount: nextCount }, { merge: true });
+    });
+  });
+
+exports.backfillHikeCommentCounts = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Authentication required.",
+      );
+    }
+
+    const adminEmails = process.env.ADMIN_EMAILS
+      ? process.env.ADMIN_EMAILS.split(",").map((email) => email.trim())
+      : [];
+    const email = context.auth?.token?.email || "";
+    if (adminEmails.length > 0 && !adminEmails.includes(email)) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Not authorized to run backfill.",
+      );
+    }
+
+    const hikeSnapshot = await admin.firestore().collection("hikes").get();
+    const counts = new Map();
+
+    await Promise.all(
+      hikeSnapshot.docs.map(async (doc) => {
+        const hikeId = doc.id;
+        const commentsSnap = await admin
+          .firestore()
+          .collection(`hikes/${hikeId}/comments`)
+          .where("approved", "==", true)
+          .get();
+        counts.set(hikeId, commentsSnap.size);
+      }),
+    );
+
+    const batch = admin.firestore().batch();
+    counts.forEach((count, hikeId) => {
+      const countRef = admin
+        .firestore()
+        .collection("hikeCommentCounts")
+        .doc(hikeId);
+      const hikeRef = admin.firestore().doc(`hikes/${hikeId}`);
+      batch.set(
+        countRef,
+        {
+          hikeId,
+          count,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      batch.set(hikeRef, { commentsCount: count }, { merge: true });
+    });
+
+    await batch.commit();
+
+    return { success: true, updated: counts.size };
+  },
+);
+
 exports.sendHikeNotification = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(

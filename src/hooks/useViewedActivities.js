@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "./useAuth";
 import {
   getViewedActivitiesFromFirebase,
@@ -14,6 +14,9 @@ export const useViewedActivities = () => {
   const [viewedActivities, setViewedActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const STORAGE_KEY = "gr5_viewed_activities";
+  const pendingIdsRef = useRef(new Set());
+  const flushTimeoutRef = useRef(null);
+  const FLUSH_DELAY_MS = 1500;
 
   // Load viewed activities from localStorage on initial mount
   useEffect(() => {
@@ -54,6 +57,40 @@ export const useViewedActivities = () => {
     syncWithFirebase();
   }, [user?.uid, loading, authLoading, viewedActivities]);
 
+  const flushPendingToFirebase = useCallback(async () => {
+    if (!user?.uid || pendingIdsRef.current.size === 0) return;
+    const ids = Array.from(pendingIdsRef.current);
+    pendingIdsRef.current.clear();
+    try {
+      await markMultipleActivitiesAsViewedInFirebase(user.uid, ids);
+    } catch (error) {
+      console.warn("Error flushing viewed activities to Firebase:", error);
+      ids.forEach((id) => pendingIdsRef.current.add(id));
+    }
+  }, [user?.uid]);
+
+  const scheduleFlush = useCallback(() => {
+    if (flushTimeoutRef.current) {
+      clearTimeout(flushTimeoutRef.current);
+    }
+    flushTimeoutRef.current = setTimeout(() => {
+      flushPendingToFirebase();
+    }, FLUSH_DELAY_MS);
+  }, [flushPendingToFirebase]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      flushPendingToFirebase();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      if (flushTimeoutRef.current) {
+        clearTimeout(flushTimeoutRef.current);
+      }
+    };
+  }, [flushPendingToFirebase]);
+
   // Mark an activity as viewed
   const markAsViewed = useCallback(
     async (activityId) => {
@@ -70,15 +107,11 @@ export const useViewedActivities = () => {
 
       // Optionally sync to Firebase in background if user is logged in
       if (user?.uid) {
-        try {
-          await markActivityAsViewedInFirebase(user.uid, activityId);
-        } catch (error) {
-          console.warn("Error syncing to Firebase:", error);
-          // Continue - localStorage already has the data
-        }
+        pendingIdsRef.current.add(activityId);
+        scheduleFlush();
       }
     },
-    [user?.uid],
+    [user?.uid, scheduleFlush],
   );
 
   // Mark multiple activities as viewed
@@ -101,15 +134,11 @@ export const useViewedActivities = () => {
 
       // Optionally sync to Firebase in background if user is logged in
       if (user?.uid) {
-        try {
-          await markMultipleActivitiesAsViewedInFirebase(user.uid, activityIds);
-        } catch (error) {
-          console.warn("Error syncing multiple activities to Firebase:", error);
-          // Continue - localStorage already has the data
-        }
+        activityIds.forEach((id) => pendingIdsRef.current.add(id));
+        scheduleFlush();
       }
     },
-    [user?.uid],
+    [user?.uid, scheduleFlush],
   );
 
   // Check if an activity has been viewed

@@ -63,10 +63,15 @@ function writeCachedValue(cacheKey, value) {
   }
 }
 
-export async function getHikesFromFirebase(limit = null, options = {}) {
+export function updateHikeCache(limitCount, hikes) {
+  const cacheKey = getCacheKey(HIKE_CACHE_KEY, limitCount);
+  writeCachedValue(cacheKey, hikes);
+}
+
+export async function getHikesFromFirebase(limitCount = null, options = {}) {
   try {
-    const { useCache = true, cacheTtlMs = 5 * 60 * 1000 } = options;
-    const cacheKey = getCacheKey(HIKE_CACHE_KEY, limit);
+    const { useCache = true, cacheTtlMs = 7 * 24 * 60 * 60 * 1000 } = options;
+    const cacheKey = getCacheKey(HIKE_CACHE_KEY, limitCount);
 
     if (useCache) {
       const cached = readCachedValue(cacheKey, cacheTtlMs);
@@ -77,8 +82,12 @@ export async function getHikesFromFirebase(limit = null, options = {}) {
 
     const hikesCollection = collection(db, "hikes");
     let q = query(hikesCollection, orderBy("startDate", "asc"));
-    if (limit) {
-      q = query(hikesCollection, orderBy("startDate", "asc"), limit(limit));
+    if (limitCount) {
+      q = query(
+        hikesCollection,
+        orderBy("startDate", "asc"),
+        limit(limitCount),
+      );
     }
     const querySnapshot = await getDocs(q);
 
@@ -122,6 +131,64 @@ export async function getHikesFromFirebase(limit = null, options = {}) {
     return hikes;
   } catch (error) {
     console.error("Error fetching hikes from Firebase:", error);
+    return [];
+  }
+}
+
+export async function getHikesSince(startDate, limitCount = null) {
+  try {
+    if (!startDate) return [];
+    const hikesCollection = collection(db, "hikes");
+    let q = query(
+      hikesCollection,
+      orderBy("startDate", "asc"),
+      where("startDate", ">", startDate),
+    );
+    if (limitCount) {
+      q = query(
+        hikesCollection,
+        orderBy("startDate", "asc"),
+        where("startDate", ">", startDate),
+        limit(limitCount),
+      );
+    }
+
+    const querySnapshot = await getDocs(q);
+    const hikes = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const latlng = [];
+      if (data.lat && data.lng && data.lat.length === data.lng.length) {
+        for (let i = 0; i < data.lat.length; i++) {
+          latlng.push([data.lat[i], data.lng[i]]);
+        }
+      }
+      hikes.push({
+        id: doc.id,
+        stravaId: data.stravaId,
+        name: data.name,
+        description: data.description,
+        distanceKm: data.distanceKm,
+        movingTimeSec: data.movingTimeSec,
+        elapsedTimeSec: data.elapsedTimeSec,
+        startDate: data.startDate,
+        type: data.type,
+        commentsCount: data.commentsCount || 0,
+        polyline: data.polyline,
+        photos: data.photos || [],
+        latlng,
+        altitude: data.altitude || [],
+        time: data.time || [],
+        note: data.note || "",
+        start: data.start || "",
+        end: data.end || "",
+        notifiedAt: data.notifiedAt || null,
+      });
+    });
+
+    return hikes;
+  } catch (error) {
+    console.error("Error fetching new hikes from Firebase:", error);
     return [];
   }
 }
@@ -212,13 +279,9 @@ export function calculateTotalWalkedDistance(hikes) {
 export function getPhotosFromHikes(hikes) {
   const photos = [];
 
-  console.log("getPhotosFromHikes called with hikes:", hikes);
-
   hikes.forEach((hike) => {
-    console.log(`Processing hike ${hike.id}, photos:`, hike.photos);
     if (hike.photos && Array.isArray(hike.photos)) {
       hike.photos.forEach((photo) => {
-        console.log("Processing photo:", photo);
         // Ensure photo has required properties for map markers
         if (photo.lat && photo.lng) {
           photos.push({
@@ -232,14 +295,10 @@ export function getPhotosFromHikes(hikes) {
             hikeId: hike.id,
             hikeName: hike.name,
           });
-        } else {
-          console.log("Photo missing lat/lng:", photo);
         }
       });
     }
   });
-
-  console.log("Total photos extracted from hikes:", photos.length, photos);
   return photos;
 }
 
@@ -804,9 +863,6 @@ export async function addComment(
       createdAt: serverTimestamp(),
       approved: true,
     });
-    // Update count (atomic)
-    const activityRef = doc(db, "hikes", activityId);
-    await updateDoc(activityRef, { commentsCount: increment(1) });
     return docRef.id;
   } catch (error) {
     console.error("Error adding comment:", error);
@@ -820,8 +876,6 @@ export async function deleteComment(activityId, commentId, uid) {
     const commentDoc = await getDoc(commentRef);
     if (commentDoc.exists() && commentDoc.data().uid === uid) {
       await deleteDoc(commentRef);
-      const activityRef = doc(db, "hikes", activityId);
-      await updateDoc(activityRef, { commentsCount: increment(-1) });
       return true;
     } else {
       throw new Error("Comment not found or not owned by user");

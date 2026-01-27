@@ -64,6 +64,11 @@ function writePhotoCache(cacheKey, value) {
   }
 }
 
+export function updatePhotoCache(limitCount, photos) {
+  const cacheKey = getPhotoCacheKey(PHOTO_CACHE_KEY, limitCount);
+  writePhotoCache(cacheKey, photos);
+}
+
 // Extract EXIF data from image file
 function extractExifData(file) {
   return new Promise((resolve) => {
@@ -730,7 +735,7 @@ export async function getAllPhotos(options = {}) {
     const {
       limitCount = null,
       useCache = true,
-      cacheTtlMs = 2 * 60 * 1000,
+      cacheTtlMs = 7 * 24 * 60 * 60 * 1000,
     } = options;
     const cacheKey = getPhotoCacheKey(PHOTO_CACHE_KEY, limitCount);
 
@@ -775,6 +780,35 @@ export async function getAllPhotos(options = {}) {
     return photos;
   } catch (error) {
     console.error("Error fetching all photos:", error);
+    return [];
+  }
+}
+
+export async function getPhotosSince(lastUploadedAt) {
+  try {
+    if (!lastUploadedAt) return [];
+    const photosQuery = query(
+      collection(db, "photos"),
+      orderBy("uploadedAt", "desc"),
+      where("uploadedAt", ">", lastUploadedAt),
+    );
+
+    const querySnapshot = await getDocs(photosQuery);
+    const photos = [];
+
+    querySnapshot.forEach((doc) => {
+      const photoData = doc.data();
+      if (!photoData.deletedAt) {
+        photos.push({
+          id: doc.id,
+          ...photoData,
+        });
+      }
+    });
+
+    return photos;
+  } catch (error) {
+    console.error("Error fetching new photos:", error);
     return [];
   }
 }

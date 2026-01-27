@@ -57,5 +57,11 @@ service cloud.firestore {
       allow create, update, delete: if request.auth != null && request.auth.uid == uid;
       allow list: if false;
     }
+
+    // Comment count feed for live bullets
+    match /hikeCommentCounts/{hikeId} {
+      allow read: if true;
+      allow write: if false;
+    }
   }
 }
