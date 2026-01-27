@@ -19,8 +19,62 @@ import {
 } from "firebase/firestore";
 import { getAllPhotos } from "./photoService";
 
-export async function getHikesFromFirebase(limit = null) {
+const HIKE_CACHE_KEY = "gr5_hikes_cache";
+const PHOTO_CACHE_KEY = "gr5_all_photos_cache";
+const cacheStore = new Map();
+
+function getCacheKey(baseKey, limitCount) {
+  return `${baseKey}_${limitCount ?? "all"}`;
+}
+
+function readCachedValue(cacheKey, ttlMs) {
+  const now = Date.now();
+  const memoryEntry = cacheStore.get(cacheKey);
+  if (memoryEntry && now - memoryEntry.timestamp < ttlMs) {
+    return memoryEntry.value;
+  }
+
   try {
+    const cached = localStorage.getItem(cacheKey);
+    const cachedTimestamp = localStorage.getItem(`${cacheKey}_ts`);
+    if (cached && cachedTimestamp) {
+      const age = now - Number(cachedTimestamp);
+      if (age >= 0 && age < ttlMs) {
+        const parsed = JSON.parse(cached);
+        cacheStore.set(cacheKey, { timestamp: now, value: parsed });
+        return parsed;
+      }
+    }
+  } catch (error) {
+    console.warn("Cache read failed:", error);
+  }
+
+  return null;
+}
+
+function writeCachedValue(cacheKey, value) {
+  const now = Date.now();
+  cacheStore.set(cacheKey, { timestamp: now, value });
+  try {
+    localStorage.setItem(cacheKey, JSON.stringify(value));
+    localStorage.setItem(`${cacheKey}_ts`, String(now));
+  } catch (error) {
+    console.warn("Cache write failed:", error);
+  }
+}
+
+export async function getHikesFromFirebase(limit = null, options = {}) {
+  try {
+    const { useCache = true, cacheTtlMs = 5 * 60 * 1000 } = options;
+    const cacheKey = getCacheKey(HIKE_CACHE_KEY, limit);
+
+    if (useCache) {
+      const cached = readCachedValue(cacheKey, cacheTtlMs);
+      if (cached) {
+        return cached;
+      }
+    }
+
     const hikesCollection = collection(db, "hikes");
     let q = query(hikesCollection, orderBy("startDate", "asc"));
     if (limit) {
@@ -60,6 +114,10 @@ export async function getHikesFromFirebase(limit = null) {
         notifiedAt: data.notifiedAt || null,
       });
     });
+
+    if (useCache) {
+      writeCachedValue(cacheKey, hikes);
+    }
 
     return hikes;
   } catch (error) {
@@ -114,6 +172,8 @@ export function subscribeToHikes(onUpdate, onError, limitCount = null) {
             notifiedAt: data.notifiedAt || null,
           });
         });
+        const cacheKey = getCacheKey(HIKE_CACHE_KEY, limitCount);
+        writeCachedValue(cacheKey, hikes);
         onUpdate(hikes);
       },
       (error) => {
@@ -184,14 +244,34 @@ export function getPhotosFromHikes(hikes) {
 }
 
 // Enhanced photo function that combines hike photos and standalone photos
-export async function getAllPhotosWithHikes(limit = null) {
+export async function getAllPhotosWithHikes(limit = null, options = {}) {
   try {
+    const {
+      useCache = true,
+      cacheTtlMs = 2 * 60 * 1000,
+      hikes: providedHikes = null,
+    } = options;
+    const cacheKey = getCacheKey(PHOTO_CACHE_KEY, limit);
+
+    if (useCache) {
+      const cached = readCachedValue(cacheKey, cacheTtlMs);
+      if (cached) {
+        return cached;
+      }
+    }
+
     // Get photos from hikes
-    const hikes = await getHikesFromFirebase();
+    const hikes = Array.isArray(providedHikes)
+      ? providedHikes
+      : await getHikesFromFirebase(null, { useCache, cacheTtlMs });
     const hikePhotos = getPhotosFromHikes(hikes);
 
     // Get photos from the standalone photos collection
-    const standalonePhotos = await getAllPhotos();
+    const standalonePhotos = await getAllPhotos({
+      limitCount: limit || null,
+      useCache,
+      cacheTtlMs,
+    });
 
     // Convert standalone photos to the same format as hike photos
     const formattedStandalonePhotos = standalonePhotos.map((photo) => ({
@@ -240,6 +320,10 @@ export async function getAllPhotosWithHikes(limit = null) {
       limit ? `, limited to ${limit}` : "",
       ")",
     );
+    if (useCache) {
+      writeCachedValue(cacheKey, allPhotos);
+    }
+
     return allPhotos;
   } catch (error) {
     console.error("Error getting all photos:", error);

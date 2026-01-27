@@ -120,12 +120,15 @@ exports.notifyNewComment = functions.firestore
 
     const hikeId = context.params.hikeId;
 
-    // Get hike name
+    // Get hike name + existing commenter list (single read)
     let hikeName = "Unknown Hike";
+    let hikeData = {};
+    const hikeRef = admin.firestore().doc(`hikes/${hikeId}`);
     try {
-      const hikeDoc = await admin.firestore().doc(`hikes/${hikeId}`).get();
+      const hikeDoc = await hikeRef.get();
       if (hikeDoc.exists) {
-        hikeName = hikeDoc.data().name || "Unnamed Hike";
+        hikeData = hikeDoc.data() || {};
+        hikeName = hikeData.name || "Unnamed Hike";
       }
     } catch (error) {
       console.error("Error getting hike name:", error);
@@ -169,20 +172,23 @@ exports.notifyNewComment = functions.firestore
       const isApproved = comment?.approved !== false;
       if (!isApproved) return;
 
-      const commentsSnapshot = await admin
-        .firestore()
-        .collection(`hikes/${hikeId}/comments`)
-        .get();
+      if (commentUid) {
+        await hikeRef.set(
+          {
+            commenterUids: admin.firestore.FieldValue.arrayUnion(commentUid),
+          },
+          { merge: true },
+        );
+      }
 
-      const commenterUids = new Set();
-      commentsSnapshot.forEach((doc) => {
-        const data = doc.data() || {};
-        if (data.uid && data.uid !== commentUid) {
-          commenterUids.add(data.uid);
-        }
-      });
+      const storedUids = Array.isArray(hikeData.commenterUids)
+        ? hikeData.commenterUids
+        : [];
+      const updatedUids = commentUid
+        ? Array.from(new Set([...storedUids, commentUid]))
+        : storedUids;
+      const uniqueUids = updatedUids.filter((uid) => uid && uid !== commentUid);
 
-      const uniqueUids = Array.from(commenterUids);
       if (uniqueUids.length === 0) return;
 
       const tokenDocs = [];
@@ -259,15 +265,11 @@ exports.notifyNewComment = functions.firestore
         });
       });
 
-      if (failedTokens.length > 0) {
-        const userTokenSnapshot = await admin
-          .firestore()
-          .collection("userTokens")
-          .get();
-
+      if (failedTokens.length > 0 && tokenDocs.length > 0) {
         const batch = admin.firestore().batch();
-        userTokenSnapshot.docs.forEach((doc) => {
-          const data = doc.data() || {};
+        tokenDocs.forEach((docSnap) => {
+          if (!docSnap.exists) return;
+          const data = docSnap.data() || {};
           const existingTokens = Array.isArray(data.tokens) ? data.tokens : [];
           const nextTokens = existingTokens.filter(
             (token) => !failedTokens.includes(token),
@@ -286,7 +288,7 @@ exports.notifyNewComment = functions.firestore
             nextTokens.length !== existingTokens.length ||
             Object.keys(updateData).length > 1
           ) {
-            batch.update(doc.ref, updateData);
+            batch.update(docSnap.ref, updateData);
           }
         });
         await batch.commit();
@@ -379,42 +381,51 @@ exports.sendHikeNotification = functions.https.onCall(async (data, context) => {
   let failed = 0;
   const tokensToDelete = [];
 
-  for (const token of tokens) {
-    try {
-      await admin.messaging().send({
-        token,
-        data: {
-          title: String(title),
-          body: String(body),
-          hikeId: String(hikeId),
-          hikeName: String(hikeName || hike?.name || ""),
-          message: String(message || ""),
-          icon: "/hiker.png",
-        },
-      });
-      sent += 1;
-    } catch (error) {
+  const tokenChunks = [];
+  const maxTokens = 400;
+  for (let i = 0; i < tokens.length; i += maxTokens) {
+    tokenChunks.push(tokens.slice(i, i + maxTokens));
+  }
+
+  const responses = [];
+  for (const chunk of tokenChunks) {
+    const response = await admin.messaging().sendEachForMulticast({
+      tokens: chunk,
+      data: {
+        title: String(title),
+        body: String(body),
+        hikeId: String(hikeId),
+        hikeName: String(hikeName || hike?.name || ""),
+        message: String(message || ""),
+        icon: "/hiker.png",
+      },
+    });
+    responses.push(response);
+  }
+
+  responses.forEach((response, index) => {
+    const chunk = tokenChunks[index] || [];
+    response.responses.forEach((res, idx) => {
+      if (res.success) {
+        sent += 1;
+        return;
+      }
       failed += 1;
-      const errorCode = error?.code || "";
-      console.error("Error sending to token:", token, errorCode);
+      const errorCode = res.error?.code || "";
+      console.error("Error sending to token:", chunk[idx], errorCode);
       if (
         errorCode.includes("registration-token-not-registered") ||
         errorCode.includes("invalid-registration-token")
       ) {
-        tokensToDelete.push(token);
+        tokensToDelete.push(chunk[idx]);
       }
-    }
-  }
+    });
+  });
 
   if (tokensToDelete.length > 0) {
-    const userTokenSnapshot = await admin
-      .firestore()
-      .collection("userTokens")
-      .get();
-
     const batch = admin.firestore().batch();
-    userTokenSnapshot.docs.forEach((doc) => {
-      const data = doc.data() || {};
+    tokenSnapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data() || {};
       const existingTokens = Array.isArray(data.tokens) ? data.tokens : [];
       const nextTokens = existingTokens.filter(
         (token) => !tokensToDelete.includes(token),
@@ -433,7 +444,7 @@ exports.sendHikeNotification = functions.https.onCall(async (data, context) => {
         nextTokens.length !== existingTokens.length ||
         Object.keys(updateData).length > 1
       ) {
-        batch.update(doc.ref, updateData);
+        batch.update(docSnap.ref, updateData);
       }
     });
     await batch.commit();

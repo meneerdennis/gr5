@@ -1,8 +1,13 @@
 import { getHikesFromFirebase } from "./firebaseService";
 
-export async function getStravaHikes() {
+export async function getStravaHikes(options = {}) {
   try {
-    const hikes = await getHikesFromFirebase();
+    const {
+      limit = null,
+      useCache = true,
+      cacheTtlMs = 5 * 60 * 1000,
+    } = options;
+    const hikes = await getHikesFromFirebase(limit, { useCache, cacheTtlMs });
 
     // Convert Firebase data to expected format
     return hikes.map((hike) => ({

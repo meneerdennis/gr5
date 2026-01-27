@@ -16,9 +16,53 @@ import {
   query,
   where,
   orderBy,
+  limit,
 } from "firebase/firestore";
 import EXIF from "exif-js";
 import heic2any from "heic2any";
+
+const PHOTO_CACHE_KEY = "gr5_photos_cache";
+const photoCacheStore = new Map();
+
+function getPhotoCacheKey(baseKey, limitCount) {
+  return `${baseKey}_${limitCount ?? "all"}`;
+}
+
+function readPhotoCache(cacheKey, ttlMs) {
+  const now = Date.now();
+  const memoryEntry = photoCacheStore.get(cacheKey);
+  if (memoryEntry && now - memoryEntry.timestamp < ttlMs) {
+    return memoryEntry.value;
+  }
+
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    const cachedTimestamp = localStorage.getItem(`${cacheKey}_ts`);
+    if (cached && cachedTimestamp) {
+      const age = now - Number(cachedTimestamp);
+      if (age >= 0 && age < ttlMs) {
+        const parsed = JSON.parse(cached);
+        photoCacheStore.set(cacheKey, { timestamp: now, value: parsed });
+        return parsed;
+      }
+    }
+  } catch (error) {
+    console.warn("Photo cache read failed:", error);
+  }
+
+  return null;
+}
+
+function writePhotoCache(cacheKey, value) {
+  const now = Date.now();
+  photoCacheStore.set(cacheKey, { timestamp: now, value });
+  try {
+    localStorage.setItem(cacheKey, JSON.stringify(value));
+    localStorage.setItem(`${cacheKey}_ts`, String(now));
+  } catch (error) {
+    console.warn("Photo cache write failed:", error);
+  }
+}
 
 // Extract EXIF data from image file
 function extractExifData(file) {
@@ -681,13 +725,34 @@ export async function getPhotosForHike(hikeId) {
 }
 
 // Get all photos from Firebase (excluding deleted photos)
-export async function getAllPhotos() {
+export async function getAllPhotos(options = {}) {
   try {
+    const {
+      limitCount = null,
+      useCache = true,
+      cacheTtlMs = 2 * 60 * 1000,
+    } = options;
+    const cacheKey = getPhotoCacheKey(PHOTO_CACHE_KEY, limitCount);
+
+    if (useCache) {
+      const cached = readPhotoCache(cacheKey, cacheTtlMs);
+      if (cached) {
+        return cached;
+      }
+    }
+
     // Get all photos and filter out deleted ones client-side
-    const photosQuery = query(
+    let photosQuery = query(
       collection(db, "photos"),
       orderBy("uploadedAt", "desc"),
     );
+    if (limitCount) {
+      photosQuery = query(
+        collection(db, "photos"),
+        orderBy("uploadedAt", "desc"),
+        limit(limitCount),
+      );
+    }
 
     const querySnapshot = await getDocs(photosQuery);
     const photos = [];
@@ -702,6 +767,10 @@ export async function getAllPhotos() {
         });
       }
     });
+
+    if (useCache) {
+      writePhotoCache(cacheKey, photos);
+    }
 
     return photos;
   } catch (error) {

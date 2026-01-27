@@ -15,17 +15,29 @@ export function useHikeData() {
   const [photosLoading, setPhotosLoading] = useState(false);
   const [error, setError] = useState(null);
   const photoUploadTimeoutRef = useRef(null);
+  const HIKE_LIMIT = Number(process.env.REACT_APP_HIKE_LIMIT || 200);
+  const PHOTO_LIMIT = Number(process.env.REACT_APP_PHOTO_LIMIT || 500);
+  const HIKE_CACHE_TTL_MS = 5 * 60 * 1000;
+  const PHOTO_CACHE_TTL_MS = 2 * 60 * 1000;
 
   // Load all data including photos in parallel
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      // Load route, hikes, AND photos in parallel for better performance
-      const [routeData, hikesData, photosData] = await Promise.all([
+      // Load route + hikes first, then photos using the hikes data to avoid extra reads
+      const [routeData, hikesData] = await Promise.all([
         getRouteData(),
-        getStravaHikes(),
-        getAllPhotosWithHikes(),
+        getStravaHikes({
+          limit: HIKE_LIMIT,
+          useCache: true,
+          cacheTtlMs: HIKE_CACHE_TTL_MS,
+        }),
       ]);
+      const photosData = await getAllPhotosWithHikes(PHOTO_LIMIT, {
+        useCache: true,
+        cacheTtlMs: PHOTO_CACHE_TTL_MS,
+        hikes: hikesData,
+      });
       setRoute(routeData);
       setHikes(hikesData);
       setPhotos(photosData);
@@ -38,20 +50,23 @@ export function useHikeData() {
       setLoading(false);
       setPhotosLoading(false);
     }
-  }, []);
+  }, [HIKE_LIMIT, HIKE_CACHE_TTL_MS, PHOTO_LIMIT, PHOTO_CACHE_TTL_MS]);
 
   // Selective photo reload - only reload photos, not all data
   const reloadPhotos = useCallback(async () => {
     try {
       setPhotosLoading(true);
-      const photosData = await getAllPhotosWithHikes();
+      const photosData = await getAllPhotosWithHikes(PHOTO_LIMIT, {
+        useCache: false,
+        hikes,
+      });
       setPhotos(photosData);
     } catch (e) {
       console.error("Error reloading photos:", e);
     } finally {
       setPhotosLoading(false);
     }
-  }, []);
+  }, [PHOTO_LIMIT, hikes]);
 
   useEffect(() => {
     loadData();
@@ -81,6 +96,7 @@ export function useHikeData() {
       (error) => {
         console.error("Error receiving live hikes:", error);
       },
+      HIKE_LIMIT,
     );
 
     // Listen for photo upload events with debouncing to prevent multiple rapid reloads
@@ -106,7 +122,7 @@ export function useHikeData() {
         unsubscribe();
       }
     };
-  }, [loadData, reloadPhotos]);
+  }, [loadData, reloadPhotos, HIKE_LIMIT]);
 
   return {
     route,
