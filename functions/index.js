@@ -124,11 +124,17 @@ exports.sendHikeNotification = functions.https.onCall(async (data, context) => {
       : "A new hike is available.";
 
   const tokenSnapshot = await admin.firestore().collection("userTokens").get();
-  const rawTokens = tokenSnapshot.docs
-    .flatMap((doc) => doc.data()?.tokens || [])
+  const rawTokens = tokenSnapshot.docs.flatMap((doc) => {
+    const data = doc.data() || {};
+    const tokensMeta = data.tokensMeta || {};
+    const metaTokens = Object.keys(tokensMeta);
+    const tokensArray = Array.isArray(data.tokens) ? data.tokens : [];
+    return [...metaTokens, ...tokensArray];
+  });
+  const normalizedTokens = rawTokens
     .filter((token) => typeof token === "string" && token.trim().length > 0)
     .map((token) => token.trim());
-  const tokens = Array.from(new Set(rawTokens));
+  const tokens = Array.from(new Set(normalizedTokens));
 
   console.log("Found tokens:", tokens.length);
   if (tokens.length > 0) {
@@ -146,19 +152,13 @@ exports.sendHikeNotification = functions.https.onCall(async (data, context) => {
     try {
       await admin.messaging().send({
         token,
-        notification: {
-          title,
-          body,
-        },
         data: {
+          title: String(title),
+          body: String(body),
           hikeId: String(hikeId),
           hikeName: String(hikeName || hike?.name || ""),
           message: String(message || ""),
-        },
-        webpush: {
-          notification: {
-            icon: "/hiker.png",
-          },
+          icon: "/hiker.png",
         },
       });
       sent += 1;
@@ -188,8 +188,21 @@ exports.sendHikeNotification = functions.https.onCall(async (data, context) => {
       const nextTokens = existingTokens.filter(
         (token) => !tokensToDelete.includes(token),
       );
-      if (nextTokens.length !== existingTokens.length) {
-        batch.set(doc.ref, { tokens: nextTokens }, { merge: true });
+      const updateData = { tokens: nextTokens };
+
+      const existingMeta = data.tokensMeta || {};
+      tokensToDelete.forEach((token) => {
+        if (existingMeta[token]) {
+          updateData[`tokensMeta.${token}`] =
+            admin.firestore.FieldValue.delete();
+        }
+      });
+
+      if (
+        nextTokens.length !== existingTokens.length ||
+        Object.keys(updateData).length > 1
+      ) {
+        batch.update(doc.ref, updateData);
       }
     });
     await batch.commit();

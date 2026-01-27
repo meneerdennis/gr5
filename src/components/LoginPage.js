@@ -1,15 +1,46 @@
 import React, { useEffect, useState } from "react";
-import { getRedirectResult, signInWithRedirect, signOut } from "firebase/auth";
-import { auth, googleProvider } from "../services/firebase";
+import {
+  getRedirectResult,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+} from "firebase/auth";
+import {
+  auth,
+  ensureAuthPersistence,
+  googleProvider,
+} from "../services/firebase";
 
 function LoginPage({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [persistenceWarning, setPersistenceWarning] = useState("");
+  const [browserWarning, setBrowserWarning] = useState("");
 
   useEffect(() => {
     let isMounted = true;
 
+    const userAgent = navigator.userAgent || "";
+    const isInAppBrowser = /FBAN|FBAV|Instagram|Line|WhatsApp|Twitter/.test(
+      userAgent,
+    );
+    if (isInAppBrowser) {
+      setBrowserWarning(
+        "In-app browsers can block Google sign-in. Open this page in Safari for reliable login.",
+      );
+    }
+
     const handleRedirect = async () => {
+      try {
+        await ensureAuthPersistence();
+      } catch (error) {
+        if (isMounted) {
+          setPersistenceWarning(
+            "Storage is blocked in this browser. Enable cookies/site data or disable Private Browsing on iOS to stay signed in.",
+          );
+        }
+      }
+
       try {
         const result = await getRedirectResult(auth);
         if (isMounted && result?.user) {
@@ -38,10 +69,39 @@ function LoginPage({ onLoginSuccess }) {
     try {
       setLoading(true);
       setError("");
+      await ensureAuthPersistence();
+
+      const userAgent = navigator.userAgent || "";
+      const isIOS =
+        /iPad|iPhone|iPod/.test(userAgent) ||
+        (userAgent.includes("Mac") && "ontouchend" in document);
+
+      try {
+        const result = await signInWithPopup(auth, googleProvider);
+        if (result?.user) {
+          onLoginSuccess(result.user);
+          return;
+        }
+      } catch (popupError) {
+        const popupErrorCode = popupError?.code || "";
+        const shouldFallbackToRedirect =
+          isIOS ||
+          popupErrorCode === "auth/popup-blocked" ||
+          popupErrorCode === "auth/popup-closed-by-user" ||
+          popupErrorCode === "auth/cancelled-popup-request" ||
+          popupErrorCode === "auth/operation-not-supported-in-this-environment";
+
+        if (!shouldFallbackToRedirect) {
+          throw popupError;
+        }
+      }
+
       await signInWithRedirect(auth, googleProvider);
     } catch (error) {
       console.error("Sign in error:", error);
-      setError("Failed to sign in with Google. Please try again.");
+      setError(
+        error?.message || "Failed to sign in with Google. Please try again.",
+      );
       setLoading(false);
     }
   };
@@ -79,6 +139,24 @@ function LoginPage({ onLoginSuccess }) {
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Persistence Warning */}
+          {persistenceWarning && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-left">
+              <p className="text-amber-800 text-xs sm:text-sm">
+                {persistenceWarning}
+              </p>
+            </div>
+          )}
+
+          {/* Browser Warning */}
+          {browserWarning && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-left">
+              <p className="text-amber-800 text-xs sm:text-sm">
+                {browserWarning}
+              </p>
             </div>
           )}
 

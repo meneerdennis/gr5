@@ -9,6 +9,7 @@ import {
   GoogleAuthProvider,
   setPersistence,
   browserLocalPersistence,
+  browserSessionPersistence,
 } from "firebase/auth";
 
 const firebaseConfig = {
@@ -27,7 +28,30 @@ export const storage = getStorage(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Enable persistence so anonymous users remain logged in across page refreshes
-setPersistence(auth, browserLocalPersistence).catch((error) => {
+// Enable persistence so users remain logged in across page refreshes
+export const ensureAuthPersistence = async () => {
+  try {
+    await setPersistence(auth, browserLocalPersistence);
+    return "local";
+  } catch (error) {
+    console.warn(
+      "Local persistence unavailable, falling back to session:",
+      error,
+    );
+  }
+
+  try {
+    await setPersistence(auth, browserSessionPersistence);
+    return "session";
+  } catch (error) {
+    console.warn("Session persistence unavailable:", error);
+  }
+
+  throw new Error(
+    "Auth persistence is disabled in this browser. Please allow cookies and site storage.",
+  );
+};
+
+ensureAuthPersistence().catch((error) => {
   console.warn("Failed to enable Firebase persistence:", error);
 });

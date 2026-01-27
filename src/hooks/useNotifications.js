@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   initializeMessaging,
+  isMessagingSupported,
   registerServiceWorkerAndGetToken,
   saveFCMToken,
   requestNotificationPermission,
@@ -13,10 +14,45 @@ export function useNotifications() {
   );
   const [error, setError] = useState(null);
   const [lastMessage, setLastMessage] = useState(null);
+  const [messagingSupported, setMessagingSupported] = useState(true);
+  const [supportReason, setSupportReason] = useState("");
+
+  const isIosBrowser = () => {
+    if (typeof navigator === "undefined") return false;
+    const ua = navigator.userAgent || "";
+    const isiOS = /iPad|iPhone|iPod/.test(ua);
+    const isMacTouch = ua.includes("Mac") && "ontouchend" in document;
+    return isiOS || isMacTouch;
+  };
+
+  const isStandalonePwa = () => {
+    if (typeof window === "undefined") return false;
+    return (
+      window.matchMedia?.("(display-mode: standalone)")?.matches ||
+      window.navigator?.standalone === true
+    );
+  };
 
   const subscribeForNotifications = useCallback(async () => {
     try {
       setError(null);
+
+      if (isIosBrowser() && !isStandalonePwa()) {
+        setMessagingSupported(false);
+        setSupportReason("");
+        setTokenReady(false);
+        return { granted: false, reason: "unsupported" };
+      }
+
+      const supported = await isMessagingSupported();
+      setMessagingSupported(supported);
+      if (!supported) {
+        setSupportReason(
+          "Push notifications are not supported on this browser (iOS Safari requires an installed PWA).",
+        );
+        setTokenReady(false);
+        return { granted: false, reason: "unsupported" };
+      }
       const permission = await requestNotificationPermission();
       setNotificationPermission(
         permission.granted ? "granted" : permission.reason || "default",
@@ -29,14 +65,6 @@ export function useNotifications() {
 
       await initializeMessaging((payload) => {
         setLastMessage(payload || null);
-        const title = payload?.notification?.title || "New update";
-        const body = payload?.notification?.body || "";
-        if (Notification.permission === "granted") {
-          new Notification(title, {
-            body,
-            icon: payload?.notification?.icon,
-          });
-        }
       });
 
       const result = await registerServiceWorkerAndGetToken();
@@ -53,7 +81,18 @@ export function useNotifications() {
   }, []);
 
   useEffect(() => {
-    if (typeof Notification === "undefined") return;
+    if (isIosBrowser() && !isStandalonePwa()) {
+      setMessagingSupported(false);
+      setSupportReason("");
+      return;
+    }
+
+    if (typeof Notification === "undefined") {
+      setMessagingSupported(false);
+      setSupportReason("Push notifications are not supported on this browser.");
+      return;
+    }
+
     setNotificationPermission(Notification.permission);
 
     if (Notification.permission === "granted") {
@@ -68,5 +107,7 @@ export function useNotifications() {
     subscribeForNotifications,
     error,
     lastMessage,
+    messagingSupported,
+    supportReason,
   };
 }

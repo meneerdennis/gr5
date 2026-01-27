@@ -217,13 +217,19 @@ function Layout({ children, progress = 0 }) {
     tokenReady,
     error: notificationError,
     lastMessage,
+    messagingSupported,
+    supportReason,
   } = useNotifications();
   const [toastMessage, setToastMessage] = useState(null);
 
   useEffect(() => {
-    if (!lastMessage?.notification) return;
-    const title = lastMessage.notification.title || "New update";
-    const body = lastMessage.notification.body || "";
+    if (!lastMessage?.notification && !lastMessage?.data) return;
+    const title =
+      lastMessage?.notification?.title ||
+      lastMessage?.data?.title ||
+      "New update";
+    const body =
+      lastMessage?.notification?.body || lastMessage?.data?.body || "";
     setToastMessage({ title, body });
 
     const timer = setTimeout(() => setToastMessage(null), 6000);
@@ -436,6 +442,16 @@ function Layout({ children, progress = 0 }) {
                 {notificationError}
               </span>
             )}
+            {!messagingSupported && supportReason && (
+              <span
+                style={{
+                  color: "#f59e0b",
+                  fontSize: "0.75rem",
+                }}
+              >
+                {supportReason}
+              </span>
+            )}
             <a
               onClick={() => setIsModalOpen(true)}
               title="Contact me"
@@ -510,14 +526,15 @@ function Layout({ children, progress = 0 }) {
           style={{
             position: "fixed",
             bottom: "1.5rem",
-            right: "1.5rem",
+            right: isMobile ? "1rem" : "1.5rem",
+            left: isMobile ? "1rem" : "auto",
             zIndex: 9999,
             background: "rgba(15, 23, 42, 0.95)",
             color: "white",
             padding: "0.75rem 1rem",
             borderRadius: "0.75rem",
             boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
-            maxWidth: "320px",
+            maxWidth: isMobile ? "calc(100% - 2rem)" : "320px",
             fontSize: "0.85rem",
           }}
           role="status"

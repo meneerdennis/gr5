@@ -15,10 +15,11 @@ if (!self.__FIREBASE_CONFIG__) {
   const messaging = firebase.messaging();
 
   messaging.onBackgroundMessage((payload) => {
-    const title = payload?.notification?.title || "New GR5 update";
+    const title =
+      payload?.notification?.title || payload?.data?.title || "New GR5 update";
     const options = {
-      body: payload?.notification?.body || "",
-      icon: payload?.notification?.icon || "/hiker.png",
+      body: payload?.notification?.body || payload?.data?.body || "",
+      icon: payload?.notification?.icon || payload?.data?.icon || "/hiker.png",
       data: payload?.data || {},
     };
 
