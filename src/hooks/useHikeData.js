@@ -1,11 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { getRouteData } from "../services/routeService";
 import { getStravaHikes } from "../services/stravaService";
 import {
   getAllPhotosWithHikes,
   getHikesSince,
-  decodePolyline,
   getPhotosFromHikes,
   updateHikeCache,
 } from "../services/firebaseService";
@@ -35,14 +34,22 @@ export function useHikeData() {
     try {
       setLoading(true);
       // Load route + hikes first, then photos using the hikes data to avoid extra reads
-      const [routeData, hikesData] = await Promise.all([
-        getRouteData(),
-        getStravaHikes({
+      let hikesData = await getStravaHikes({
+        limit: HIKE_LIMIT,
+        useCache: true,
+        cacheTtlMs: HIKE_CACHE_TTL_MS,
+      });
+      if (!hikesData.length) {
+        const freshHikes = await getStravaHikes({
           limit: HIKE_LIMIT,
-          useCache: true,
-          cacheTtlMs: HIKE_CACHE_TTL_MS,
-        }),
-      ]);
+          useCache: false,
+        });
+        if (freshHikes.length) {
+          hikesData = freshHikes;
+          updateHikeCache(HIKE_LIMIT, freshHikes);
+        }
+      }
+      const routeData = await getRouteData({ hikes: hikesData });
       const mergedHikes = hikesData.map((hike) => {
         const override = commentCountsRef.current.get(hike.id);
         return typeof override === "number"
@@ -113,21 +120,19 @@ export function useHikeData() {
   }, [loadData, reloadPhotos]);
 
   useEffect(() => {
-    const countsRef = collection(db, "hikeCommentCounts");
-    const unsubscribe = onSnapshot(
-      countsRef,
-      (snapshot) => {
+    let cancelled = false;
+    const loadCommentCounts = async () => {
+      try {
+        const countsRef = collection(db, "hikeCommentCounts");
+        const snapshot = await getDocs(countsRef);
+        if (cancelled) return;
+
         const updates = new Map();
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === "removed") {
-            updates.set(change.doc.id, 0);
-            commentCountsRef.current.delete(change.doc.id);
-            return;
-          }
-          const data = change.doc.data() || {};
+        snapshot.forEach((doc) => {
+          const data = doc.data() || {};
           const count = Number(data.count || 0);
-          commentCountsRef.current.set(change.doc.id, count);
-          updates.set(change.doc.id, count);
+          commentCountsRef.current.set(doc.id, count);
+          updates.set(doc.id, count);
         });
 
         if (updates.size === 0) return;
@@ -139,13 +144,15 @@ export function useHikeData() {
           hikesRef.current = next;
           return next;
         });
-      },
-      (error) => {
-        console.error("Error subscribing to comment counts:", error);
-      },
-    );
+      } catch (error) {
+        console.error("Error loading comment counts:", error);
+      }
+    };
 
-    return () => unsubscribe();
+    loadCommentCounts();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const refreshUpdates = useCallback(async () => {
@@ -172,7 +179,7 @@ export function useHikeData() {
 
       let mergedHikes = currentHikes;
       if (newHikes.length > 0) {
-        const existingIds = new Set(currentHikes.map((hike) => hike.id));
+        const existingIds = new Set();
         const combined = [...currentHikes, ...newHikes].filter((hike) => {
           if (existingIds.has(hike.id)) return false;
           existingIds.add(hike.id);

@@ -19,7 +19,7 @@ export async function getStravaHikes(options = {}) {
       name: hike.name,
       description: hike.description,
       commentsCount: hike.commentsCount || 0,
-      polyline: hike.polyline ? decodePolyline(hike.polyline) : [],
+      polyline: normalizePolyline(hike.polyline),
       latlng: hike.latlng || [],
       altitude: hike.altitude || [],
       time: hike.time || [],
@@ -35,9 +35,40 @@ export async function getStravaHikes(options = {}) {
   }
 }
 
+function normalizePolyline(polyline) {
+  if (!polyline) return [];
+
+  if (Array.isArray(polyline)) {
+    if (polyline.length === 0) return [];
+    const first = polyline[0];
+    if (Array.isArray(first) && typeof first[0] === "number") {
+      return polyline;
+    }
+    if (first && typeof first === "object") {
+      if (typeof first.lat === "number" && typeof first.lng === "number") {
+        return polyline.map((point) => [point.lat, point.lng]);
+      }
+      if (
+        Array.isArray(first.coordinates) &&
+        typeof first.coordinates[0] === "number"
+      ) {
+        return polyline.map((point) => point.coordinates);
+      }
+    }
+  }
+
+  if (typeof polyline === "string") {
+    return decodePolyline(polyline);
+  }
+
+  console.warn("Unsupported polyline format:", polyline);
+  return [];
+}
+
 // Polyline decoder function (simplified version)
 function decodePolyline(encoded) {
   if (!encoded) return [];
+  if (typeof encoded !== "string") return [];
 
   let index = 0;
   const len = encoded.length;

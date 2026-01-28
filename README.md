@@ -53,6 +53,7 @@ Dit:
 3. Je site staat dan op de `homepage`-URL
 
 Vergeet niet op GitHub bij **Settings → Pages** de **Source** op `gh-pages` (branch) te zetten.
+De `gh-pages` branch hoeft niet je default branch te zijn.
 
 ---
 

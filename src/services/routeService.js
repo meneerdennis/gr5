@@ -18,7 +18,8 @@ import {
   calculateTotalWalkedDistance,
 } from "./firebaseService";
 
-export async function getRouteData() {
+export async function getRouteData(options = {}) {
+  const { hikes: providedHikes = null } = options;
   const polyline = [
     [51.979, 4.133],
     [50.85, 4.35],
@@ -42,7 +43,9 @@ export async function getRouteData() {
       if (cacheAge < CACHE_DURATION) {
         const cachedData = JSON.parse(cached);
         // Still need to calculate walked distance from Firebase
-        const hikes = await getHikesFromFirebase();
+        const hikes = Array.isArray(providedHikes)
+          ? providedHikes
+          : await getHikesFromFirebase();
         const walkedDistanceKm = calculateTotalWalkedDistance(hikes);
         return {
           ...cachedData,
@@ -101,7 +104,9 @@ export async function getRouteData() {
       elevationProfile[elevationProfile.length - 1].distanceKm;
 
     // Calculate walked distance from Firebase hikes
-    const hikes = await getHikesFromFirebase();
+    const hikes = Array.isArray(providedHikes)
+      ? providedHikes
+      : await getHikesFromFirebase();
     const walkedDistanceKm = calculateTotalWalkedDistance(hikes);
 
     const routeData = {
@@ -131,12 +136,14 @@ export async function getRouteData() {
     // Calculate walked distance from Firebase hikes even in error case
     let walkedDistanceKm = 0;
     try {
-      const hikes = await getHikesFromFirebase();
+      const hikes = Array.isArray(providedHikes)
+        ? providedHikes
+        : await getHikesFromFirebase();
       walkedDistanceKm = calculateTotalWalkedDistance(hikes);
     } catch (firebaseError) {
       console.error(
         "Error fetching hikes for walked distance calculation:",
-        firebaseError
+        firebaseError,
       );
       walkedDistanceKm = 0;
     }

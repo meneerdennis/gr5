@@ -16,6 +16,7 @@ export const useViewedActivities = () => {
   const STORAGE_KEY = "gr5_viewed_activities";
   const pendingIdsRef = useRef(new Set());
   const flushTimeoutRef = useRef(null);
+  const lastSyncedUidRef = useRef(null);
   const FLUSH_DELAY_MS = 1500;
 
   // Load viewed activities from localStorage on initial mount
@@ -36,18 +37,42 @@ export const useViewedActivities = () => {
   // Sync localStorage to Firebase when user logs in
   useEffect(() => {
     if (!user?.uid || loading || authLoading) return;
+    if (lastSyncedUidRef.current === user.uid) return;
+    lastSyncedUidRef.current = user.uid;
+    let cancelled = false;
 
     const syncWithFirebase = async () => {
       try {
-        const activities = await getViewedActivitiesFromFirebase(user.uid);
+        const remoteActivities = await getViewedActivitiesFromFirebase(
+          user.uid,
+        );
+        if (cancelled) return;
+
+        const localActivities = Array.isArray(viewedActivities)
+          ? viewedActivities
+          : [];
+
         // Merge local and remote, keeping all viewed items
         const merged = Array.from(
-          new Set([...viewedActivities, ...activities]),
+          new Set([...localActivities, ...remoteActivities]),
         );
-        setViewedActivities(merged);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-        // Save merged data back to Firebase
-        await saveViewedActivitiesToFirebase(user.uid, merged);
+
+        const mergedDiffersFromLocal =
+          merged.length !== localActivities.length ||
+          merged.some((id) => !localActivities.includes(id));
+
+        const mergedDiffersFromRemote =
+          merged.length !== remoteActivities.length ||
+          merged.some((id) => !remoteActivities.includes(id));
+
+        if (mergedDiffersFromLocal) {
+          setViewedActivities(merged);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        }
+
+        if (mergedDiffersFromRemote) {
+          await saveViewedActivitiesToFirebase(user.uid, merged);
+        }
       } catch (error) {
         console.warn("Error syncing viewed activities with Firebase:", error);
         // Continue with localStorage data even if Firebase sync fails
@@ -55,7 +80,11 @@ export const useViewedActivities = () => {
     };
 
     syncWithFirebase();
-  }, [user?.uid, loading, authLoading, viewedActivities]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, loading, authLoading]);
 
   const flushPendingToFirebase = useCallback(async () => {
     if (!user?.uid || pendingIdsRef.current.size === 0) return;

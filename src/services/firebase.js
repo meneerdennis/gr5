@@ -12,14 +12,38 @@ import {
   browserSessionPersistence,
 } from "firebase/auth";
 
+const runtimeConfig =
+  typeof window !== "undefined" ? window.__FIREBASE_CONFIG__ : null;
+
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || runtimeConfig?.apiKey || "",
+  authDomain:
+    process.env.REACT_APP_FIREBASE_AUTH_DOMAIN ||
+    runtimeConfig?.authDomain ||
+    "",
+  projectId:
+    process.env.REACT_APP_FIREBASE_PROJECT_ID || runtimeConfig?.projectId || "",
+  storageBucket:
+    process.env.REACT_APP_FIREBASE_STORAGE_BUCKET ||
+    runtimeConfig?.storageBucket ||
+    "",
+  messagingSenderId:
+    process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID ||
+    runtimeConfig?.messagingSenderId ||
+    "",
+  appId: process.env.REACT_APP_FIREBASE_APP_ID || runtimeConfig?.appId || "",
 };
+
+const missingConfig = Object.entries(firebaseConfig)
+  .filter(([, value]) => !value)
+  .map(([key]) => key);
+
+if (missingConfig.length > 0) {
+  console.error(
+    `Missing Firebase config values: ${missingConfig.join(", ")}. ` +
+      "Check .env/.env.local or public/firebase-config.js.",
+  );
+}
 
 const app = initializeApp(firebaseConfig);
 export { app };
