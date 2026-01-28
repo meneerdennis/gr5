@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import ProgressBar from "./ProgressBar";
-import { getQuotesFromFirebase } from "../services/firebaseService";
+import quotesData from "../data/quotes.json";
 import emailjs from "@emailjs/browser";
 import GR5Info from "./GR5Info";
 import { useNotifications } from "../hooks/useNotifications";
@@ -208,7 +208,7 @@ function Layout({
   onRefresh = null,
   refreshInProgress = false,
 }) {
-  const [quotes, setQuotes] = useState([]);
+  const [quotes] = useState(quotesData);
   const [randomQuote, setRandomQuote] = useState({});
   const [quoteOpacity, setQuoteOpacity] = useState(1);
   const [quoteTransform, setQuoteTransform] = useState(0);
@@ -246,14 +246,6 @@ function Layout({
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
-  useEffect(() => {
-    const fetchQuotes = async () => {
-      const fetchedQuotes = await getQuotesFromFirebase();
-      setQuotes(fetchedQuotes);
-    };
-    fetchQuotes();
   }, []);
 
   useEffect(() => {

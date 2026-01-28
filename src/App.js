@@ -31,7 +31,6 @@ const AdminNoteEditor = lazy(() => import("./components/AdminNoteEditor"));
 const AdminActivityManager = lazy(
   () => import("./components/AdminActivityManager"),
 );
-const AdminQuoteManager = lazy(() => import("./components/AdminQuoteManager"));
 import AdminRoute from "./components/AdminRoute";
 
 import { useLikes } from "./hooks/useLikes";
@@ -250,17 +249,6 @@ function AppContent() {
           </Suspense>
         }
       />
-      <Route
-        path="/admin/quotes"
-        element={
-          <Suspense fallback={<div>Loading...</div>}>
-            <AdminRoute>
-              <AdminQuoteManager />
-            </AdminRoute>
-          </Suspense>
-        }
-      />
-
       {/* Main application route */}
       <Route
         path="/"

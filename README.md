@@ -74,7 +74,7 @@ REACT_APP_FIREBASE_MESSAGING_SENDER_ID=XXXXXXX
 REACT_APP_FIREBASE_APP_ID=1:XXXXXXX:web:YYYYYYYY
 ```
 
-4. In `src/services/firebase.js` wordt deze config gebruikt.
+1. In `src/services/firebase.js` wordt deze config gebruikt.
 
 > Let op: variabelen moeten met `REACT_APP_` beginnen om zichtbaar te zijn in de frontend.
 
