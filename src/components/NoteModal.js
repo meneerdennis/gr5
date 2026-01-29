@@ -562,7 +562,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
                         decoding={
                           index === selectedPhotoIndex ? "sync" : "async"
                         }
-                        fetchPriority={
+                        fetchpriority={
                           index === selectedPhotoIndex ? "high" : "auto"
                         }
                         onLoad={() => {
