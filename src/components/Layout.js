@@ -226,6 +226,7 @@ function Layout({
     supportReason,
   } = useNotifications();
   const [toastMessage, setToastMessage] = useState(null);
+  const lastRefreshKeyRef = React.useRef(null);
 
   useEffect(() => {
     if (!lastMessage?.notification && !lastMessage?.data) return;
@@ -240,6 +241,17 @@ function Layout({
     const timer = setTimeout(() => setToastMessage(null), 6000);
     return () => clearTimeout(timer);
   }, [lastMessage]);
+
+  useEffect(() => {
+    if (!lastMessage?.data?.refreshHikes) return;
+    if (!onRefresh || refreshInProgress) return;
+    const refreshKey = `${lastMessage?.data?.type || ""}|${
+      lastMessage?.data?.hikeId || ""
+    }|${lastMessage?.data?.message || ""}`;
+    if (lastRefreshKeyRef.current === refreshKey) return;
+    lastRefreshKeyRef.current = refreshKey;
+    onRefresh();
+  }, [lastMessage, onRefresh, refreshInProgress]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);

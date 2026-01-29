@@ -28,6 +28,34 @@ export function useHikeData() {
   const HIKE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const PHOTO_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const FOCUS_REFRESH_COOLDOWN_MS = 10 * 60 * 1000;
+  const COMMENT_POLL_INTERVAL_MS = 10 * 60 * 1000;
+
+  const loadCommentCounts = useCallback(async () => {
+    try {
+      const countsRef = collection(db, "hikeCommentCounts");
+      const snapshot = await getDocs(countsRef);
+
+      const updates = new Map();
+      snapshot.forEach((doc) => {
+        const data = doc.data() || {};
+        const count = Number(data.count || 0);
+        commentCountsRef.current.set(doc.id, count);
+        updates.set(doc.id, count);
+      });
+
+      if (updates.size === 0) return;
+      setHikes((prev) => {
+        const next = prev.map((hike) => {
+          if (!updates.has(hike.id)) return hike;
+          return { ...hike, commentsCount: updates.get(hike.id) };
+        });
+        hikesRef.current = next;
+        return next;
+      });
+    } catch (error) {
+      console.error("Error loading comment counts:", error);
+    }
+  }, []);
 
   // Load all data including photos in parallel
   const loadData = useCallback(async () => {
@@ -120,40 +148,30 @@ export function useHikeData() {
   }, [loadData, reloadPhotos]);
 
   useEffect(() => {
-    let cancelled = false;
-    const loadCommentCounts = async () => {
-      try {
-        const countsRef = collection(db, "hikeCommentCounts");
-        const snapshot = await getDocs(countsRef);
-        if (cancelled) return;
+    loadCommentCounts();
+  }, [loadCommentCounts]);
 
-        const updates = new Map();
-        snapshot.forEach((doc) => {
-          const data = doc.data() || {};
-          const count = Number(data.count || 0);
-          commentCountsRef.current.set(doc.id, count);
-          updates.set(doc.id, count);
-        });
+  useEffect(() => {
+    const pollComments = () => {
+      if (document?.visibilityState !== "visible") return;
+      loadCommentCounts();
+    };
 
-        if (updates.size === 0) return;
-        setHikes((prev) => {
-          const next = prev.map((hike) => {
-            if (!updates.has(hike.id)) return hike;
-            return { ...hike, commentsCount: updates.get(hike.id) };
-          });
-          hikesRef.current = next;
-          return next;
-        });
-      } catch (error) {
-        console.error("Error loading comment counts:", error);
+    const intervalId = setInterval(pollComments, COMMENT_POLL_INTERVAL_MS);
+
+    const handleVisibilityChange = () => {
+      if (document?.visibilityState === "visible") {
+        pollComments();
       }
     };
 
-    loadCommentCounts();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
-      cancelled = true;
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []);
+  }, [COMMENT_POLL_INTERVAL_MS, loadCommentCounts]);
 
   const refreshUpdates = useCallback(async () => {
     if (refreshing) return;
@@ -233,12 +251,14 @@ export function useHikeData() {
         setPhotos(mergedPhotos);
         updatePhotoCache(PHOTO_LIMIT, mergedPhotos);
       }
+
+      await loadCommentCounts();
     } catch (e) {
       console.error("Error refreshing updates:", e);
     } finally {
       setRefreshing(false);
     }
-  }, [HIKE_LIMIT, PHOTO_LIMIT, photos, refreshing]);
+  }, [HIKE_LIMIT, PHOTO_LIMIT, photos, refreshing, loadCommentCounts]);
 
   useEffect(() => {
     const handleFocus = () => {

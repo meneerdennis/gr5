@@ -244,6 +244,7 @@ exports.notifyNewComment = functions.firestore
             hikeId: String(hikeId),
             hikeName: String(hikeName || ""),
             type: "comment",
+            refreshHikes: "true",
             icon: "/hiker.png",
           },
         });
@@ -506,6 +507,8 @@ exports.sendHikeNotification = functions.https.onCall(async (data, context) => {
         hikeId: String(hikeId),
         hikeName: String(hikeName || hike?.name || ""),
         message: String(message || ""),
+        type: "hike",
+        refreshHikes: "true",
         icon: "/hiker.png",
       },
     });

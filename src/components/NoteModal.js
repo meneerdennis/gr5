@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { useNoteModal } from "../contexts/NoteModalContext";
 import { useLikes } from "../hooks/useLikes";
 import { useComments } from "../hooks/useComments";
+import { useViewedCommentsContext } from "../contexts/ViewedCommentsContext";
 import SwiperComponent from "./SwiperComponent";
 import { SwiperSlide } from "swiper/react";
 import LikeButton from "./LikeButton";
@@ -58,13 +59,13 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
     setTranslation,
     setTranslatingState,
   } = useNoteModal();
+  const { markCommentsAsViewed } = useViewedCommentsContext();
 
   // Mobile detection for modal styling
   const [isMobile, setIsMobile] = useState(false);
   const isInitialSlideRef = useRef(true);
   const [loadedPhotos, setLoadedPhotos] = useState({});
 
-  // Swipe down to close
   const [swipeStart, setSwipeStart] = useState(null);
   const [swipeDistance, setSwipeDistance] = useState(0);
   const backdropRef = useRef(null);
@@ -163,9 +164,19 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
     }
   }, [selectedHikeId, markAsViewed]);
 
+  const { comments } = useComments(selectedHikeId);
+
+  useEffect(() => {
+    if (!selectedHikeId) return;
+    const baseCount =
+      hikes.find((hike) => hike.id === selectedHikeId)?.commentsCount || 0;
+    const liveCount = Array.isArray(comments) ? comments.length : 0;
+    const currentCount = Math.max(baseCount, liveCount);
+    markCommentsAsViewed(selectedHikeId, currentCount);
+  }, [selectedHikeId, hikes, comments, markCommentsAsViewed]);
+
   // Get derived values from selected hike
   const { likesCount } = useLikes(selectedHike?.id, user?.uid);
-  const { comments } = useComments(selectedHike?.id);
   const noteText = selectedHike?.note || "";
   const showNoteModal = selectedHikeId && noteText;
 
