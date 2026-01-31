@@ -293,6 +293,8 @@ function AppContent() {
                   onClearSelectedHike={handleClearSelectedHike}
                   selectedPhotoLocation={selectedPhotoLocation}
                   hikeBounds={hikeBounds}
+                  onRefresh={refreshUpdates}
+                  refreshInProgress={refreshing}
                 />
               </div>
             </div>
