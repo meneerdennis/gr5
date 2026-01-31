@@ -182,7 +182,22 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
 
   // Get photos for this hike
   const hikePhotos = useMemo(() => {
-    return photos.filter((p) => p.hikeId === selectedHikeId);
+    const filtered = photos.filter((p) => p.hikeId === selectedHikeId);
+    // Deduplicate by id, keeping the first occurrence
+    const seen = new Set();
+    const deduplicated = filtered.filter((photo) => {
+      if (seen.has(photo.id)) {
+        return false;
+      }
+      seen.add(photo.id);
+      return true;
+    });
+    // Sort by date ascending (oldest first)
+    return deduplicated.sort((a, b) => {
+      const aDate = new Date(a.date || a.uploadedAt || 0);
+      const bDate = new Date(b.date || b.uploadedAt || 0);
+      return aDate - bDate;
+    });
   }, [photos, selectedHikeId]);
 
   const selectedPhotoIndex =
@@ -448,7 +463,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
               }}
             >
               {hikePhotos.map((photo, index) => (
-                <SwiperSlide key={photo.id || index}>
+                <SwiperSlide key={photo.id || `${photo.url}-${index}`}>
                   {(photo.type && photo.type.startsWith("video/")) ||
                   photo.url?.includes(".mov") ||
                   photo.url?.includes(".mp4") ||

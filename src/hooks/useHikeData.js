@@ -382,6 +382,41 @@ export function useHikeData() {
         updatePhotoCache(PHOTO_LIMIT, mergedPhotos);
       }
 
+      // Also fetch a fresh full hikes list from the server to pick up deletions
+      try {
+        const freshHikes = await getStravaHikes({
+          limit: HIKE_LIMIT,
+          useCache: false,
+        });
+        // If the fresh list differs from the merged list (e.g. a hike was deleted), replace local state and update cache
+        const freshIds = new Set(freshHikes.map((h) => h.id));
+        const mergedIds = new Set(mergedHikes.map((h) => h.id));
+        let listsDiffer = false;
+        if (freshIds.size !== mergedIds.size) listsDiffer = true;
+        if (!listsDiffer) {
+          for (const id of freshIds) {
+            if (!mergedIds.has(id)) {
+              listsDiffer = true;
+              break;
+            }
+          }
+        }
+
+        if (listsDiffer) {
+          const mergedWithComments = freshHikes.map((hike) => {
+            const override = commentCountsRef.current.get(hike.id);
+            return typeof override === "number"
+              ? { ...hike, commentsCount: override }
+              : hike;
+          });
+          setHikes(mergedWithComments);
+          hikesRef.current = mergedWithComments;
+          updateHikeCache(HIKE_LIMIT, mergedWithComments);
+        }
+      } catch (e) {
+        console.error("Error fetching fresh hikes during refresh:", e);
+      }
+
       await loadCommentCounts();
     } catch (e) {
       console.error("Error refreshing updates:", e);

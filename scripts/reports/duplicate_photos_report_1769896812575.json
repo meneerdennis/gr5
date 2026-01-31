@@ -1,0 +1,17 @@
+{
+  "generatedAt": "2026-01-31T22:00:12.574Z",
+  "totals": {
+    "photosCount": 34,
+    "hikesCount": 5,
+    "fileNameDuplicateGroups": 0,
+    "urlDuplicateGroups": 0,
+    "originalNameDuplicateGroups": 0,
+    "hikesWithPhotoArrayDuplicates": 0
+  },
+  "details": {
+    "fileNameDuplicates": [],
+    "urlDuplicates": [],
+    "originalNameDuplicates": [],
+    "hikePhotoDuplicates": []
+  }
+}

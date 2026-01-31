@@ -6,6 +6,7 @@ import {
   parseGPX,
   parseFIT,
   markHikeAsNotified,
+  updateHikeCache,
 } from "../services/firebaseService";
 import { sendHikeNotification } from "../services/notificationService";
 import { auth } from "../services/firebase";
@@ -52,6 +53,12 @@ function AdminActivityManager() {
       // Always fetch fresh data (no cache) to ensure new activities show up immediately
       const hikesData = await getHikesFromFirebase(null, { useCache: false });
       setHikes(hikesData);
+      // Update local cache so other parts of the app (and clients using cached data) pick up the deletion immediately
+      try {
+        updateHikeCache(null, hikesData);
+      } catch (e) {
+        console.warn("Failed to update hike cache:", e);
+      }
       setLoading(false);
     } catch (error) {
       console.error("Error loading hikes:", error);

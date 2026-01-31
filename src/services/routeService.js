@@ -101,7 +101,9 @@ export async function getRouteData(options = {}) {
 
     // Debug: log parsed point counts so we can confirm full GPX is used
     try {
-      console.info(`GPX parsed: total trkpt=${trkpts.length}, elevationProfile=${elevationProfile.length}`);
+      console.info(
+        `GPX parsed: total trkpt=${trkpts.length}, elevationProfile=${elevationProfile.length}`,
+      );
     } catch (e) {
       // ignore logging failures in non-browser environments
     }

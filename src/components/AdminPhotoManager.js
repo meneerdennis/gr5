@@ -246,9 +246,18 @@ function AdminPhotoManager() {
     return matchesRoute && matchesSearch;
   });
 
-  const totalPages = Math.ceil(filteredPhotos.length / itemsPerPage);
+  // Deduplicate filtered photos by id
+  const deduplicatedFilteredPhotos = filteredPhotos.filter(
+    (photo, index, arr) => {
+      return arr.findIndex((p) => p.id === photo.id) === index;
+    },
+  );
+
+  const totalPages = Math.ceil(
+    deduplicatedFilteredPhotos.length / itemsPerPage,
+  );
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedPhotos = filteredPhotos.slice(
+  const paginatedPhotos = deduplicatedFilteredPhotos.slice(
     startIndex,
     startIndex + itemsPerPage,
   );
@@ -281,7 +290,7 @@ function AdminPhotoManager() {
 
     // Fix after images/resources load
     setTimeout(fixScrollPosition, 500);
-  }, [filteredPhotos]); // Re-run when photos load/filter
+  }, [deduplicatedFilteredPhotos]); // Re-run when photos load/filter
 
   const openFullImage = (photo) => {
     console.log("Opening full image modal for photo:", photo);
@@ -339,7 +348,7 @@ function AdminPhotoManager() {
   };
 
   const getMapCenterFromPhotos = () => {
-    const photosWithLocation = filteredPhotos.filter(
+    const photosWithLocation = deduplicatedFilteredPhotos.filter(
       (p) => p.lat && p.lng && !isNaN(p.lat) && !isNaN(p.lng),
     );
 
@@ -367,15 +376,15 @@ function AdminPhotoManager() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedPhotos.size === filteredPhotos.length) {
+    if (selectedPhotos.size === deduplicatedFilteredPhotos.length) {
       setSelectedPhotos(new Set());
     } else {
-      setSelectedPhotos(new Set(filteredPhotos.map((p) => p.id)));
+      setSelectedPhotos(new Set(deduplicatedFilteredPhotos.map((p) => p.id)));
     }
   };
 
   const selectAllFiltered = () => {
-    setSelectedPhotos(new Set(filteredPhotos.map((p) => p.id)));
+    setSelectedPhotos(new Set(deduplicatedFilteredPhotos.map((p) => p.id)));
   };
 
   const clearSelection = () => {
@@ -841,7 +850,7 @@ function AdminPhotoManager() {
         {/* Photos Table */}
         <div className="glass-card p-4 sm:p-6">
           <h2 className="text-xl font-semibold text-gray-100 mb-4">
-            📷 Manage Media ({filteredPhotos.length})
+            📷 Manage Media ({deduplicatedFilteredPhotos.length})
           </h2>
 
           <div className="mb-4 flex space-x-2">
@@ -896,26 +905,28 @@ function AdminPhotoManager() {
 
             <div className="flex items-end">
               <div className="text-sm text-gray-300">
-                <strong>{filteredPhotos.length}</strong> media file(s) found
+                <strong>{deduplicatedFilteredPhotos.length}</strong> media
+                file(s) found
               </div>
             </div>
           </div>
 
           {/* Selection Controls */}
-          {filteredPhotos.length > 0 && (
+          {deduplicatedFilteredPhotos.length > 0 && (
             <div className="flex items-center justify-between bg-gray-800 bg-opacity-30 p-3 rounded-lg border border-gray-600">
               <div className="flex items-center space-x-4">
                 <label className="flex items-center space-x-2 text-sm text-gray-200">
                   <input
                     type="checkbox"
                     checked={
-                      selectedPhotos.size === filteredPhotos.length &&
-                      filteredPhotos.length > 0
+                      selectedPhotos.size ===
+                        deduplicatedFilteredPhotos.length &&
+                      deduplicatedFilteredPhotos.length > 0
                     }
                     onChange={toggleSelectAll}
                     className="rounded border-gray-500 text-primary-600 focus:ring-primary-500"
                   />
-                  <span>Select All ({filteredPhotos.length})</span>
+                  <span>Select All ({deduplicatedFilteredPhotos.length})</span>
                 </label>
                 {selectedPhotos.size > 0 && (
                   <span className="text-sm text-primary-400">
@@ -936,7 +947,7 @@ function AdminPhotoManager() {
             </div>
           )}
 
-          {filteredPhotos.length === 0 ? (
+          {deduplicatedFilteredPhotos.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">📷</div>
               <h3 className="text-xl font-medium text-gray-100 mb-2">
@@ -1157,7 +1168,7 @@ function AdminPhotoManager() {
           )}
 
           {/* Pagination */}
-          {filteredPhotos.length > itemsPerPage && (
+          {deduplicatedFilteredPhotos.length > itemsPerPage && (
             <div className="flex justify-between items-center mt-4">
               <button
                 onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}

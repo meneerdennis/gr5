@@ -1032,10 +1032,18 @@ function MapView({
   }, []);
 
   // Memoize filtered photos so PhotoMarkers doesn't recreate markers on every render
-  const filteredPhotos = useMemo(
-    () => photos.filter((p) => p.lat && p.lng),
-    [photos],
-  );
+  const filteredPhotos = useMemo(() => {
+    const withLocation = photos.filter((p) => p.lat && p.lng);
+    // Deduplicate by id, keeping the first occurrence
+    const seen = new Set();
+    return withLocation.filter((photo) => {
+      if (seen.has(photo.id)) {
+        return false;
+      }
+      seen.add(photo.id);
+      return true;
+    });
+  }, [photos]);
 
   // Memoize the wrapped photo click handler so it doesn't trigger PhotoMarkers re-render unnecessarily
   const wrappedPhotoClickHandler = useCallback(
