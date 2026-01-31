@@ -25,6 +25,13 @@ export function useHikeData() {
   const lastRefreshAtRef = useRef(0);
   const HIKE_LIMIT = Number(process.env.REACT_APP_HIKE_LIMIT || 200);
   const PHOTO_LIMIT = Number(process.env.REACT_APP_PHOTO_LIMIT || 500);
+  // Reduced initial limits for faster first-time loading
+  const INITIAL_HIKE_LIMIT = Number(
+    process.env.REACT_APP_INITIAL_HIKE_LIMIT || 10,
+  );
+  const INITIAL_PHOTO_LIMIT = Number(
+    process.env.REACT_APP_INITIAL_PHOTO_LIMIT || 20,
+  );
   const HIKE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const PHOTO_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const FOCUS_REFRESH_COOLDOWN_MS = 10 * 60 * 1000;
@@ -58,49 +65,164 @@ export function useHikeData() {
   }, []);
 
   // Load all data including photos in parallel
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      // Load route + hikes first, then photos using the hikes data to avoid extra reads
-      let hikesData = await getStravaHikes({
-        limit: HIKE_LIMIT,
-        useCache: true,
-        cacheTtlMs: HIKE_CACHE_TTL_MS,
-      });
-      if (!hikesData.length) {
-        const freshHikes = await getStravaHikes({
-          limit: HIKE_LIMIT,
-          useCache: false,
+  const loadData = useCallback(
+    async (useFullLimits = false) => {
+      const hikeLimit = useFullLimits ? HIKE_LIMIT : INITIAL_HIKE_LIMIT;
+      const photoLimit = useFullLimits ? PHOTO_LIMIT : INITIAL_PHOTO_LIMIT;
+
+      try {
+        setLoading(true);
+        // Load hikes first, then photos, then route data (route data can load slower)
+        let hikesData = await getStravaHikes({
+          limit: hikeLimit,
+          useCache: true,
+          cacheTtlMs: HIKE_CACHE_TTL_MS,
         });
-        if (freshHikes.length) {
-          hikesData = freshHikes;
-          updateHikeCache(HIKE_LIMIT, freshHikes);
+        if (!hikesData.length) {
+          const freshHikes = await getStravaHikes({
+            limit: hikeLimit,
+            useCache: false,
+          });
+          if (freshHikes.length) {
+            hikesData = freshHikes;
+            updateHikeCache(hikeLimit, freshHikes);
+          }
+        }
+
+        const mergedHikes = hikesData.map((hike) => {
+          const override = commentCountsRef.current.get(hike.id);
+          return typeof override === "number"
+            ? { ...hike, commentsCount: override }
+            : hike;
+        });
+
+        // Set hikes first so app can show
+        setHikes(mergedHikes);
+        hikesRef.current = mergedHikes;
+        setLoading(false); // Allow app to show with just hikes
+
+        // Load photos asynchronously
+        try {
+          const photosData = await getAllPhotosWithHikes(photoLimit, {
+            useCache: true,
+            cacheTtlMs: PHOTO_CACHE_TTL_MS,
+            hikes: mergedHikes,
+          });
+          setPhotos(photosData);
+        } catch (photoError) {
+          console.error("Error loading photos:", photoError);
+          setPhotos([]); // Set empty array so photos loading state can end
+        }
+        try {
+          const routeData = await getRouteData({ hikes: mergedHikes });
+          setRoute(routeData);
+        } catch (routeError) {
+          console.error("Error loading route data:", routeError);
+          // Set a fallback route so the app can still function
+          setRoute({
+            polyline: [
+              [51.979, 4.133],
+              [50.85, 4.35],
+              [49.6, 6.1],
+              [46.5, 6.6],
+              [45.0, 6.0],
+              [43.7, 7.26],
+            ],
+            elevationProfile: [
+              { distanceKm: 0, elevationM: 0, lat: 51.979, lon: 4.133 },
+              { distanceKm: 200, elevationM: 200, lat: 50.85, lon: 4.35 },
+              { distanceKm: 400, elevationM: 500, lat: 49.6, lon: 6.1 },
+              { distanceKm: 600, elevationM: 1500, lat: 46.5, lon: 6.6 },
+              { distanceKm: 800, elevationM: 1000, lat: 45.0, lon: 6.0 },
+              { distanceKm: 1000, elevationM: 0, lat: 43.7, lon: 7.26 },
+            ],
+            totalDistanceKm: 1000,
+            walkedDistanceKm: 0,
+          });
+        }
+      } catch (e) {
+        console.error(e);
+        setError(e);
+        setLoading(false);
+      } finally {
+        setPhotosLoading(false);
+      }
+    },
+    [
+      HIKE_LIMIT,
+      HIKE_CACHE_TTL_MS,
+      PHOTO_LIMIT,
+      PHOTO_CACHE_TTL_MS,
+      INITIAL_HIKE_LIMIT,
+      INITIAL_PHOTO_LIMIT,
+    ],
+  );
+
+  // Load full dataset after initial load
+  const loadFullData = useCallback(async () => {
+    const currentHikes = hikesRef.current;
+    const currentPhotos = photos; // Use current state
+
+    if (
+      currentHikes.length >= HIKE_LIMIT &&
+      currentPhotos.length >= PHOTO_LIMIT
+    )
+      return; // Already loaded
+
+    try {
+      setPhotosLoading(true);
+      // Load additional hikes if needed
+      let additionalHikes = [];
+      if (currentHikes.length < HIKE_LIMIT) {
+        additionalHikes = await getStravaHikes({
+          limit: HIKE_LIMIT,
+          useCache: true,
+          cacheTtlMs: HIKE_CACHE_TTL_MS,
+        });
+        if (additionalHikes.length > currentHikes.length) {
+          additionalHikes = additionalHikes.slice(currentHikes.length);
+        } else {
+          additionalHikes = [];
         }
       }
-      const routeData = await getRouteData({ hikes: hikesData });
-      const mergedHikes = hikesData.map((hike) => {
-        const override = commentCountsRef.current.get(hike.id);
-        return typeof override === "number"
-          ? { ...hike, commentsCount: override }
-          : hike;
-      });
-      const photosData = await getAllPhotosWithHikes(PHOTO_LIMIT, {
-        useCache: true,
-        cacheTtlMs: PHOTO_CACHE_TTL_MS,
-        hikes: mergedHikes,
-      });
-      setRoute(routeData);
-      setHikes(mergedHikes);
-      hikesRef.current = mergedHikes;
-      setPhotos(photosData);
+
+      // Load additional photos if needed
+      let additionalPhotos = [];
+      if (currentPhotos.length < PHOTO_LIMIT) {
+        const allHikes = [...currentHikes, ...additionalHikes];
+        additionalPhotos = await getAllPhotosWithHikes(PHOTO_LIMIT, {
+          useCache: true,
+          cacheTtlMs: PHOTO_CACHE_TTL_MS,
+          hikes: allHikes,
+        });
+        if (additionalPhotos.length > currentPhotos.length) {
+          additionalPhotos = additionalPhotos.slice(currentPhotos.length);
+        } else {
+          additionalPhotos = [];
+        }
+      }
+
+      // Update state with additional data
+      if (additionalHikes.length > 0) {
+        const mergedAdditionalHikes = additionalHikes.map((hike) => {
+          const override = commentCountsRef.current.get(hike.id);
+          return typeof override === "number"
+            ? { ...hike, commentsCount: override }
+            : hike;
+        });
+        setHikes((prev) => [...prev, ...mergedAdditionalHikes]);
+        hikesRef.current = [...hikesRef.current, ...mergedAdditionalHikes];
+      }
+
+      if (additionalPhotos.length > 0) {
+        setPhotos((prev) => [...prev, ...additionalPhotos]);
+      }
     } catch (e) {
-      console.error(e);
-      setError(e);
+      console.error("Error loading full data:", e);
     } finally {
-      setLoading(false);
       setPhotosLoading(false);
     }
-  }, [HIKE_LIMIT, HIKE_CACHE_TTL_MS, PHOTO_LIMIT, PHOTO_CACHE_TTL_MS]);
+  }, [HIKE_LIMIT, PHOTO_LIMIT, HIKE_CACHE_TTL_MS, PHOTO_CACHE_TTL_MS]);
 
   // Selective photo reload - only reload photos, not all data
   const reloadPhotos = useCallback(async () => {
@@ -123,7 +245,17 @@ export function useHikeData() {
   }, [hikes]);
 
   useEffect(() => {
-    loadData();
+    loadData(false); // Load initial data
+
+    // Load full dataset after initial load completes (with delay to prioritize initial render)
+    const fullDataTimer = setTimeout(() => {
+      loadFullData();
+    }, 2000); // Load full data after 2 seconds
+
+    // Load comment counts after initial data is loaded
+    const commentTimer = setTimeout(() => {
+      loadCommentCounts();
+    }, 1000); // Load comments after 1 second
 
     // Listen for photo upload events with debouncing to prevent multiple rapid reloads
     const handlePhotoUpload = () => {
@@ -140,16 +272,14 @@ export function useHikeData() {
     window.addEventListener("photoUploaded", handlePhotoUpload);
 
     return () => {
+      clearTimeout(fullDataTimer);
+      clearTimeout(commentTimer);
       window.removeEventListener("photoUploaded", handlePhotoUpload);
       if (photoUploadTimeoutRef.current) {
         clearTimeout(photoUploadTimeoutRef.current);
       }
     };
-  }, [loadData, reloadPhotos]);
-
-  useEffect(() => {
-    loadCommentCounts();
-  }, [loadCommentCounts]);
+  }, [loadData, loadFullData, reloadPhotos]);
 
   useEffect(() => {
     const pollComments = () => {

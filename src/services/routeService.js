@@ -31,7 +31,7 @@ export async function getRouteData(options = {}) {
 
   const CACHE_KEY = "gr5_route_data";
   const CACHE_TIMESTAMP_KEY = "gr5_route_data_timestamp";
-  const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+  const CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days (increased from 24 hours)
 
   // Check cache first
   try {
@@ -69,23 +69,35 @@ export async function getRouteData(options = {}) {
     const parser = new DOMParser();
     const gpxDoc = parser.parseFromString(gpxText, "text/xml");
 
-    // Extract track points
+    // Extract track points with downsampling for performance
     const trkpts = gpxDoc.querySelectorAll("trkpt");
     const elevationProfile = [];
     let cumulativeDistance = 0;
 
+    // Downsample track points: keep every 10th point for performance
+    // This reduces 9795 points to ~980 points while maintaining route accuracy
+    const DOWNSAMPLE_FACTOR = 10;
+
     trkpts.forEach((trkpt, index) => {
+      // Skip points based on downsampling factor
+      if (index % DOWNSAMPLE_FACTOR !== 0 && index !== trkpts.length - 1) {
+        return;
+      }
+
       const lat = parseFloat(trkpt.getAttribute("lat"));
       const lon = parseFloat(trkpt.getAttribute("lon"));
       const eleElement = trkpt.querySelector("ele");
       const elevation = eleElement ? parseFloat(eleElement.textContent) : 0;
 
       // Calculate distance from previous point
-      if (index > 0) {
-        const prevTrkpt = trkpts[index - 1];
-        const prevLat = parseFloat(prevTrkpt.getAttribute("lat"));
-        const prevLon = parseFloat(prevTrkpt.getAttribute("lon"));
-        cumulativeDistance += calculateDistance(prevLat, prevLon, lat, lon);
+      if (elevationProfile.length > 0) {
+        const prevPoint = elevationProfile[elevationProfile.length - 1];
+        cumulativeDistance += calculateDistance(
+          prevPoint.lat,
+          prevPoint.lon,
+          lat,
+          lon,
+        );
       }
 
       elevationProfile.push({
