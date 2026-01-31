@@ -1,6 +1,11 @@
 import React from "react";
 
-function ProgressBar({ progress, compact = false, position = "normal" }) {
+function ProgressBar({
+  progress,
+  compact = false,
+  position = "normal",
+  headerRight = null,
+}) {
   const percentage = Math.min(100, Math.max(0, Math.round(progress * 100)));
 
   if (compact && position === "top-right") {
@@ -41,13 +46,21 @@ function ProgressBar({ progress, compact = false, position = "normal" }) {
 
   return (
     <div className="fade-in" style={{ width: "100%" }}>
-      <div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "1rem",
+        }}
+      >
         <h3
           className="text-xl font-semibold text-gray-900"
-          style={{ margin: "10px 0px 10px 0px" }}
+          style={{ margin: "10px 0" }}
         >
           Trail Progress
         </h3>
+        {headerRight && <div>{headerRight}</div>}
       </div>
 
       <div

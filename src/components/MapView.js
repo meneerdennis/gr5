@@ -949,6 +949,8 @@ function MapView({
   onClearSelectedHike,
   selectedPhotoLocation,
   hikeBounds,
+  onRefresh,
+  refreshInProgress,
 }) {
   const [currentPosition, setCurrentPosition] = useState(null);
   const [mapReady, setMapReady] = useState(false);
@@ -1128,8 +1130,8 @@ function MapView({
   }
 
   return (
-    <div className="map-container fade-in">
-      <div className="map-view-container">
+    <div className="map-container fade-in" style={{ height: "100%" }}>
+      <div className="map-view-container" style={{ height: "100%" }}>
         <MapContainer
           center={center}
           zoom={6}
@@ -1291,6 +1293,8 @@ function MapView({
           selectedHikeId={selectedHikeId}
           onSelectHike={onSelectHike}
           onClearSelectedHike={onClearSelectedHike}
+          onRefresh={onRefresh}
+          refreshInProgress={refreshInProgress}
         />
       </div>
     </div>

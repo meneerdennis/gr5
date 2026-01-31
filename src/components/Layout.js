@@ -300,7 +300,10 @@ function Layout({
           <div className="container slide-up justify-between">
             <div className="flex items-center justify-between">
               <div className="flex-1 " style={{ width: "100%" }}>
-                <div className="flex  gap-4" style={{ width: "100%" }}>
+                <div
+                  className="flex  items-center gap-4"
+                  style={{ width: "100%" }}
+                >
                   <img
                     src="/hiker.png"
                     alt="Hiker"
@@ -345,6 +348,60 @@ function Layout({
                       >
                         i
                       </button>
+                      {isMobile && (
+                        <button
+                          onClick={subscribeForNotifications}
+                          disabled={
+                            canReceiveNotifications ||
+                            notificationPermission === "denied" ||
+                            !messagingSupported
+                          }
+                          style={{
+                            width: "20px",
+                            height: "20px",
+                            borderRadius: "50%",
+                            background: "transparent",
+                            color: canReceiveNotifications
+                              ? "#10b981"
+                              : "#3b82f6",
+                            border: "none",
+                            cursor:
+                              canReceiveNotifications ||
+                              notificationPermission === "denied" ||
+                              !messagingSupported
+                                ? "default"
+                                : "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "14px",
+                            marginTop: "15px",
+                            opacity:
+                              canReceiveNotifications ||
+                              notificationPermission === "denied" ||
+                              !messagingSupported
+                                ? 0.7
+                                : 1,
+                          }}
+                          title={
+                            canReceiveNotifications
+                              ? tokenReady
+                                ? "Notifications enabled"
+                                : "Enabling notifications..."
+                              : notificationPermission === "denied"
+                                ? "Notifications blocked"
+                                : !messagingSupported
+                                  ? supportReason ||
+                                    "Notifications not supported"
+                                  : notificationError
+                                    ? `Enable push notifications (${notificationError})`
+                                    : "Enable push notifications"
+                          }
+                          aria-label="Enable push notifications"
+                        >
+                          {canReceiveNotifications ? "🔔" : "🔕"}
+                        </button>
+                      )}
                     </div>
                     <div
                       className="text-gray-600 text-xs md:text-sm"
@@ -369,6 +426,59 @@ function Layout({
                       progress={progress}
                       compact={false}
                       position="top-right"
+                      headerRight={
+                        <button
+                          onClick={subscribeForNotifications}
+                          disabled={
+                            canReceiveNotifications ||
+                            notificationPermission === "denied" ||
+                            !messagingSupported
+                          }
+                          style={{
+                            width: "26px",
+                            height: "26px",
+                            borderRadius: "50%",
+                            background: "transparent",
+                            color: canReceiveNotifications
+                              ? "#10b981"
+                              : "#3b82f6",
+                            border: "none",
+                            cursor:
+                              canReceiveNotifications ||
+                              notificationPermission === "denied" ||
+                              !messagingSupported
+                                ? "default"
+                                : "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "16px",
+                            opacity:
+                              canReceiveNotifications ||
+                              notificationPermission === "denied" ||
+                              !messagingSupported
+                                ? 0.7
+                                : 1,
+                          }}
+                          title={
+                            canReceiveNotifications
+                              ? tokenReady
+                                ? "Notifications enabled"
+                                : "Enabling notifications..."
+                              : notificationPermission === "denied"
+                                ? "Notifications blocked"
+                                : !messagingSupported
+                                  ? supportReason ||
+                                    "Notifications not supported"
+                                  : notificationError
+                                    ? `Enable push notifications (${notificationError})`
+                                    : "Enable push notifications"
+                          }
+                          aria-label="Enable push notifications"
+                        >
+                          {canReceiveNotifications ? "🔔" : "🔕"}
+                        </button>
+                      }
                     />
                   )}
                   {isMobile && (
@@ -410,57 +520,6 @@ function Layout({
               flexWrap: "wrap",
             }}
           >
-            <button
-              onClick={subscribeForNotifications}
-              disabled={
-                canReceiveNotifications || notificationPermission === "denied"
-              }
-              style={{
-                color: canReceiveNotifications ? "#10b981" : "#8b5cf6",
-                background: "none",
-                border: "1px solid currentColor",
-                borderRadius: "999px",
-                cursor:
-                  canReceiveNotifications || notificationPermission === "denied"
-                    ? "default"
-                    : "pointer",
-                padding: "0.35rem 0.75rem",
-                fontSize: "0.75rem",
-                opacity:
-                  canReceiveNotifications || notificationPermission === "denied"
-                    ? 0.7
-                    : 1,
-              }}
-              title="Enable push notifications"
-            >
-              {canReceiveNotifications
-                ? tokenReady
-                  ? "🔔 Notifications enabled"
-                  : "🔔 Enabling notifications..."
-                : notificationPermission === "denied"
-                  ? "🔕 Notifications blocked"
-                  : "🔔 Enable notifications"}
-            </button>
-            {notificationError && (
-              <span
-                style={{
-                  color: "#ef4444",
-                  fontSize: "0.75rem",
-                }}
-              >
-                {notificationError}
-              </span>
-            )}
-            {!messagingSupported && supportReason && (
-              <span
-                style={{
-                  color: "#f59e0b",
-                  fontSize: "0.75rem",
-                }}
-              >
-                {supportReason}
-              </span>
-            )}
             <a
               onClick={() => setIsModalOpen(true)}
               title="Contact me"
@@ -522,23 +581,6 @@ function Layout({
                 <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
               </svg>
             </a>
-            <button
-              onClick={onRefresh}
-              disabled={!onRefresh || refreshInProgress}
-              title="Refresh updates"
-              style={{
-                color: refreshInProgress ? "#10b981" : "#8b5cf6",
-                background: "none",
-                border: "1px solid currentColor",
-                borderRadius: "999px",
-                cursor: !onRefresh || refreshInProgress ? "default" : "pointer",
-                padding: "0.35rem 0.75rem",
-                fontSize: "0.75rem",
-                opacity: !onRefresh || refreshInProgress ? 0.7 : 1,
-              }}
-            >
-              {refreshInProgress ? "🔄 Refreshing..." : "🔄 Refresh"}
-            </button>
           </div>
         </div>
       </footer>

@@ -14,6 +14,21 @@ import { doc, deleteDoc } from "firebase/firestore";
 
 function AdminActivityManager() {
   const [hikes, setHikes] = useState([]);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Calculate paginated hikes
+  const totalPages = Math.ceil(hikes.length / itemsPerPage);
+  const paginatedHikes = hikes.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
+  // Reset to first page when hikes change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [hikes.length]);
   const [loading, setLoading] = useState(true);
   const [deleteStatus, setDeleteStatus] = useState(null);
   const [selectedHike, setSelectedHike] = useState(null);
@@ -34,7 +49,8 @@ function AdminActivityManager() {
 
   const loadHikes = async () => {
     try {
-      const hikesData = await getHikesFromFirebase();
+      // Always fetch fresh data (no cache) to ensure new activities show up immediately
+      const hikesData = await getHikesFromFirebase(null, { useCache: false });
       setHikes(hikesData);
       setLoading(false);
     } catch (error) {
@@ -264,9 +280,25 @@ function AdminActivityManager() {
     <div className="p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         <div className="glass-card p-4 sm:p-6 mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-100 mb-4">
-            🗑️ Activity Manager
-          </h1>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-100 mb-2 sm:mb-0">
+              🗑️ Activity Manager
+            </h1>
+            <button
+              onClick={() => {
+                setLoading(true);
+                loadHikes();
+              }}
+              className="btn btn-primary flex items-center space-x-2 text-sm px-4 py-2"
+              disabled={loading}
+              title="Refresh activities"
+            >
+              <span role="img" aria-label="refresh">
+                🔄
+              </span>
+              <span>Refresh</span>
+            </button>
+          </div>
           <p className="text-gray-300 mb-6">
             View and manage all your activities. Delete unwanted
             activities/hikes from your collection.
@@ -379,7 +411,7 @@ function AdminActivityManager() {
                     </td>
                   </tr>
                 ) : (
-                  hikes.map((hike) => (
+                  paginatedHikes.map((hike) => (
                     <tr
                       key={hike.id}
                       className="border-b border-gray-700 hover:bg-gray-800"
@@ -476,6 +508,30 @@ function AdminActivityManager() {
                       </td>
                     </tr>
                   ))
+                )}
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center items-center mt-4 space-x-2">
+                    <button
+                      className="btn btn-secondary px-3 py-1"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      &lt; Prev
+                    </button>
+                    <span className="text-gray-200 text-sm">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      className="btn btn-secondary px-3 py-1"
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                    >
+                      Next &gt;
+                    </button>
+                  </div>
                 )}
               </tbody>
             </table>

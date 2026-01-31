@@ -29,6 +29,8 @@ function TravelJournalIcon({
   selectedHikeId,
   onSelectHike,
   onClearSelectedHike,
+  onRefresh,
+  refreshInProgress,
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -267,37 +269,71 @@ function TravelJournalIcon({
                 backgroundColor: "#f9fbfd",
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "space-between",
                 gap: "10px",
+                position: "sticky",
+                top: 0,
+                zIndex: 2,
               }}
             >
               <span
-                style={{ display: "flex", alignItems: "center", gap: "4px" }}
+                style={{ display: "flex", alignItems: "center", gap: "10px" }}
               >
                 <span
-                  style={{
-                    width: "6px",
-                    height: "6px",
-                    borderRadius: "50%",
-                    backgroundColor: "#0066cc",
-                    display: "inline-block",
-                  }}
-                />
-                New hike
-              </span>
-              <span
-                style={{ display: "flex", alignItems: "center", gap: "4px" }}
-              >
+                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
+                >
+                  <span
+                    style={{
+                      width: "6px",
+                      height: "6px",
+                      borderRadius: "50%",
+                      backgroundColor: "#0066cc",
+                      display: "inline-block",
+                    }}
+                  />
+                  New hike
+                </span>
                 <span
-                  style={{
-                    width: "6px",
-                    height: "6px",
-                    borderRadius: "50%",
-                    backgroundColor: "#2ecc71",
-                    display: "inline-block",
-                  }}
-                />
-                New comment
+                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
+                >
+                  <span
+                    style={{
+                      width: "6px",
+                      height: "6px",
+                      borderRadius: "50%",
+                      backgroundColor: "#2ecc71",
+                      display: "inline-block",
+                    }}
+                  />
+                  New comment
+                </span>
               </span>
+              {onRefresh && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!refreshInProgress) {
+                      onRefresh();
+                    }
+                  }}
+                  disabled={refreshInProgress}
+                  title="Refresh updates"
+                  style={{
+                    color: refreshInProgress ? "#10b981" : "#4a90e2",
+                    background: "transparent",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: refreshInProgress ? "default" : "pointer",
+                    padding: isMobile ? "0.15rem 0.3rem" : "0.2rem 0.4rem",
+                    fontSize: isMobile ? "12px" : "13px",
+                    fontWeight: 600,
+                    opacity: refreshInProgress ? 0.7 : 1,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  🔄
+                </button>
+              )}
             </div>
             {sortedHikes.map((hike) =>
               (() => {
