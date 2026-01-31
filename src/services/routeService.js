@@ -74,16 +74,7 @@ export async function getRouteData(options = {}) {
     const elevationProfile = [];
     let cumulativeDistance = 0;
 
-    // Downsample track points: keep every 10th point for performance
-    // This reduces 9795 points to ~980 points while maintaining route accuracy
-    const DOWNSAMPLE_FACTOR = 10;
-
-    trkpts.forEach((trkpt, index) => {
-      // Skip points based on downsampling factor
-      if (index % DOWNSAMPLE_FACTOR !== 0 && index !== trkpts.length - 1) {
-        return;
-      }
-
+    trkpts.forEach((trkpt) => {
       const lat = parseFloat(trkpt.getAttribute("lat"));
       const lon = parseFloat(trkpt.getAttribute("lon"));
       const eleElement = trkpt.querySelector("ele");
@@ -107,6 +98,13 @@ export async function getRouteData(options = {}) {
         lon,
       });
     });
+
+    // Debug: log parsed point counts so we can confirm full GPX is used
+    try {
+      console.info(`GPX parsed: total trkpt=${trkpts.length}, elevationProfile=${elevationProfile.length}`);
+    } catch (e) {
+      // ignore logging failures in non-browser environments
+    }
 
     if (elevationProfile.length === 0) {
       throw new Error("No valid elevation data found in GPX");
