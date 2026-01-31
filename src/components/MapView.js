@@ -957,6 +957,80 @@ function MapView({
   const [suppressZoomUpdates, setSuppressZoomUpdates] = useState(false);
   const suppressZoomUpdatesRef = useRef(false);
 
+  // Dynamic map height: apply larger heights for all screen sizes per request
+  const [mapHeight, setMapHeight] = useState(null);
+  const mapRef = useRef(null);
+  const invalidateTimerRef = useRef(null);
+
+  useEffect(() => {
+    const computeMapHeight = () => {
+      // Use viewport width to choose a generous height for each size class
+      const width =
+        window.innerWidth || document.documentElement.clientWidth || 360;
+
+      let baseVh;
+      if (width <= 360) {
+        baseVh = 50; // very small phones — much taller
+      } else if (width <= 412) {
+        baseVh = 54; // small phones
+      } else if (width <= 540) {
+        baseVh = 60; // medium phones
+      } else if (width <= 768) {
+        baseVh = 66; // large phones / small tablets
+      } else if (width <= 1024) {
+        baseVh = 72; // tablets and small laptops
+      } else {
+        baseVh = 76; // desktops / large screens
+      }
+
+      // Slightly increase height for PWA/standalone mode
+      const isPwa =
+        window.matchMedia?.("(display-mode: standalone)")?.matches ||
+        window.navigator?.standalone === true;
+      if (isPwa) baseVh += 6;
+
+      const newHeight = `${baseVh}vh`;
+      setMapHeight(newHeight);
+
+      // Debounced invalidateSize to avoid Leaflet errors during rapid viewport changes
+      if (mapRef.current) {
+        if (invalidateTimerRef.current)
+          clearTimeout(invalidateTimerRef.current);
+        invalidateTimerRef.current = setTimeout(() => {
+          try {
+            mapRef.current.invalidateSize({ animate: false });
+          } catch (err) {
+            // Swallow errors to avoid uncaught exceptions during transitions
+            // (Leaflet can throw if internals aren't ready)
+          }
+        }, 120);
+      }
+    };
+
+    computeMapHeight();
+
+    // Throttle frequent events by using the same compute function with debounce handled above
+    const onEvent = () => computeMapHeight();
+
+    window.addEventListener("resize", onEvent);
+    window.addEventListener("orientationchange", onEvent);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", onEvent);
+    }
+
+    return () => {
+      window.removeEventListener("resize", onEvent);
+      window.removeEventListener("orientationchange", onEvent);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", onEvent);
+      }
+      if (invalidateTimerRef.current) {
+        clearTimeout(invalidateTimerRef.current);
+        invalidateTimerRef.current = null;
+      }
+    };
+  }, []);
+
   // Memoize filtered photos so PhotoMarkers doesn't recreate markers on every render
   const filteredPhotos = useMemo(
     () => photos.filter((p) => p.lat && p.lng),
@@ -1125,17 +1199,33 @@ function MapView({
     setMapReady(true);
   };
 
+  // Store created map instance so we can call invalidateSize after mobile resizes
+  const handleMapCreated = (mapInstance) => {
+    try {
+      mapRef.current = mapInstance;
+      // Ensure size is correct when map is first created
+      mapRef.current.invalidateSize({ animate: false });
+    } catch (err) {
+      // ignore
+    }
+  };
+
   if (!routePolyline.length && !elevationProfile.length) {
     return <div>Geen kaartgegevens beschikbaar</div>;
   }
 
+  // Apply the calculated (larger) mapHeight for all screen sizes; fallback to a generous default if not yet computed
+  const containerStyle = { height: mapHeight || "72vh" };
+  const viewStyle = { height: mapHeight || "72vh", aspectRatio: "auto" };
+
   return (
-    <div className="map-container fade-in" style={{ height: "100%" }}>
-      <div className="map-view-container" style={{ height: "100%" }}>
+    <div className="map-container fade-in" style={containerStyle}>
+      <div className="map-view-container" style={viewStyle}>
         <MapContainer
           center={center}
           zoom={6}
           className="map-container-leaflet"
+          whenCreated={handleMapCreated}
           whenReady={handleMapReady}
         >
           <TileLayer
