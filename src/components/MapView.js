@@ -22,7 +22,7 @@ import "leaflet.markercluster";
 import "leaflet-gpx";
 import PhotoMarkerPopup from "./PhotoMarkerPopup";
 import GpxTrack from "./Gpxtrack";
-import TravelJournalIcon from "./TravelJournalIcon";
+import TravelJournalIcon from "./dropdown";
 import { useViewedActivities } from "../hooks/useViewedActivities";
 
 // Global function for photo modal (will be set by MapView)
