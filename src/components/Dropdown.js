@@ -24,7 +24,7 @@ if (typeof document !== "undefined") {
   document.head.appendChild(style);
 }
 
-function TravelJournalIcon({
+function Dropdown({
   hikes,
   selectedHikeId,
   onSelectHike,
@@ -446,4 +446,4 @@ function TravelJournalIcon({
   );
 }
 
-export default TravelJournalIcon;
+export default Dropdown;

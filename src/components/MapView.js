@@ -22,7 +22,7 @@ import "leaflet.markercluster";
 import "leaflet-gpx";
 import PhotoMarkerPopup from "./PhotoMarkerPopup";
 import GpxTrack from "./Gpxtrack";
-import TravelJournalIcon from "./dropdown";
+import Dropdown from "./Dropdown";
 import { useViewedActivities } from "../hooks/useViewedActivities";
 
 // Global function for photo modal (will be set by MapView)
@@ -1386,7 +1386,7 @@ function MapView({
         </MapContainer>
 
         {/* Travel Journal Icon - positioned in top-right corner */}
-        <TravelJournalIcon
+        <Dropdown
           hikes={hikes}
           selectedHikeId={selectedHikeId}
           onSelectHike={onSelectHike}
