@@ -15,6 +15,8 @@ function isCacheExpired(timestamp, duration) {
 // Helper function to get cache duration for URL
 function getCacheDuration(url) {
   if (url.includes(".gpx")) return GPX_CACHE_DURATION;
+  if (url.includes(".geojson")) return GPX_CACHE_DURATION;
+  if (url.includes("/gr5-route.json")) return GPX_CACHE_DURATION;
   if (url.includes("/static/") || url.includes(".js") || url.includes(".css"))
     return STATIC_CACHE_DURATION;
   if (url.includes("firebasestorage") || url.includes("storage.googleapis.com"))
@@ -28,6 +30,8 @@ const STATIC_FILES = [
   "/index.html",
   "/manifest.json",
   "/gr5.gpx",
+  "/gr5.geojson",
+  "/gr5-route.json",
   "/favicon.ico",
   "/appicon.png",
   "/hikersmall.png",
@@ -37,6 +41,8 @@ const STATIC_FILES = [
   "/hikersmall3.png",
   "/travel_journal_button_transparent.png",
 ];
+
+// ...and include .geojson/.route.json in the static asset fetch handler condition
 
 // Install event - cache static assets
 self.addEventListener("install", (event) => {
@@ -127,7 +133,9 @@ self.addEventListener("fetch", (event) => {
     request.destination === "style" ||
     request.destination === "image" ||
     request.url.includes("/static/") ||
-    request.url.includes(".gpx")
+    request.url.includes(".gpx") ||
+    request.url.includes(".geojson") ||
+    request.url.includes("/gr5-route.json")
   ) {
     event.respondWith(
       caches.open(STATIC_CACHE).then(async (cache) => {
