@@ -95,72 +95,14 @@ function AppContent() {
     }
   }, [route]);
 
-  // Note modal logic - now handled by NoteModal component
   // Memoize hikes with notes for navigation
   const hikesWithNotes = useMemo(() => {
     return hikes.filter((hike) => hike.note && hike.note.trim());
   }, [hikes]);
 
-  if (loading)
-    return (
-      <Layout onRefresh={refreshUpdates} refreshInProgress={refreshing}>
-        <div className="glass-card p-8 text-center">
-          <div className="bounce-in">
-            <div className="text-6xl mb-4">🥾</div>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-              Loading Trail Data
-            </h2>
-            <p className="text-gray-600">Preparing your GR5 adventure...</p>
-            <div className="mt-4">
-              <div className="modern-progress w-64 mx-auto">
-                <div className="modern-progress-fill w-full animate-pulse" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </Layout>
-    );
-
-  if (error)
-    return (
-      <Layout onRefresh={refreshUpdates} refreshInProgress={refreshing}>
-        <div className="glass-card p-8 text-center">
-          <div className="bounce-in">
-            <div className="text-6xl mb-4">⚠️</div>
-            <h2 className="text-2xl font-semibold text-red-600 mb-2">
-              Oops! Something went wrong
-            </h2>
-            <p className="text-gray-600 mb-4">Error: {error.message}</p>
-            <button
-              className="btn btn-primary"
-              onClick={() => window.location.reload()}
-            >
-              🔄 Try Again
-            </button>
-          </div>
-        </div>
-      </Layout>
-    );
-
-  if (!route)
-    return (
-      <Layout onRefresh={refreshUpdates} refreshInProgress={refreshing}>
-        <div className="glass-card p-8 text-center">
-          <div className="bounce-in">
-            <div className="text-6xl mb-4">🗺️</div>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-              No Route Data Found
-            </h2>
-            <p className="text-gray-600">
-              We couldn't find any GR5 route information.
-            </p>
-          </div>
-        </div>
-      </Layout>
-    );
-
+  // Compute progress defensively so Layout can mount even when route is not ready
   const progress =
-    route.totalDistanceKm > 0
+    route?.totalDistanceKm > 0
       ? currentWalkedDistance / route.totalDistanceKm
       : 0;
 
@@ -171,10 +113,7 @@ function AppContent() {
 
   // Handle activity selection
   const handleSelectHike = (hikeId) => {
-    // Open modal for this hike
     openModal(hikeId);
-
-    // Auto-scroll to map when activity is selected
     const mapSection = document.getElementById("map-section");
     if (mapSection) {
       mapSection.scrollIntoView({
@@ -185,14 +124,12 @@ function AppContent() {
     }
   };
 
-  // Handle clearing selected hike
   const handleClearSelectedHike = () => {
     // Modal state now handled by context
   };
 
   // Handle photo click for modal
   const handlePhotoClick = (photoData) => {
-    // Find the photo in the photos array to get hikeId
     const photo = photos.find(
       (p) =>
         p.url === photoData.url &&
@@ -200,120 +137,202 @@ function AppContent() {
         p.date === photoData.date,
     );
     if (photo && photo.hikeId) {
-      // Open modal for this hike with this photo selected
       openModal(photo.hikeId, photo.url);
     }
   };
 
-  // Main app component with routes
-  return (
-    <Routes>
-      {/* Protected admin routes */}
-      <Route
-        path="/admin"
-        element={
-          <Suspense fallback={<div>Loading...</div>}>
-            <AdminRoute>
-              <Navigate to="/admin/manage" replace />
-            </AdminRoute>
-          </Suspense>
-        }
-      />
-      <Route
-        path="/admin/manage"
-        element={
-          <Suspense fallback={<div>Loading...</div>}>
-            <AdminRoute>
-              <AdminPhotoManager />
-            </AdminRoute>
-          </Suspense>
-        }
-      />
-      <Route
-        path="/admin/notes"
-        element={
-          <Suspense fallback={<div>Loading...</div>}>
-            <AdminRoute>
-              <AdminNoteEditor />
-            </AdminRoute>
-          </Suspense>
-        }
-      />
-      <Route
-        path="/admin/activities"
-        element={
-          <Suspense fallback={<div>Loading...</div>}>
-            <AdminRoute>
-              <AdminActivityManager />
-            </AdminRoute>
-          </Suspense>
-        }
-      />
-      {/* Main application route */}
-      <Route
-        path="/"
-        element={
-          <Layout
-            progress={progress}
-            onRefresh={refreshUpdates}
-            refreshInProgress={refreshing}
+  // Build the inner content: either a loading/error/no-route card, or the full routes
+  let innerContent;
+
+  if (loading) {
+    innerContent = (
+      <>
+        <div className="inline-loading-overlay" aria-hidden>
+          <div className="inline-loading-box">
+            <div className="inline-loading-spinner" />
+            <div className="text-sm text-gray-600">Loading trail data…</div>
+          </div>
+        </div>
+        {/* Render the app shell with lightweight placeholders so there's no full-screen swap */}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <>
+                <div className="grid grid-cols-1 gap-6">
+                  <div
+                    className="glass-card p-6 animate-pulse"
+                    style={{ minHeight: "140px" }}
+                  >
+                    <div className="text-gray-600">
+                      Loading elevation profile…
+                    </div>
+                  </div>
+
+                  <div
+                    className="glass-card p-6 animate-pulse"
+                    style={{ minHeight: "320px" }}
+                  >
+                    <div className="text-gray-600">Loading map…</div>
+                  </div>
+                </div>
+              </>
+            }
+          />
+          {/* Keep redirect in place while loading */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </>
+    );
+  } else if (error) {
+    innerContent = (
+      <div className="glass-card p-8 text-center">
+        <div className="bounce-in">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-semibold text-red-600 mb-2">
+            Oops! Something went wrong
+          </h2>
+          <p className="text-gray-600 mb-4">Error: {error.message}</p>
+          <button
+            className="btn btn-primary"
+            onClick={() => window.location.reload()}
           >
-            {/* Main Dashboard Grid */}
-            <div className="grid grid-cols-1 gap-6">
-              {/* Elevation Profile Section */}
-              <div className="slide-up ">
-                <ElevationProfile
-                  elevationProfile={route.elevationProfile}
-                  walkedDistanceKm={currentWalkedDistance}
-                  totalDistanceKm={route.totalDistanceKm}
-                  hoverPoint={hoverPoint}
-                  onHover={setHoverPoint}
-                  zoomRange={zoomRange}
-                  onZoomChange={setZoomRange}
-                  hikes={hikes}
-                />
+            🔄 Try Again
+          </button>
+        </div>
+      </div>
+    );
+  } else if (!route) {
+    innerContent = (
+      <div className="glass-card p-8 text-center">
+        <div className="bounce-in">
+          <div className="text-6xl mb-4">🗺️</div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+            No Route Data Found
+          </h2>
+          <p className="text-gray-600">
+            We couldn't find any GR5 route information.
+          </p>
+        </div>
+      </div>
+    );
+  } else {
+    innerContent = (
+      <Routes>
+        {/* Protected admin routes */}
+        <Route
+          path="/admin"
+          element={
+            <Suspense fallback={<div>Loading...</div>}>
+              <AdminRoute>
+                <Navigate to="/admin/manage" replace />
+              </AdminRoute>
+            </Suspense>
+          }
+        />
+        <Route
+          path="/admin/manage"
+          element={
+            <Suspense fallback={<div>Loading...</div>}>
+              <AdminRoute>
+                <AdminPhotoManager />
+              </AdminRoute>
+            </Suspense>
+          }
+        />
+        <Route
+          path="/admin/notes"
+          element={
+            <Suspense fallback={<div>Loading...</div>}>
+              <AdminRoute>
+                <AdminNoteEditor />
+              </AdminRoute>
+            </Suspense>
+          }
+        />
+        <Route
+          path="/admin/activities"
+          element={
+            <Suspense fallback={<div>Loading...</div>}>
+              <AdminRoute>
+                <AdminActivityManager />
+              </AdminRoute>
+            </Suspense>
+          }
+        />
+        {/* Main application route */}
+        <Route
+          path="/"
+          element={
+            <>
+              {/* Main Dashboard Grid */}
+              <div className="grid grid-cols-1 gap-6">
+                {/* Elevation Profile Section */}
+                <div className="slide-up ">
+                  <ElevationProfile
+                    elevationProfile={route.elevationProfile}
+                    walkedDistanceKm={currentWalkedDistance}
+                    totalDistanceKm={route.totalDistanceKm}
+                    hoverPoint={hoverPoint}
+                    onHover={setHoverPoint}
+                    zoomRange={zoomRange}
+                    onZoomChange={setZoomRange}
+                    hikes={hikes}
+                  />
+                </div>
+
+                {/* Map Section */}
+                <div id="map-section" className="slide-up p-0 m-0">
+                  <MapView
+                    routePolyline={route.polyline}
+                    hikes={hikes}
+                    photos={photos}
+                    gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
+                    elevationProfile={route.elevationProfile}
+                    walkedDistanceKm={currentWalkedDistance}
+                    hoverPoint={hoverPoint}
+                    onHover={setHoverPoint}
+                    zoomRange={zoomRange}
+                    onZoomChange={setZoomRange}
+                    onWalkedDistanceChange={handleWalkedDistanceChange}
+                    onSelectHike={handleSelectHike}
+                    onPhotoClick={handlePhotoClick}
+                    onClearSelectedHike={handleClearSelectedHike}
+                    selectedPhotoLocation={selectedPhotoLocation}
+                    hikeBounds={hikeBounds}
+                    onRefresh={refreshUpdates}
+                    refreshInProgress={refreshing}
+                  />
+                </div>
               </div>
 
-              {/* Map Section */}
-              <div id="map-section" className="slide-up p-0 m-0">
-                <MapView
-                  routePolyline={route.polyline}
-                  hikes={hikes}
-                  photos={photos}
-                  gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
-                  elevationProfile={route.elevationProfile}
-                  walkedDistanceKm={currentWalkedDistance}
-                  hoverPoint={hoverPoint}
-                  onHover={setHoverPoint}
-                  zoomRange={zoomRange}
-                  onZoomChange={setZoomRange}
-                  onWalkedDistanceChange={handleWalkedDistanceChange}
-                  onSelectHike={handleSelectHike}
-                  onPhotoClick={handlePhotoClick}
-                  onClearSelectedHike={handleClearSelectedHike}
-                  selectedPhotoLocation={selectedPhotoLocation}
-                  hikeBounds={hikeBounds}
-                  onRefresh={refreshUpdates}
-                  refreshInProgress={refreshing}
-                />
-              </div>
-            </div>
+              {/* Note Modal - Now a separate component using context */}
+              <NoteModal
+                hikes={hikes}
+                photos={photos}
+                user={user}
+                markAsViewed={markAsViewed}
+                hikesWithNotes={hikesWithNotes}
+              />
+            </>
+          }
+        />
 
-            {/* Note Modal - Now a separate component using context */}
-            <NoteModal
-              hikes={hikes}
-              photos={photos}
-              user={user}
-              markAsViewed={markAsViewed}
-              hikesWithNotes={hikesWithNotes}
-            />
-          </Layout>
-        }
-      />
+        {/* Redirect unknown routes to main page */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
 
-      {/* Redirect unknown routes to main page */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+  // Always render Layout so global UI (notifications, prompts) remain mounted
+  return (
+    <Layout
+      progress={progress}
+      onRefresh={refreshUpdates}
+      refreshInProgress={refreshing}
+    >
+      {innerContent}
+    </Layout>
   );
 }
 

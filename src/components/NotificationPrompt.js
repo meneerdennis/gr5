@@ -1,14 +1,19 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 const STORAGE_KEY = "gr5_notify_prompt_v1";
 
-export default function NotificationPrompt() {
+export default function NotificationPrompt({
+  open = false,
+  onClose = () => {},
+}) {
   const [visible, setVisible] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [shownOnce, setShownOnce] = useState(false);
+  // no collapsed icon — header bell will be used instead
   const [permissionState, setPermissionState] = useState(
     typeof Notification !== "undefined" ? Notification.permission : "default",
   );
+  const containerRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -29,7 +34,8 @@ export default function NotificationPrompt() {
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
 
     const timer = setTimeout(() => {
-      setVisible(true);
+      if (open) setVisible(true);
+      else setVisible(true);
     }, 1200);
 
     return () => {
@@ -37,6 +43,20 @@ export default function NotificationPrompt() {
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
     };
   }, []);
+
+  // respond to `open` prop changes (bell click should re-open prompt even if dismissed)
+  useEffect(() => {
+    if (!open) return;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored === "accepted") {
+        // already accepted — no need to open
+        return;
+      }
+    } catch (e) {}
+    setShownOnce(false);
+    setVisible(true);
+  }, [open]);
 
   useEffect(() => {
     if (typeof Notification === "undefined") return;
@@ -49,6 +69,9 @@ export default function NotificationPrompt() {
     } catch (e) {}
     setVisible(false);
     setShownOnce(true);
+    try {
+      onClose();
+    } catch (e) {}
   };
 
   const enableNotifications = async () => {
@@ -99,85 +122,110 @@ export default function NotificationPrompt() {
     }
   };
 
-  if (shownOnce) return null;
+  // Click-outside handler: first click collapses, second click dismisses
+  useEffect(() => {
+    if (!visible) return;
+    const onDocClick = (e) => {
+      if (!containerRef.current) return;
+      if (containerRef.current.contains(e.target)) return; // clicked inside
+      // clicked outside: dismiss immediately (header bell controls re-open)
+      dismiss("dismissed");
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [visible]);
+
+  if (shownOnce && !open) return null;
+
+  // No collapsed icon — header bell will be used instead
 
   return (
     <div
+      ref={containerRef}
       aria-live="polite"
       style={{
         position: "fixed",
-        right: "1.25rem",
-        bottom: "1.25rem",
+        right: "1rem",
+        top: "1.25rem",
         zIndex: 9999,
-        maxWidth: "360px",
-        width: "calc(100% - 2.5rem)",
+        maxWidth: "300px",
+        width: "auto",
         boxSizing: "border-box",
-        transition: "transform 360ms cubic-bezier(.2,.9,.2,1), opacity 300ms",
-        transform: visible ? "translateY(0)" : "translateY(120%)",
+        transition: "transform 260ms cubic-bezier(.2,.9,.2,1), opacity 260ms",
+        transform: visible ? "translateY(0)" : "translateY(80%)",
         opacity: visible ? 1 : 0,
       }}
     >
       <div
         style={{
-          background: "rgba(255,255,255,0.96)",
+          background: "rgba(255,255,255,0.94)",
           color: "#0f172a",
-          padding: "12px 14px",
-          borderRadius: "12px",
-          boxShadow: "0 8px 30px rgba(2,6,23,0.35)",
-          border: "1px solid rgba(15,23,42,0.06)",
-          fontSize: "0.95rem",
-          lineHeight: 1.2,
+          padding: "8px 10px",
+          borderRadius: "10px",
+          boxShadow: "0 6px 20px rgba(2,6,23,0.2)",
+          border: "1px solid rgba(15,23,42,0.04)",
+          fontSize: "0.88rem",
+          lineHeight: 1.15,
         }}
       >
-        <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-          <div style={{ fontSize: "1.4rem" }}>🔔</div>
+        <div style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+          <div style={{ fontSize: "1.1rem", lineHeight: 1 }}>🔔</div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>Keep up to date with new hikes</div>
-            <div style={{ color: "#334155", marginBottom: 10, fontSize: "0.9rem" }}>
-              Receive quick updates about new hikes and route changes. You can also
-              add this app to your home screen for a better mobile experience.
+            <div
+              style={{ fontWeight: 700, marginBottom: 4, fontSize: "0.95rem" }}
+            >
+              Updates about new hikes
+            </div>
+            <div
+              style={{ color: "#334155", marginBottom: 8, fontSize: "0.84rem" }}
+            >
+              Get short updates about new hikes and route changes. Add to your
+              home screen for a better mobile experience.
             </div>
 
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
               <button
                 onClick={enableNotifications}
                 style={{
-                  padding: "8px 10px",
+                  padding: "6px 8px",
                   background: "#8b5cf6",
                   color: "white",
                   border: "none",
-                  borderRadius: 8,
+                  borderRadius: 6,
                   cursor: "pointer",
                   fontWeight: 600,
+                  fontSize: "0.85rem",
                 }}
               >
-                Enable Notifications
+                Enable
               </button>
 
               <button
                 onClick={handleInstall}
                 style={{
-                  padding: "8px 10px",
+                  padding: "6px 8px",
                   background: "transparent",
                   color: "#0f172a",
-                  border: "1px solid rgba(15,23,42,0.08)",
-                  borderRadius: 8,
+                  border: "1px solid rgba(15,23,42,0.06)",
+                  borderRadius: 6,
                   cursor: "pointer",
                   fontWeight: 600,
+                  fontSize: "0.85rem",
                 }}
               >
-                Install App
+                Install
               </button>
 
               <button
                 onClick={() => dismiss("dismissed")}
                 style={{
-                  padding: "8px 10px",
+                  padding: "6px 8px",
                   background: "transparent",
                   color: "#64748b",
                   border: "none",
-                  borderRadius: 8,
+                  borderRadius: 6,
                   cursor: "pointer",
+                  fontSize: "0.85rem",
                 }}
                 aria-label="Close"
               >

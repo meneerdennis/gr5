@@ -227,6 +227,7 @@ function Layout({
     supportReason,
   } = useNotifications();
   const [toastMessage, setToastMessage] = useState(null);
+  const [notifyOpen, setNotifyOpen] = useState(false);
   const lastRefreshKeyRef = React.useRef(null);
 
   useEffect(() => {
@@ -351,12 +352,7 @@ function Layout({
                       </button>
                       {isMobile && (
                         <button
-                          onClick={subscribeForNotifications}
-                          disabled={
-                            canReceiveNotifications ||
-                            notificationPermission === "denied" ||
-                            !messagingSupported
-                          }
+                          onClick={() => setNotifyOpen(true)}
                           style={{
                             width: "20px",
                             height: "20px",
@@ -366,12 +362,7 @@ function Layout({
                               ? "#10b981"
                               : "#3b82f6",
                             border: "none",
-                            cursor:
-                              canReceiveNotifications ||
-                              notificationPermission === "denied" ||
-                              !messagingSupported
-                                ? "default"
-                                : "pointer",
+                            cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -398,7 +389,7 @@ function Layout({
                                     ? `Enable push notifications (${notificationError})`
                                     : "Enable push notifications"
                           }
-                          aria-label="Enable push notifications"
+                          aria-label="Open notifications prompt"
                         >
                           {canReceiveNotifications ? "🔔" : "🔕"}
                         </button>
@@ -429,12 +420,7 @@ function Layout({
                       position="top-right"
                       headerRight={
                         <button
-                          onClick={subscribeForNotifications}
-                          disabled={
-                            canReceiveNotifications ||
-                            notificationPermission === "denied" ||
-                            !messagingSupported
-                          }
+                          onClick={() => setNotifyOpen(true)}
                           style={{
                             width: "26px",
                             height: "26px",
@@ -444,12 +430,7 @@ function Layout({
                               ? "#10b981"
                               : "#3b82f6",
                             border: "none",
-                            cursor:
-                              canReceiveNotifications ||
-                              notificationPermission === "denied" ||
-                              !messagingSupported
-                                ? "default"
-                                : "pointer",
+                            cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -475,7 +456,7 @@ function Layout({
                                     ? `Enable push notifications (${notificationError})`
                                     : "Enable push notifications"
                           }
-                          aria-label="Enable push notifications"
+                          aria-label="Open notifications prompt"
                         >
                           {canReceiveNotifications ? "🔔" : "🔕"}
                         </button>
@@ -620,7 +601,10 @@ function Layout({
         onClose={() => setIsGR5InfoOpen(false)}
         isMobile={isMobile}
       />
-      <NotificationPrompt />
+      <NotificationPrompt
+        open={notifyOpen}
+        onClose={() => setNotifyOpen(false)}
+      />
     </div>
   );
 }
