@@ -4,6 +4,7 @@ import quotesData from "../data/quotes.json";
 import emailjs from "@emailjs/browser";
 import GR5Info from "./GR5Info";
 import { useNotifications } from "../hooks/useNotifications";
+import NotificationPrompt from "./NotificationPrompt";
 
 function ContactModal({ isOpen, onClose }) {
   const [formData, setFormData] = useState({
@@ -619,6 +620,7 @@ function Layout({
         onClose={() => setIsGR5InfoOpen(false)}
         isMobile={isMobile}
       />
+      <NotificationPrompt />
     </div>
   );
 }
