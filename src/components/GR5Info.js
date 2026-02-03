@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import emailjs from "@emailjs/browser";
 import { translateText, getUserLanguage } from "../services/translationService";
 import GR5TabContent, { getGR5TextContent } from "../content/GR5TabContent";
 import AppTabContent, { getAppTextContent } from "../content/AppTabContent";
@@ -50,6 +51,13 @@ function GR5Info({ isOpen, onClose, isMobile }) {
   const [translatedApp, setTranslatedApp] = useState("");
   const [showTranslatedGR5, setShowTranslatedGR5] = useState(false);
   const [showTranslatedApp, setShowTranslatedApp] = useState(false);
+  // Contact form state
+  const [contactForm, setContactForm] = useState({
+    name: "",
+    email: "",
+    message: "",
+  });
+  const [sending, setSending] = useState(false);
 
   const handleTranslate = async () => {
     const isGR5 = activeTab === "gr5";
@@ -74,7 +82,7 @@ function GR5Info({ isOpen, onClose, isMobile }) {
       if (translated === content) {
         alert(
           buttonTexts[userLang]?.same ||
-            "The content is already in your language."
+            "The content is already in your language.",
         );
         setIsTranslating(false);
         return;
@@ -83,7 +91,7 @@ function GR5Info({ isOpen, onClose, isMobile }) {
       setCurrentShow(true);
     } catch (error) {
       alert(
-        buttonTexts[userLang]?.error || "Translation failed. Please try again."
+        buttonTexts[userLang]?.error || "Translation failed. Please try again.",
       );
     } finally {
       setIsTranslating(false);
@@ -92,6 +100,37 @@ function GR5Info({ isOpen, onClose, isMobile }) {
 
   const isGR5 = activeTab === "gr5";
   const currentShow = isGR5 ? showTranslatedGR5 : showTranslatedApp;
+
+  const handleContactChange = (e) => {
+    setContactForm({ ...contactForm, [e.target.name]: e.target.value });
+  };
+
+  const handleContactSubmit = async (e) => {
+    e.preventDefault();
+    setSending(true);
+    try {
+      await emailjs.send(
+        process.env.REACT_APP_EMAILJS_SERVICE_ID,
+        process.env.REACT_APP_EMAILJS_TEMPLATE_ID,
+        {
+          from_name: contactForm.name,
+          from_email: contactForm.email,
+          message: contactForm.message,
+        },
+        process.env.REACT_APP_EMAILJS_PUBLIC_KEY,
+      );
+      alert("Message sent successfully!");
+      setContactForm({ name: "", email: "", message: "" });
+      onClose();
+    } catch (error) {
+      console.error("Failed to send email:", error);
+      alert(
+        `Failed to send message: ${error?.text || error?.message || "Unknown error"}`,
+      );
+    } finally {
+      setSending(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -210,6 +249,22 @@ function GR5Info({ isOpen, onClose, isMobile }) {
           >
             Deze app
           </button>
+          <button
+            onClick={() => setActiveTab("contact")}
+            style={{
+              padding: "0.5rem 1rem",
+              border: "none",
+              background:
+                activeTab === "contact"
+                  ? "rgba(139, 92, 246, 0.2)"
+                  : "transparent",
+              color: "#f1f5f9",
+              cursor: "pointer",
+              fontWeight: activeTab === "contact" ? "bold" : "normal",
+            }}
+          >
+            Contact
+          </button>
         </div>
         <div>
           {activeTab === "gr5" && showTranslatedGR5 && translatedGR5 && (
@@ -251,6 +306,109 @@ function GR5Info({ isOpen, onClose, isMobile }) {
           )}
           {activeTab === "route" && (!showTranslatedApp || !translatedApp) && (
             <AppTabContent />
+          )}
+
+          {activeTab === "contact" && (
+            <div style={{ maxWidth: "28rem", width: "100%" }}>
+              <h3 style={{ color: "#8b5cf6", marginBottom: "1rem" }}>
+                Contact
+              </h3>
+              <form onSubmit={handleContactSubmit}>
+                <div style={{ marginBottom: "1rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.25rem" }}>
+                    Name
+                  </label>
+                  <input
+                    name="name"
+                    value={contactForm.name}
+                    onChange={handleContactChange}
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "0.5rem",
+                      borderRadius: "0.25rem",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      background: "transparent",
+                      color: "#f1f5f9",
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: "1rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.25rem" }}>
+                    Email
+                  </label>
+                  <input
+                    name="email"
+                    type="email"
+                    value={contactForm.email}
+                    onChange={handleContactChange}
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "0.5rem",
+                      borderRadius: "0.25rem",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      background: "transparent",
+                      color: "#f1f5f9",
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: "1rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.25rem" }}>
+                    Message
+                  </label>
+                  <textarea
+                    name="message"
+                    value={contactForm.message}
+                    onChange={handleContactChange}
+                    rows={4}
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "0.5rem",
+                      borderRadius: "0.25rem",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      background: "transparent",
+                      color: "#f1f5f9",
+                    }}
+                  />
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      background: "rgba(255,255,255,0.06)",
+                      border: "none",
+                      color: "#f1f5f9",
+                      borderRadius: "0.25rem",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={sending}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      background: "#8b5cf6",
+                      border: "none",
+                      color: "white",
+                      borderRadius: "0.25rem",
+                    }}
+                  >
+                    {sending ? "Sending..." : "Send"}
+                  </button>
+                </div>
+              </form>
+            </div>
           )}
         </div>
       </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 
 const STORAGE_KEY = "gr5_notify_prompt_v1";
 
@@ -9,16 +9,15 @@ export default function NotificationPrompt({
   const [visible, setVisible] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [shownOnce, setShownOnce] = useState(false);
-  // no collapsed icon — header bell will be used instead
   const [permissionState, setPermissionState] = useState(
     typeof Notification !== "undefined" ? Notification.permission : "default",
   );
-  const containerRef = useRef(null);
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === "dismissed" || stored === "accepted") {
+      // if user explicitly dismissed earlier, don't auto-show
+      if (stored === "dismissed") {
         setShownOnce(true);
         return;
       }
@@ -34,8 +33,8 @@ export default function NotificationPrompt({
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
 
     const timer = setTimeout(() => {
-      if (open) setVisible(true);
-      else setVisible(true);
+      // auto-show only when not previously dismissed; open prop can also force visibility
+      if (!shownOnce && !open) setVisible(true);
     }, 1200);
 
     return () => {
@@ -44,18 +43,18 @@ export default function NotificationPrompt({
     };
   }, []);
 
-  // respond to `open` prop changes (bell click should re-open prompt even if dismissed)
+  // respond to external open requests (header bell)
   useEffect(() => {
-    if (!open) return;
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === "accepted") {
-        // already accepted — no need to open
-        return;
-      }
-    } catch (e) {}
-    setShownOnce(false);
-    setVisible(true);
+    if (open) {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored === "accepted") {
+          // allow opening even when previously accepted — show info state
+        }
+      } catch (e) {}
+      setShownOnce(false);
+      setVisible(true);
+    }
   }, [open]);
 
   useEffect(() => {
@@ -122,115 +121,116 @@ export default function NotificationPrompt({
     }
   };
 
-  // Click-outside handler: first click collapses, second click dismisses
-  useEffect(() => {
-    if (!visible) return;
-    const onDocClick = (e) => {
-      if (!containerRef.current) return;
-      if (containerRef.current.contains(e.target)) return; // clicked inside
-      // clicked outside: dismiss immediately (header bell controls re-open)
-      dismiss("dismissed");
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [visible]);
-
   if (shownOnce && !open) return null;
-
-  // No collapsed icon — header bell will be used instead
 
   return (
     <div
-      ref={containerRef}
       aria-live="polite"
       style={{
         position: "fixed",
-        right: "1rem",
+        right: "1.25rem",
         top: "1.25rem",
         zIndex: 9999,
-        maxWidth: "300px",
-        width: "auto",
+        maxWidth: "360px",
+        width: "calc(100% - 2.5rem)",
         boxSizing: "border-box",
-        transition: "transform 260ms cubic-bezier(.2,.9,.2,1), opacity 260ms",
-        transform: visible ? "translateY(0)" : "translateY(80%)",
+        transition: "transform 360ms cubic-bezier(.2,.9,.2,1), opacity 300ms",
+        transform: visible ? "translateY(0)" : "translateY(120%)",
         opacity: visible ? 1 : 0,
       }}
     >
       <div
         style={{
-          background: "rgba(255,255,255,0.94)",
+          background: "rgba(255,255,255,0.96)",
           color: "#0f172a",
-          padding: "8px 10px",
-          borderRadius: "10px",
-          boxShadow: "0 6px 20px rgba(2,6,23,0.2)",
-          border: "1px solid rgba(15,23,42,0.04)",
-          fontSize: "0.88rem",
-          lineHeight: 1.15,
+          padding: "12px 14px",
+          borderRadius: "12px",
+          boxShadow: "0 8px 30px rgba(2,6,23,0.35)",
+          border: "1px solid rgba(15,23,42,0.06)",
+          fontSize: "0.95rem",
+          lineHeight: 1.2,
         }}
       >
-        <div style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
-          <div style={{ fontSize: "1.1rem", lineHeight: 1 }}>🔔</div>
+        <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+          <div style={{ fontSize: "1.4rem" }}>🔔</div>
           <div style={{ flex: 1 }}>
-            <div
-              style={{ fontWeight: 700, marginBottom: 4, fontSize: "0.95rem" }}
-            >
-              Updates about new hikes
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+              {permissionState === "granted"
+                ? "Notifications enabled"
+                : "Keep up to date with new hikes"}
             </div>
             <div
-              style={{ color: "#334155", marginBottom: 8, fontSize: "0.84rem" }}
+              style={{ color: "#334155", marginBottom: 10, fontSize: "0.9rem" }}
             >
-              Get short updates about new hikes and route changes. Add to your
-              home screen for a better mobile experience.
+              {permissionState === "granted"
+                ? "Notifications are enabled in your browser. You will receive updates about new hikes and route changes."
+                : "Receive quick updates about new hikes and route changes. You can also add this app to your home screen for a better mobile experience."}
             </div>
 
-            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-              <button
-                onClick={enableNotifications}
-                style={{
-                  padding: "6px 8px",
-                  background: "#8b5cf6",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  fontWeight: 600,
-                  fontSize: "0.85rem",
-                }}
-              >
-                Enable
-              </button>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {permissionState !== "granted" ? (
+                <button
+                  onClick={enableNotifications}
+                  style={{
+                    padding: "8px 10px",
+                    background: "#8b5cf6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Enable Notifications
+                </button>
+              ) : (
+                <button
+                  onClick={() => dismiss("dismissed")}
+                  style={{
+                    padding: "8px 10px",
+                    background: "transparent",
+                    color: "#0f172a",
+                    border: "1px solid rgba(15,23,42,0.08)",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Close
+                </button>
+              )}
 
               <button
                 onClick={handleInstall}
                 style={{
-                  padding: "6px 8px",
+                  padding: "8px 10px",
                   background: "transparent",
                   color: "#0f172a",
-                  border: "1px solid rgba(15,23,42,0.06)",
-                  borderRadius: 6,
+                  border: "1px solid rgba(15,23,42,0.08)",
+                  borderRadius: 8,
                   cursor: "pointer",
                   fontWeight: 600,
-                  fontSize: "0.85rem",
                 }}
               >
-                Install
+                Install App
               </button>
 
-              <button
-                onClick={() => dismiss("dismissed")}
-                style={{
-                  padding: "6px 8px",
-                  background: "transparent",
-                  color: "#64748b",
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  fontSize: "0.85rem",
-                }}
-                aria-label="Close"
-              >
-                Close
-              </button>
+              {permissionState !== "granted" && (
+                <button
+                  onClick={() => dismiss("dismissed")}
+                  style={{
+                    padding: "8px 10px",
+                    background: "transparent",
+                    color: "#64748b",
+                    border: "none",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                  }}
+                  aria-label="Close"
+                >
+                  Close
+                </button>
+              )}
             </div>
           </div>
         </div>

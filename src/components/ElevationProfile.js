@@ -66,8 +66,8 @@ function ElevationProfile({
           ? screenWidth * 0.98
           : screenWidth * 0.95;
         setDimensions({
-          width: Math.min(maxWidth, 400), // Reduced max width to prevent overflow
-          height: isSmallMobile ? 100 : 110, // Conservative height
+          width: Math.min(maxWidth, 800), // Reduced max width to prevent overflow
+          height: isSmallMobile ? 80 : 80, // Conservative height
         });
       } else {
         // Desktop dimensions
@@ -375,7 +375,7 @@ function ElevationProfile({
         )}
       </div> */}
 
-      <div className="flex">
+      <div className="flex" heigth="100%">
         <svg
           ref={svgRef}
           width="100%"
