@@ -15,7 +15,6 @@ import {
 import { useHikeData } from "./hooks/useHikeData";
 import { useAuth } from "./hooks/useAuth";
 import Layout from "./components/Layout";
-import ElevationProfile from "./components/ElevationProfile";
 import MapView from "./components/MapView";
 import { NoteModalProvider, useNoteModal } from "./contexts/NoteModalContext";
 import {
@@ -267,20 +266,6 @@ function AppContent() {
             <>
               {/* Main Dashboard Grid */}
               <div className="grid grid-cols-1 gap-6">
-                {/* Elevation Profile Section */}
-                <div className="slide-up ">
-                  <ElevationProfile
-                    elevationProfile={route.elevationProfile}
-                    walkedDistanceKm={currentWalkedDistance}
-                    totalDistanceKm={route.totalDistanceKm}
-                    hoverPoint={hoverPoint}
-                    onHover={setHoverPoint}
-                    zoomRange={zoomRange}
-                    onZoomChange={setZoomRange}
-                    hikes={hikes}
-                  />
-                </div>
-
                 {/* Map Section */}
                 <div id="map-section" className="slide-up p-0 m-0">
                   <MapView
@@ -290,6 +275,7 @@ function AppContent() {
                     gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
                     elevationProfile={route.elevationProfile}
                     walkedDistanceKm={currentWalkedDistance}
+                    totalDistanceKm={route.totalDistanceKm}
                     hoverPoint={hoverPoint}
                     onHover={setHoverPoint}
                     zoomRange={zoomRange}

@@ -23,6 +23,7 @@ import "leaflet-gpx";
 import PhotoMarkerPopup from "./PhotoMarkerPopup";
 import GpxTrack from "./Gpxtrack";
 import Dropdown from "./Dropdown";
+import ElevationProfile from "./ElevationProfile";
 import { useViewedActivities } from "../hooks/useViewedActivities";
 
 // Global function for photo modal (will be set by MapView)
@@ -938,6 +939,7 @@ function MapView({
   gpxUrl,
   elevationProfile = [],
   walkedDistanceKm = 0,
+  totalDistanceKm = 0,
   hoverPoint,
   onHover,
   zoomRange,
@@ -955,6 +957,7 @@ function MapView({
   const [currentPosition, setCurrentPosition] = useState(null);
   const [mapReady, setMapReady] = useState(false);
   const [suppressZoomUpdates, setSuppressZoomUpdates] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const suppressZoomUpdatesRef = useRef(false);
 
   // Dynamic map height: apply larger heights for all screen sizes per request
@@ -970,17 +973,17 @@ function MapView({
 
       let baseVh;
       if (width <= 360) {
-        baseVh = 50; // very small phones — much taller
+        baseVh = 65; // very small phones — now taller since profile is overlaid
       } else if (width <= 412) {
-        baseVh = 54; // small phones
+        baseVh = 69; // small phones — now taller since profile is overlaid
       } else if (width <= 540) {
-        baseVh = 60; // medium phones
+        baseVh = 75; // medium phones — now taller since profile is overlaid
       } else if (width <= 768) {
-        baseVh = 66; // large phones / small tablets
+        baseVh = 81; // large phones / small tablets — now taller since profile is overlaid
       } else if (width <= 1024) {
-        baseVh = 72; // tablets and small laptops
+        baseVh = 87; // tablets and small laptops — now taller since profile is overlaid
       } else {
-        baseVh = 76; // desktops / large screens
+        baseVh = 91; // desktops / large screens — now taller since profile is overlaid
       }
 
       // Slightly increase height for PWA/standalone mode
@@ -1223,7 +1226,7 @@ function MapView({
   }
 
   // Apply the calculated (larger) mapHeight for all screen sizes; fallback to a generous default if not yet computed
-  const containerStyle = { height: mapHeight || "72vh" };
+  const containerStyle = { height: mapHeight || "72vh", position: "relative" };
   const viewStyle = { height: mapHeight || "72vh", aspectRatio: "auto" };
 
   return (
@@ -1395,6 +1398,61 @@ function MapView({
           refreshInProgress={refreshInProgress}
         />
       </div>
+
+      {/* Elevation Profile at the bottom */}
+      {!isMinimized && (
+        <div
+          className="elevation-profile-container"
+          style={{
+            position: "absolute",
+            bottom: 5,
+            left: 0,
+            right: 0,
+            borderTop: "1px solid #ddd",
+            padding: "8px",
+            zIndex: 1000,
+            maxHeight: "100px",
+            overflow: "hidden",
+          }}
+        >
+          <ElevationProfile
+            elevationProfile={elevationProfile}
+            walkedDistanceKm={walkedDistanceKm}
+            totalDistanceKm={totalDistanceKm}
+            hoverPoint={hoverPoint}
+            onHover={onHover}
+            zoomRange={zoomRange}
+            onZoomChange={onZoomChange}
+            hikes={hikes}
+          />
+        </div>
+      )}
+
+      {/* Minimize/Maximize Button */}
+      <button
+        onClick={() => setIsMinimized(!isMinimized)}
+        style={{
+          position: "absolute",
+          bottom: isMinimized ? 10 : 80,
+          right: 10,
+          zIndex: 1001,
+          background: "#fff",
+          border: "1px solid #ddd",
+          borderRadius: "50%",
+          width: 40,
+          height: 40,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+        }}
+        title={
+          isMinimized ? "Show Elevation Profile" : "Hide Elevation Profile"
+        }
+      >
+        {isMinimized ? "📈" : "📉"}
+      </button>
     </div>
   );
 }
