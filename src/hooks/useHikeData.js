@@ -39,7 +39,6 @@ export function useHikeData() {
   );
   const HIKE_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
   const PHOTO_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
-  const FOCUS_REFRESH_COOLDOWN_MS = 10 * 60 * 1000;
   const COMMENT_POLL_INTERVAL_MS = 10 * 60 * 1000;
 
   const loadCommentCounts = useCallback(async () => {
@@ -290,10 +289,10 @@ export function useHikeData() {
       if (photoUploadTimeoutRef.current) {
         clearTimeout(photoUploadTimeoutRef.current);
       }
-      // Debounce: only reload after 1 second of no new upload events
+      // Debounce: only reload after 5 seconds of no new upload events
       photoUploadTimeoutRef.current = setTimeout(() => {
         reloadPhotos();
-      }, 1000);
+      }, 5000);
     };
 
     const handlePhotoDeleted = () => {
@@ -301,10 +300,10 @@ export function useHikeData() {
       if (photoUploadTimeoutRef.current) {
         clearTimeout(photoUploadTimeoutRef.current);
       }
-      // Debounce: only reload after 1 second of no new delete events
+      // Debounce: only reload after 5 seconds of no new delete events
       photoUploadTimeoutRef.current = setTimeout(() => {
         reloadPhotos();
-      }, 1000);
+      }, 5000);
     };
 
     const handleHikeUpdated = () => {
@@ -312,10 +311,10 @@ export function useHikeData() {
       if (photoUploadTimeoutRef.current) {
         clearTimeout(photoUploadTimeoutRef.current);
       }
-      // Debounce: only reload after 1 second of no new update events
+      // Debounce: only reload after 5 seconds of no new update events
       photoUploadTimeoutRef.current = setTimeout(() => {
         reloadHikes();
-      }, 1000);
+      }, 5000);
     };
 
     window.addEventListener("photoUploaded", handlePhotoUpload);
@@ -434,17 +433,6 @@ export function useHikeData() {
       setRefreshing(false);
     }
   }, [HIKE_LIMIT, PHOTO_LIMIT, photos, refreshing, loadCommentCounts]);
-
-  useEffect(() => {
-    const handleFocus = () => {
-      const now = Date.now();
-      if (now - lastRefreshAtRef.current < FOCUS_REFRESH_COOLDOWN_MS) return;
-      refreshUpdates();
-    };
-
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
-  }, [refreshUpdates]);
 
   return {
     route,
