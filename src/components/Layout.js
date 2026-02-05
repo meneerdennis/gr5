@@ -285,8 +285,8 @@ function Layout({
       {/* Compact Progress Bar positioned at top-right of header */}
 
       {/* Main Content */}
-      <main className="flex-1 ">
-        <div className="container mx-auto">{children}</div>
+      <main className="flex-1">
+        <div className="container mx-auto h-full">{children}</div>
       </main>
 
       <footer

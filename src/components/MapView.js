@@ -973,40 +973,55 @@ function MapView({
 
   // Dynamic map height: apply larger heights for all screen sizes per request
   const [mapHeight, setMapHeight] = useState(null);
+  const [availableHeight, setAvailableHeight] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
   const mapRef = useRef(null);
   const invalidateTimerRef = useRef(null);
 
   useEffect(() => {
-    const computeMapHeight = () => {
-      // Use viewport width to choose a generous height for each size class
+    const computeHeights = () => {
       const width =
         window.innerWidth || document.documentElement.clientWidth || 360;
+      const height = window.innerHeight || 1000;
+      const mobile = width < 1024;
+      setIsMobile(mobile);
 
-      let baseVh;
-      if (width <= 360) {
-        baseVh = 65; // very small phones — now taller since profile is overlaid
-      } else if (width <= 412) {
-        baseVh = 69; // small phones — now taller since profile is overlaid
-      } else if (width <= 540) {
-        baseVh = 75; // medium phones — now taller since profile is overlaid
-      } else if (width <= 768) {
-        baseVh = 81; // large phones / small tablets — now taller since profile is overlaid
-      } else if (width <= 1024) {
-        baseVh = 87; // tablets and small laptops — now taller since profile is overlaid
+      if (mobile) {
+        // Use the existing mobile height calculation
+        let baseVh;
+        if (width <= 360) {
+          baseVh = 65;
+        } else if (width <= 412) {
+          baseVh = 69;
+        } else if (width <= 540) {
+          baseVh = 75;
+        } else if (width <= 768) {
+          baseVh = 81;
+        } else {
+          baseVh = 87;
+        }
+
+        const isPwa =
+          window.matchMedia?.("(display-mode: standalone)")?.matches ||
+          window.navigator?.standalone === true;
+        if (isPwa) baseVh += 6;
+
+        const newHeight = `${baseVh}vh`;
+        setMapHeight(newHeight);
+        setAvailableHeight(null);
       } else {
-        baseVh = 91; // desktops / large screens — now taller since profile is overlaid
+        // For desktop, calculate available height
+        const headerHeight = 150;
+        const footerHeight = 50;
+        const calculatedHeight = Math.max(
+          height - headerHeight - footerHeight,
+          400,
+        ); // minimum 400px
+        setAvailableHeight(`${calculatedHeight}px`);
+        setMapHeight(null);
       }
 
-      // Slightly increase height for PWA/standalone mode
-      const isPwa =
-        window.matchMedia?.("(display-mode: standalone)")?.matches ||
-        window.navigator?.standalone === true;
-      if (isPwa) baseVh += 6;
-
-      const newHeight = `${baseVh}vh`;
-      setMapHeight(newHeight);
-
-      // Debounced invalidateSize to avoid Leaflet errors during rapid viewport changes
+      // Invalidate map size
       if (mapRef.current) {
         if (invalidateTimerRef.current)
           clearTimeout(invalidateTimerRef.current);
@@ -1014,18 +1029,15 @@ function MapView({
           try {
             mapRef.current.invalidateSize({ animate: false });
           } catch (err) {
-            // Swallow errors to avoid uncaught exceptions during transitions
-            // (Leaflet can throw if internals aren't ready)
+            // ignore
           }
         }, 120);
       }
     };
 
-    computeMapHeight();
+    computeHeights();
 
-    // Throttle frequent events by using the same compute function with debounce handled above
-    const onEvent = () => computeMapHeight();
-
+    const onEvent = () => computeHeights();
     window.addEventListener("resize", onEvent);
     window.addEventListener("orientationchange", onEvent);
     if (window.visualViewport) {
@@ -1236,9 +1248,16 @@ function MapView({
     return <div>Geen kaartgegevens beschikbaar</div>;
   }
 
-  // Apply the calculated (larger) mapHeight for all screen sizes; fallback to a generous default if not yet computed
-  const containerStyle = { height: mapHeight || "72vh", position: "relative" };
-  const viewStyle = { height: mapHeight || "72vh", aspectRatio: "auto" };
+  // Calculate available height for the map (viewport height minus header/footer)
+  // Set styles based on screen size
+  const containerStyle = {
+    height: isMobile ? mapHeight || "72vh" : availableHeight || "600px",
+    position: "relative",
+  };
+  const viewStyle = {
+    height: isMobile ? mapHeight || "72vh" : availableHeight || "600px",
+    aspectRatio: "auto",
+  };
 
   return (
     <div className="map-container fade-in" style={containerStyle}>

@@ -265,9 +265,13 @@ function AppContent() {
           element={
             <>
               {/* Main Dashboard Grid */}
-              <div className="grid grid-cols-1 gap-6">
+              <div className="grid grid-cols-1 gap-6 h-full">
                 {/* Map Section */}
-                <div id="map-section" className="slide-up p-0 m-0">
+                <div
+                  id="map-section"
+                  className="slide-up p-0 m-0 h-full"
+                  style={{ marginBottom: "10px" }}
+                >
                   <MapView
                     routePolyline={route.polyline}
                     hikes={hikes}
