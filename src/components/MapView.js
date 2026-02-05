@@ -958,7 +958,18 @@ function MapView({
   const [mapReady, setMapReady] = useState(false);
   const [suppressZoomUpdates, setSuppressZoomUpdates] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [buttonNudge, setButtonNudge] = useState(false);
   const suppressZoomUpdatesRef = useRef(false);
+
+  // Nudge animation for button discovery
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setButtonNudge(true);
+      setTimeout(() => setButtonNudge(false), 600);
+    }, 1000); // Start after 1 second
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Dynamic map height: apply larger heights for all screen sizes per request
   const [mapHeight, setMapHeight] = useState(null);
@@ -1408,7 +1419,6 @@ function MapView({
             bottom: 5,
             left: 0,
             right: 0,
-            borderTop: "1px solid #ddd",
             padding: "8px",
             zIndex: 1000,
             maxHeight: "100px",
@@ -1438,20 +1448,46 @@ function MapView({
           zIndex: 1001,
           background: "#fff",
           border: "1px solid #ddd",
-          borderRadius: "50%",
-          width: 40,
-          height: 40,
+          borderRadius: "18px",
+          width: 36,
+          height: 36,
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           cursor: "pointer",
-          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+          transition: "all 0.2s ease",
+          fontSize: "12px",
+          transform: buttonNudge ? "translateY(-3px)" : "scale(1)",
         }}
         title={
           isMinimized ? "Show Elevation Profile" : "Hide Elevation Profile"
         }
+        onMouseEnter={(e) => {
+          e.target.style.transform = "scale(1.05)";
+          e.target.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.transform = buttonNudge
+            ? "translateY(-3px)"
+            : "scale(1)";
+          e.target.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.1)";
+        }}
       >
-        {isMinimized ? "📈" : "📉"}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "18px",
+            fontWeight: "bold",
+            color: "#666",
+            lineHeight: 1,
+          }}
+        >
+          {isMinimized ? "+" : "−"}
+        </div>
       </button>
     </div>
   );
