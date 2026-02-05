@@ -68,9 +68,28 @@ export function updateHikeCache(limitCount, hikes) {
   writeCachedValue(cacheKey, hikes);
 }
 
+export function clearHikeCache() {
+  // Clear all hike cache entries
+  const keysToRemove = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(HIKE_CACHE_KEY)) {
+      keysToRemove.push(key);
+      if (key.endsWith("_ts")) {
+        // Remove timestamp too
+        continue;
+      }
+    }
+  }
+  keysToRemove.forEach((key) => localStorage.removeItem(key));
+
+  // Clear memory cache
+  cacheStore.clear();
+}
+
 export async function getHikesFromFirebase(limitCount = null, options = {}) {
   try {
-    const { useCache = true, cacheTtlMs = 7 * 24 * 60 * 60 * 1000 } = options;
+    const { useCache = true, cacheTtlMs = 30 * 60 * 1000 } = options; // Reduced to 30 minutes
     const cacheKey = getCacheKey(HIKE_CACHE_KEY, limitCount);
 
     if (useCache) {
@@ -261,6 +280,8 @@ export async function addHikeToFirebase(hikeData) {
   try {
     const hikesCollection = collection(db, "hikes");
     const docRef = await addDoc(hikesCollection, hikeData);
+    // Clear cache to ensure fresh data on next fetch
+    clearHikeCache();
     return { success: true, id: docRef.id };
   } catch (error) {
     console.error("Error adding hike to Firebase:", error);
@@ -707,6 +728,8 @@ export async function updateHikeNote(hikeId, note) {
     const { doc, updateDoc } = await import("firebase/firestore");
     const hikeRef = doc(db, "hikes", hikeId);
     await updateDoc(hikeRef, { note: note });
+    // Clear cache to ensure fresh data on next fetch
+    clearHikeCache();
     return { success: true };
   } catch (error) {
     console.error("Error updating hike note:", error);
@@ -720,6 +743,8 @@ export async function updateHike(hikeId, updates) {
     const { doc, updateDoc } = await import("firebase/firestore");
     const hikeRef = doc(db, "hikes", hikeId);
     await updateDoc(hikeRef, updates);
+    // Clear cache to ensure fresh data on next fetch
+    clearHikeCache();
     return { success: true };
   } catch (error) {
     console.error("Error updating hike:", error);

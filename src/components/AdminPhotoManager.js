@@ -84,7 +84,7 @@ function AdminPhotoManager() {
     try {
       setLoading(true);
       const [photosData, hikesData] = await Promise.all([
-        getAllPhotos(),
+        getAllPhotos({useCache: false}),
         getHikesFromFirebase(),
       ]);
 
@@ -224,7 +224,7 @@ function AdminPhotoManager() {
         }
 
         // Notify main app to refetch photos
-        window.dispatchEvent(new CustomEvent("photoUploaded"));
+        window.dispatchEvent(new CustomEvent("photoDeleted"));
       } else {
         throw new Error(result.error || "Unknown error occurred");
       }
@@ -485,7 +485,7 @@ function AdminPhotoManager() {
       }
 
       // Notify main app to refetch photos
-      window.dispatchEvent(new CustomEvent("photoUploaded"));
+      window.dispatchEvent(new CustomEvent("photoDeleted"));
 
       if (failed > 0) {
         console.warn(`${failed} photos failed to delete`);

@@ -101,8 +101,8 @@ self.addEventListener("fetch", (event) => {
         }
 
         return fetch(request).then((response) => {
-          // Cache successful responses with timestamp
-          if (response.status === 200) {
+          // Cache successful GET responses with timestamp
+          if (request.method === 'GET' && response.status === 200) {
             const responseClone = response.clone();
             const responseWithTimestamp = new Response(responseClone.body, {
               status: responseClone.status,

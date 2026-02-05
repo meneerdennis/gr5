@@ -406,12 +406,12 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
         {hikePhotos && hikePhotos.length > 0 && (
           <div
             className="instagram-photos"
-            style={{ position: "relative", flexShrink: 0 }}
+            style={{ position: "relative", flexShrink: 0, aspectRatio: "4/5" }}
           >
             <SwiperComponent
               key={selectedHikeId}
               initialSlide={selectedPhotoIndex}
-              style={{ height: "400px" }}
+              style={{ height: "100%" }}
               onSlideChange={(swiper) => {
                 const activePhoto = hikePhotos[swiper.activeIndex];
                 if (activePhoto) {
@@ -474,7 +474,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
                       style={{
                         position: "relative",
                         width: "100%",
-                        height: "400px",
+                        height: "100%",
                         backgroundColor: "#000",
                         display: "flex",
                         alignItems: "center",
@@ -507,7 +507,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
                             video.loop = true;
                             video.preload = "metadata";
                             video.style.cssText =
-                              "width: 100%; height: 400px; object-fit: cover; background-color: #000;";
+                              "width: 100%; height: 100%; object-fit: cover; background-color: #000;";
 
                             video.oncanplay = () => {
                               video.play().catch((err) => {
@@ -551,7 +551,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
                   ) : (
                     <div
                       className="photo-loading-wrapper"
-                      style={{ height: "400px" }}
+                      style={{ height: "100%" }}
                     >
                       <div
                         className={`photo-loading-skeleton${

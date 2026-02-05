@@ -7,9 +7,14 @@ import {
   getHikesSince,
   getPhotosFromHikes,
   updateHikeCache,
+  clearHikeCache,
 } from "../services/firebaseService";
 import { db } from "../services/firebase";
-import { getPhotosSince, updatePhotoCache } from "../services/photoService";
+import {
+  getPhotosSince,
+  updatePhotoCache,
+  clearPhotoCache,
+} from "../services/photoService";
 
 export function useHikeData() {
   const [route, setRoute] = useState(null);
@@ -32,8 +37,8 @@ export function useHikeData() {
   const INITIAL_PHOTO_LIMIT = Number(
     process.env.REACT_APP_INITIAL_PHOTO_LIMIT || 20,
   );
-  const HIKE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-  const PHOTO_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+  const HIKE_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+  const PHOTO_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
   const FOCUS_REFRESH_COOLDOWN_MS = 10 * 60 * 1000;
   const COMMENT_POLL_INTERVAL_MS = 10 * 60 * 1000;
 
@@ -230,7 +235,6 @@ export function useHikeData() {
       setPhotosLoading(true);
       const photosData = await getAllPhotosWithHikes(PHOTO_LIMIT, {
         useCache: false,
-        hikes: hikesRef.current,
       });
       setPhotos(photosData);
     } catch (e) {
@@ -239,6 +243,29 @@ export function useHikeData() {
       setPhotosLoading(false);
     }
   }, [PHOTO_LIMIT]);
+
+  // Selective hike reload - only reload hikes, not photos
+  const reloadHikes = useCallback(async () => {
+    try {
+      setLoading(true);
+      const hikesData = await getHikesFromFirebase(HIKE_LIMIT, {
+        useCache: false,
+      });
+      const hikesWithOverrides = hikesData.map((hike) => {
+        const override = commentCountsRef.current.get(hike.id);
+        return typeof override === "number"
+          ? { ...hike, commentsCount: override }
+          : hike;
+      });
+      setHikes(hikesWithOverrides);
+      hikesRef.current = hikesWithOverrides;
+      updateHikeCache(HIKE_LIMIT, hikesWithOverrides);
+    } catch (e) {
+      console.error("Error reloading hikes:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [HIKE_LIMIT]);
 
   useEffect(() => {
     hikesRef.current = hikes;
@@ -269,12 +296,38 @@ export function useHikeData() {
       }, 1000);
     };
 
+    const handlePhotoDeleted = () => {
+      // Clear existing timeout
+      if (photoUploadTimeoutRef.current) {
+        clearTimeout(photoUploadTimeoutRef.current);
+      }
+      // Debounce: only reload after 1 second of no new delete events
+      photoUploadTimeoutRef.current = setTimeout(() => {
+        reloadPhotos();
+      }, 1000);
+    };
+
+    const handleHikeUpdated = () => {
+      // Clear existing timeout
+      if (photoUploadTimeoutRef.current) {
+        clearTimeout(photoUploadTimeoutRef.current);
+      }
+      // Debounce: only reload after 1 second of no new update events
+      photoUploadTimeoutRef.current = setTimeout(() => {
+        reloadHikes();
+      }, 1000);
+    };
+
     window.addEventListener("photoUploaded", handlePhotoUpload);
+    window.addEventListener("photoDeleted", handlePhotoDeleted);
+    window.addEventListener("hikeUpdated", handleHikeUpdated);
 
     return () => {
       clearTimeout(fullDataTimer);
       clearTimeout(commentTimer);
       window.removeEventListener("photoUploaded", handlePhotoUpload);
+      window.removeEventListener("photoDeleted", handlePhotoDeleted);
+      window.removeEventListener("hikeUpdated", handleHikeUpdated);
       if (photoUploadTimeoutRef.current) {
         clearTimeout(photoUploadTimeoutRef.current);
       }
@@ -308,79 +361,36 @@ export function useHikeData() {
     setRefreshing(true);
     lastRefreshAtRef.current = Date.now();
     try {
-      const currentHikes = hikesRef.current || [];
-      const latestHikeDate = currentHikes
-        .map((hike) => hike.startDate)
-        .filter(Boolean)
-        .sort()
-        .slice(-1)[0];
+      // Clear caches to ensure fresh data
+      clearHikeCache();
+      clearPhotoCache();
 
-      const fetchedHikes = latestHikeDate
-        ? await getHikesSince(latestHikeDate, HIKE_LIMIT)
-        : [];
-      const newHikes = fetchedHikes.map((hike) => {
+      // For refresh, do a full refetch to get updated data
+      const allHikes = await getStravaHikes({
+        limit: HIKE_LIMIT,
+        useCache: false, // Bypass cache for refresh
+      });
+      const newHikes = allHikes.map((hike) => {
         const override = commentCountsRef.current.get(hike.id);
         return typeof override === "number"
           ? { ...hike, commentsCount: override }
           : hike;
       });
 
-      let mergedHikes = currentHikes;
-      if (newHikes.length > 0) {
-        const existingIds = new Set();
-        const combined = [...currentHikes, ...newHikes].filter((hike) => {
-          if (existingIds.has(hike.id)) return false;
-          existingIds.add(hike.id);
-          return true;
-        });
-        mergedHikes = combined;
-        setHikes(mergedHikes);
-        hikesRef.current = mergedHikes;
-        updateHikeCache(HIKE_LIMIT, mergedHikes);
-      }
+      let mergedHikes = newHikes; // Use the full refreshed data
+      setHikes(mergedHikes);
+      hikesRef.current = mergedHikes;
+      updateHikeCache(HIKE_LIMIT, mergedHikes);
 
-      const currentPhotos = photos || [];
-      const latestUploadedAt = currentPhotos
-        .map((photo) => photo.uploadedAt)
-        .filter(Boolean)
-        .sort()
-        .slice(-1)[0];
+      // For refresh, refetch all photos
+      const allPhotos = await getAllPhotosWithHikes(PHOTO_LIMIT, {
+        useCache: false, // Bypass cache for refresh
+        hikes: mergedHikes,
+      });
 
-      const newStandalonePhotos = latestUploadedAt
-        ? await getPhotosSince(latestUploadedAt)
-        : [];
-      const newHikePhotos = newHikes.length ? getPhotosFromHikes(newHikes) : [];
-
-      if (newStandalonePhotos.length || newHikePhotos.length) {
-        const photoMap = new Map();
-        currentPhotos.forEach((photo) => photoMap.set(photo.id, photo));
-        newHikePhotos.forEach((photo) => photoMap.set(photo.id, photo));
-        newStandalonePhotos.forEach((photo) =>
-          photoMap.set(photo.id, {
-            id: photo.id,
-            lat: photo.lat,
-            lng: photo.lng,
-            url: photo.url,
-            thumbnailUrl: photo.thumbnailUrl || null,
-            caption: photo.caption || "",
-            date: photo.date || photo.uploadedAt,
-            uploadedAt: photo.uploadedAt,
-            hikeId: photo.hikeId,
-            hikeName:
-              mergedHikes.find((h) => h.id === photo.hikeId)?.name ||
-              "Unknown Hike",
-          }),
-        );
-
-        const mergedPhotos = Array.from(photoMap.values()).sort((a, b) => {
-          const aDate = new Date(a.date || a.uploadedAt || 0);
-          const bDate = new Date(b.date || b.uploadedAt || 0);
-          return bDate - aDate;
-        });
-
-        setPhotos(mergedPhotos);
-        updatePhotoCache(PHOTO_LIMIT, mergedPhotos);
-      }
+      // For refresh, use the full refreshed photos data
+      setPhotos(allPhotos);
+      updatePhotoCache(PHOTO_LIMIT, allPhotos);
 
       // Also fetch a fresh full hikes list from the server to pick up deletions
       try {

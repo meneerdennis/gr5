@@ -61,6 +61,9 @@ function AdminNoteEditor() {
             hike.id === selectedHike ? { ...hike, note: currentNote } : hike
           )
         );
+
+        // Notify main app to update hike data
+        window.dispatchEvent(new CustomEvent("hikeUpdated"));
       } else {
         setSaveStatus({
           type: "error",

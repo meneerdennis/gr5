@@ -1,7 +1,22 @@
 [
   {
-    "origin": ["http://localhost:3000", "https://*.firebaseapp.com"],
-    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "origin": [
+      "http://localhost:3000",
+      "https://your-project-id.firebaseapp.com",
+      "https://your-project-id.web.app",
+      "https://mijngr5.be",
+      "https://www.mijngr5.be"
+    ],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE", "OPTIONS"],
+    "responseHeader": [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Range",
+      "x-goog-resumable",
+      "x-upload-content-type",
+      "x-upload-content-length"
+    ],
     "maxAgeSeconds": 3600
   }
 ]

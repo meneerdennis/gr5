@@ -69,6 +69,25 @@ export function updatePhotoCache(limitCount, photos) {
   writePhotoCache(cacheKey, photos);
 }
 
+export function clearPhotoCache() {
+  // Clear all photo cache entries
+  const keysToRemove = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(PHOTO_CACHE_KEY)) {
+      keysToRemove.push(key);
+      if (key.endsWith("_ts")) {
+        // Remove timestamp too
+        continue;
+      }
+    }
+  }
+  keysToRemove.forEach((key) => localStorage.removeItem(key));
+
+  // Clear memory cache
+  photoCacheStore.clear();
+}
+
 // Extract EXIF data from image file
 function extractExifData(file) {
   return new Promise((resolve) => {
@@ -521,14 +540,17 @@ export async function uploadPhoto(file, hikeId, photoData) {
     await addPhotoToHike(hikeId, {
       id: photoDoc.id,
       url: downloadURL,
-      thumbnailUrl: thumbnailURL,
+      thumbnailUrl: thumbnailURL || null,
       caption: photoData.caption || "",
       description: photoData.description || "",
-      lat: finalLat,
-      lng: finalLng,
-      date: finalDate,
+      lat: finalLat || null,
+      lng: finalLng || null,
+      date: finalDate || null,
       hikeId: hikeId,
     });
+
+    // Clear cache to ensure fresh data on next fetch
+    clearPhotoCache();
 
     return {
       success: true,
@@ -735,7 +757,7 @@ export async function getAllPhotos(options = {}) {
     const {
       limitCount = null,
       useCache = true,
-      cacheTtlMs = 7 * 24 * 60 * 60 * 1000,
+      cacheTtlMs = 30 * 60 * 1000, // 30 minutes
     } = options;
     const cacheKey = getPhotoCacheKey(PHOTO_CACHE_KEY, limitCount);
 
@@ -938,6 +960,10 @@ export async function deletePhoto(photoId, hikeId) {
     }
 
     console.log("Photo completely deleted (Firestore + Storage):", photoId);
+
+    // Clear cache to ensure fresh data on next fetch
+    clearPhotoCache();
+
     return { success: true };
   } catch (error) {
     console.error("Error deleting photo:", error);
@@ -955,6 +981,9 @@ export async function updatePhoto(photoId, updates) {
       ...updates,
       updatedAt: new Date().toISOString(),
     });
+
+    // Clear cache to ensure fresh data on next fetch
+    clearPhotoCache();
 
     return { success: true };
   } catch (error) {
