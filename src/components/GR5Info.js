@@ -44,8 +44,8 @@ const buttonTexts = {
   // Add more languages as needed
 };
 
-function GR5Info({ isOpen, onClose, isMobile }) {
-  const [activeTab, setActiveTab] = useState("gr5");
+function GR5Info({ isOpen, onClose, isMobile, initialTab = "gr5" }) {
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatedGR5, setTranslatedGR5] = useState("");
   const [translatedApp, setTranslatedApp] = useState("");
