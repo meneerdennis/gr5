@@ -58,8 +58,8 @@ function AdminNoteEditor() {
         // Update the hikes list with the new note
         setHikes((prevHikes) =>
           prevHikes.map((hike) =>
-            hike.id === selectedHike ? { ...hike, note: currentNote } : hike
-          )
+            hike.id === selectedHike ? { ...hike, note: currentNote } : hike,
+          ),
         );
 
         // Notify main app to update hike data
@@ -153,7 +153,7 @@ function AdminNoteEditor() {
                   <p className="text-blue-300 text-sm">
                     <strong>Date:</strong>{" "}
                     {formatDate(
-                      hikes.find((h) => h.id === selectedHike)?.startDate
+                      hikes.find((h) => h.id === selectedHike)?.startDate,
                     )}
                   </p>
                   <p className="text-blue-300 text-sm">

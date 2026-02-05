@@ -84,7 +84,7 @@ function AdminPhotoManager() {
     try {
       setLoading(true);
       const [photosData, hikesData] = await Promise.all([
-        getAllPhotos({useCache: false}),
+        getAllPhotos({ useCache: false }),
         getHikesFromFirebase(),
       ]);
 
