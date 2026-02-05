@@ -1577,9 +1577,9 @@ input[type="file"] {
 
   /* Larger elevation profile on mobile - properly sized */
   .elevation-chart svg {
-    height: 100px !important;
-    min-height: 100px;
-    max-height: 150px;
+    height: 80px !important;
+    min-height: 80px;
+    max-height: 80px;
     width: 100% !important;
   }
 

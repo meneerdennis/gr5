@@ -67,7 +67,7 @@ function ElevationProfile({
           : screenWidth * 0.95;
         setDimensions({
           width: Math.min(maxWidth, 800), // Reduced max width to prevent overflow
-          height: isSmallMobile ? 80 : 80, // Conservative height
+          height: 80, // Consistent height across devices
         });
       } else {
         // Desktop dimensions
