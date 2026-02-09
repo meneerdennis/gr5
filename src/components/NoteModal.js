@@ -338,8 +338,8 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
             borderBottom: "1px solid #e1e5e9",
             flexShrink: 0,
             position: "sticky",
-            top: 0,
-            backgroundColor: "white",
+            top: 10,
+            backgroundColor: "#f5f5f5",
             zIndex: 10,
             color: "#3b3b3b",
           }}
@@ -758,8 +758,8 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
             style={{
               display: "flex",
               justifyContent: "space-between",
-              padding: "8px 16px",
-              backgroundColor: "#fafafa",
+              padding: "20px 16px",
+              backgroundColor: "#f0f0f0",
               borderTop: "1px solid #e1e5e9",
               flexShrink: 0,
               position: "sticky",
