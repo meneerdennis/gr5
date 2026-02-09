@@ -65,6 +65,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
   const [isMobile, setIsMobile] = useState(false);
   const isInitialSlideRef = useRef(true);
   const [loadedPhotos, setLoadedPhotos] = useState({});
+  const [isPWA, setIsPWA] = useState(false);
 
   const [swipeStart, setSwipeStart] = useState(null);
   const [swipeDistance, setSwipeDistance] = useState(0);
@@ -124,7 +125,15 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
       return () => mediaQuery.removeEventListener("change", handleChange);
     };
 
+    const checkPWA = () => {
+      const isStandalone =
+        window.matchMedia?.("(display-mode: standalone)")?.matches ||
+        window.navigator?.standalone === true;
+      setIsPWA(isStandalone);
+    };
+
     checkMobile();
+    checkPWA();
   }, []);
 
   // Reset translation when hike changes
@@ -313,7 +322,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
         style={{
           maxWidth: "500px",
           width: "100%",
-          maxHeight: isMobile ? "100vh" : "90vh",
+          maxHeight: isMobile ? (isPWA ? "100vh" : "85vh") : "90vh",
           height: isMobile ? "auto" : "auto",
           backgroundColor: "white",
           borderRadius: "12px",
@@ -325,6 +334,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
           transform: `translateY(${Math.max(0, swipeDistance)}px)`,
           transition: swipeStart === null ? "transform 0.3s ease" : "none",
           opacity: Math.max(0.3, 1 - swipeDistance / 300),
+          position: "relative",
         }}
       >
         {/* Instagram Header */}

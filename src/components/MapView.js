@@ -990,15 +990,15 @@ function MapView({
         // Use the existing mobile height calculation
         let baseVh;
         if (width <= 360) {
-          baseVh = 65;
+          baseVh = 66;
         } else if (width <= 412) {
-          baseVh = 69;
+          baseVh = 70;
         } else if (width <= 540) {
           baseVh = 75;
         } else if (width <= 768) {
-          baseVh = 81;
+          baseVh = 76;
         } else {
-          baseVh = 87;
+          baseVh = 82;
         }
 
         const isPwa =
@@ -1011,12 +1011,12 @@ function MapView({
         setAvailableHeight(null);
       } else {
         // For desktop, calculate available height
-        const headerHeight = 150;
-        const footerHeight = 50;
+        const headerHeight = 180;
+        const footerHeight = 0;
         const calculatedHeight = Math.max(
           height - headerHeight - footerHeight,
-          400,
-        ); // minimum 400px
+          350,
+        ); // minimum 350px
         setAvailableHeight(`${calculatedHeight}px`);
         setMapHeight(null);
       }
@@ -1031,13 +1031,19 @@ function MapView({
           } catch (err) {
             // ignore
           }
-        }, 120);
+        }, 200);
       }
     };
 
     computeHeights();
 
-    const onEvent = () => computeHeights();
+    let resizeTimeout;
+    const onEvent = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        computeHeights();
+      }, 100);
+    };
     window.addEventListener("resize", onEvent);
     window.addEventListener("orientationchange", onEvent);
     if (window.visualViewport) {
@@ -1256,16 +1262,21 @@ function MapView({
   };
   const viewStyle = {
     height: isMobile ? mapHeight || "72vh" : availableHeight || "600px",
-    aspectRatio: "auto",
+    aspectRatio: isMobile ? "unset" : "auto",
   };
 
   return (
     <div className="map-container fade-in" style={containerStyle}>
       <div className="map-view-container" style={viewStyle}>
         <MapContainer
+          key={`map-${isMobile ? mapHeight : availableHeight}`}
           center={center}
           zoom={6}
           className="map-container-leaflet"
+          style={{
+            height: isMobile ? mapHeight || "72vh" : availableHeight || "600px",
+            width: "100%",
+          }}
           whenCreated={handleMapCreated}
           whenReady={handleMapReady}
         >
@@ -1435,7 +1446,7 @@ function MapView({
           className="elevation-profile-container"
           style={{
             position: "absolute",
-            bottom: 5,
+            bottom: 15,
             left: 0,
             right: 0,
             padding: "8px",
@@ -1462,7 +1473,7 @@ function MapView({
         onClick={() => setIsMinimized(!isMinimized)}
         style={{
           position: "absolute",
-          bottom: isMinimized ? 10 : 80,
+          bottom: isMinimized ? 10 : 90,
           right: 10,
           zIndex: 1001,
           background: "#fff",
