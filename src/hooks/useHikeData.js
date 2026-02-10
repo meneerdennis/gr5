@@ -18,6 +18,7 @@ import {
   updatePhotoCache,
   clearPhotoCache,
 } from "../services/photoService";
+import { useAuth } from "./useAuth";
 
 export function useHikeData() {
   const [route, setRoute] = useState(null);
@@ -40,9 +41,11 @@ export function useHikeData() {
   const INITIAL_PHOTO_LIMIT = Number(
     process.env.REACT_APP_INITIAL_PHOTO_LIMIT || 20,
   );
-  const HIKE_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
-  const PHOTO_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+  const HIKE_CACHE_TTL_MS = 10 * 60 * 1000; // Reduced to 10 minutes (Firestore handles most caching now)
+  const PHOTO_CACHE_TTL_MS = 10 * 60 * 1000; // Reduced to 10 minutes (Firestore handles most caching now)
   const COMMENT_POLL_INTERVAL_MS = 10 * 60 * 1000;
+
+  const { user, loading: authLoading } = useAuth();
 
   const loadCommentCounts = useCallback(async () => {
     try {
@@ -269,11 +272,132 @@ export function useHikeData() {
     }
   }, [HIKE_LIMIT]);
 
+  // Handle incremental hike updates from real-time listener
+  const handleHikeChanges = useCallback((changes) => {
+    console.log("Processing incremental hike changes:", changes.length);
+
+    setHikes((prevHikes) => {
+      let updatedHikes = [...prevHikes];
+
+      changes.forEach((change) => {
+        const { type, hike } = change;
+
+        // Apply comment count override if available
+        const hikeWithOverrides = {
+          ...hike,
+          commentsCount:
+            commentCountsRef.current.get(hike.id) ?? hike.commentsCount ?? 0,
+        };
+
+        switch (type) {
+          case "added":
+            // Only add if not already present (avoid duplicates)
+            if (!updatedHikes.find((h) => h.id === hike.id)) {
+              updatedHikes.unshift(hikeWithOverrides); // Add to beginning (newest first)
+            }
+            break;
+
+          case "modified":
+            // Update existing hike
+            updatedHikes = updatedHikes.map((existingHike) =>
+              existingHike.id === hike.id
+                ? { ...existingHike, ...hikeWithOverrides }
+                : existingHike,
+            );
+            break;
+
+          case "removed":
+            // Remove hike
+            updatedHikes = updatedHikes.filter(
+              (existingHike) => existingHike.id !== hike.id,
+            );
+            break;
+
+          default:
+            console.warn("Unknown hike change type:", type);
+        }
+      });
+
+      // Sort by date (newest first) after changes
+      updatedHikes.sort(
+        (a, b) => new Date(b.startDate) - new Date(a.startDate),
+      );
+
+      // Update the ref
+      hikesRef.current = updatedHikes;
+
+      return updatedHikes;
+    });
+  }, []);
+
+  // Handle incremental photo updates from real-time listener
+  const handlePhotoChanges = useCallback((changes) => {
+    console.log("Processing incremental photo changes:", changes.length);
+
+    setPhotos((prevPhotos) => {
+      let updatedPhotos = [...prevPhotos];
+
+      changes.forEach((change) => {
+        const { type, photo } = change;
+
+        // Convert standalone photo to the same format as hike photos
+        const formattedPhoto = {
+          id: photo.id,
+          lat: photo.lat,
+          lng: photo.lng,
+          url: photo.url,
+          thumbnailUrl: photo.thumbnailUrl || null,
+          caption: photo.caption || "",
+          date: photo.date || photo.uploadedAt,
+          hikeId: photo.hikeId,
+          hikeName:
+            hikesRef.current.find((h) => h.id === photo.hikeId)?.name ||
+            "Unknown Hike",
+        };
+
+        switch (type) {
+          case "added":
+            // Only add if not already present (avoid duplicates)
+            if (!updatedPhotos.find((p) => p.id === photo.id)) {
+              updatedPhotos.unshift(formattedPhoto); // Add to beginning (newest first)
+            }
+            break;
+
+          case "modified":
+            // Update existing photo
+            updatedPhotos = updatedPhotos.map((existingPhoto) =>
+              existingPhoto.id === photo.id
+                ? { ...existingPhoto, ...formattedPhoto }
+                : existingPhoto,
+            );
+            break;
+
+          case "removed":
+            // Remove photo
+            updatedPhotos = updatedPhotos.filter(
+              (existingPhoto) => existingPhoto.id !== photo.id,
+            );
+            break;
+
+          default:
+            console.warn("Unknown photo change type:", type);
+        }
+      });
+
+      return updatedPhotos;
+    });
+  }, []);
+
   useEffect(() => {
     hikesRef.current = hikes;
   }, [hikes]);
 
   useEffect(() => {
+    // Only set up listeners and load data when user is authenticated
+    if (!user || authLoading) {
+      return;
+    }
+
     loadData(true); // Load full data directly
 
     // Load comment counts after initial data is loaded
@@ -320,14 +444,14 @@ export function useHikeData() {
     window.addEventListener("hikeUpdated", handleHikeUpdated);
 
     // Set up real-time listeners for hikes and photos
-    const unsubscribeHikes = setupHikesRealtimeListener(() => {
-      // When hikes change, reload hikes
-      reloadHikes();
+    const unsubscribeHikes = setupHikesRealtimeListener((changes) => {
+      // Handle incremental hike updates instead of full reload
+      handleHikeChanges(changes);
     });
 
-    const unsubscribePhotos = setupPhotosRealtimeListener(() => {
-      // When photos change, reload photos
-      reloadPhotos();
+    const unsubscribePhotos = setupPhotosRealtimeListener((changes) => {
+      // Handle incremental photo updates instead of full reload
+      handlePhotoChanges(changes);
     });
 
     return () => {
@@ -342,7 +466,70 @@ export function useHikeData() {
       unsubscribeHikes();
       unsubscribePhotos();
     };
-  }, [loadData, loadFullData, reloadPhotos, reloadHikes]);
+  }, [
+    loadData,
+    loadFullData,
+    reloadPhotos,
+    reloadHikes,
+    handleHikeChanges,
+    handlePhotoChanges,
+    user,
+    authLoading,
+  ]);
+
+  // Clean up listeners and data when user logs out
+  useEffect(() => {
+    if (!user && !authLoading) {
+      console.log("User logged out, clearing data");
+      // Clear data when user logs out
+      setHikes([]);
+      setPhotos([]);
+      setRoute(null);
+      hikesRef.current = [];
+      commentCountsRef.current.clear();
+    }
+  }, [user, authLoading]);
+
+  // Advanced listener management - clean up when page hidden for too long
+  useEffect(() => {
+    let hiddenStartTime = null;
+    let cleanupTimer = null;
+
+    const handleVisibilityChange = () => {
+      if (document?.visibilityState === "hidden") {
+        hiddenStartTime = Date.now();
+        // Set a timer to clean up listeners if page stays hidden for 30 minutes
+        cleanupTimer = setTimeout(
+          () => {
+            console.log("Page hidden for 30 minutes, cleaning up listeners");
+            // The listeners will be cleaned up by their unsubscribe functions
+            // when the component re-mounts or user returns
+          },
+          30 * 60 * 1000,
+        ); // 30 minutes
+      } else if (document?.visibilityState === "visible" && hiddenStartTime) {
+        // User returned, clear the cleanup timer
+        if (cleanupTimer) {
+          clearTimeout(cleanupTimer);
+          cleanupTimer = null;
+        }
+        const hiddenDuration = Date.now() - hiddenStartTime;
+        console.log(
+          `Page was hidden for ${Math.round(hiddenDuration / 1000)}s`,
+        );
+        hiddenStartTime = null;
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (cleanupTimer) {
+        clearTimeout(cleanupTimer);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const pollComments = () => {

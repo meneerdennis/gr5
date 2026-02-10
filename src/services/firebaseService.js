@@ -933,6 +933,9 @@ export async function markMultipleActivitiesAsViewedInFirebase(
 // Real-time listeners for hikes and photos
 let hikesListener = null;
 let photosListener = null;
+let hikesDebounceTimeout = null;
+let photosDebounceTimeout = null;
+const DEBOUNCE_DELAY_MS = 3000; // 3 seconds debounce
 
 export function setupHikesRealtimeListener(onHikesChange) {
   if (hikesListener) {
@@ -945,11 +948,46 @@ export function setupHikesRealtimeListener(onHikesChange) {
   hikesListener = onSnapshot(
     q,
     (querySnapshot) => {
-      console.log("Hikes collection changed, invalidating cache");
-      // Clear cache to force fresh fetch on next request
-      clearHikeCache();
-      // Notify the hook to refresh
-      if (onHikesChange) onHikesChange();
+      // Only process changes if page is visible to the user
+      if (document?.visibilityState !== "visible") {
+        console.log("Hikes changed but page not visible, skipping refresh");
+        return;
+      }
+
+      // Analyze changes for incremental updates
+      const changes = [];
+      querySnapshot.docChanges().forEach((change) => {
+        const hikeData = {
+          id: change.doc.id,
+          ...change.doc.data(),
+        };
+
+        changes.push({
+          type: change.type, // 'added', 'modified', 'removed'
+          hike: hikeData,
+          oldIndex: change.oldIndex,
+          newIndex: change.newIndex,
+        });
+      });
+
+      if (changes.length === 0) return; // No actual changes
+
+      console.log(
+        `Hikes collection changed: ${changes.length} changes detected`,
+        changes,
+      );
+
+      // Clear any existing timeout
+      if (hikesDebounceTimeout) {
+        clearTimeout(hikesDebounceTimeout);
+      }
+
+      // Debounce the incremental update
+      hikesDebounceTimeout = setTimeout(() => {
+        console.log("Executing debounced hikes incremental update");
+        if (onHikesChange) onHikesChange(changes);
+        hikesDebounceTimeout = null;
+      }, DEBOUNCE_DELAY_MS);
     },
     (error) => {
       console.error("Hikes realtime listener error:", error);
@@ -960,6 +998,11 @@ export function setupHikesRealtimeListener(onHikesChange) {
     if (hikesListener) {
       hikesListener();
       hikesListener = null;
+    }
+    // Clear any pending debounce timeout
+    if (hikesDebounceTimeout) {
+      clearTimeout(hikesDebounceTimeout);
+      hikesDebounceTimeout = null;
     }
   };
 }
@@ -975,11 +1018,46 @@ export function setupPhotosRealtimeListener(onPhotosChange) {
   photosListener = onSnapshot(
     q,
     (querySnapshot) => {
-      console.log("Photos collection changed, invalidating cache");
-      // Clear cache to force fresh fetch on next request
-      clearPhotoCache();
-      // Notify the hook to refresh
-      if (onPhotosChange) onPhotosChange();
+      // Only process changes if page is visible to the user
+      if (document?.visibilityState !== "visible") {
+        console.log("Photos changed but page not visible, skipping refresh");
+        return;
+      }
+
+      // Analyze changes for incremental updates
+      const changes = [];
+      querySnapshot.docChanges().forEach((change) => {
+        const photoData = {
+          id: change.doc.id,
+          ...change.doc.data(),
+        };
+
+        changes.push({
+          type: change.type, // 'added', 'modified', 'removed'
+          photo: photoData,
+          oldIndex: change.oldIndex,
+          newIndex: change.newIndex,
+        });
+      });
+
+      if (changes.length === 0) return; // No actual changes
+
+      console.log(
+        `Photos collection changed: ${changes.length} changes detected`,
+        changes,
+      );
+
+      // Clear any existing timeout
+      if (photosDebounceTimeout) {
+        clearTimeout(photosDebounceTimeout);
+      }
+
+      // Debounce the incremental update
+      photosDebounceTimeout = setTimeout(() => {
+        console.log("Executing debounced photos incremental update");
+        if (onPhotosChange) onPhotosChange(changes);
+        photosDebounceTimeout = null;
+      }, DEBOUNCE_DELAY_MS);
     },
     (error) => {
       console.error("Photos realtime listener error:", error);
@@ -990,6 +1068,11 @@ export function setupPhotosRealtimeListener(onPhotosChange) {
     if (photosListener) {
       photosListener();
       photosListener = null;
+    }
+    // Clear any pending debounce timeout
+    if (photosDebounceTimeout) {
+      clearTimeout(photosDebounceTimeout);
+      photosDebounceTimeout = null;
     }
   };
 }

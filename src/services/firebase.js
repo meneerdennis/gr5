@@ -2,7 +2,7 @@
 // Frontend Firebase-configuratie (Create React App)
 
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import {
   getAuth,
@@ -48,6 +48,27 @@ if (missingConfig.length > 0) {
 const app = initializeApp(firebaseConfig);
 export { app };
 export const db = getFirestore(app);
+
+// Enable Firestore offline persistence for better caching
+export const enableFirestorePersistence = async () => {
+  try {
+    await enableIndexedDbPersistence(db);
+    console.log("Firestore persistence enabled");
+    return true;
+  } catch (error) {
+    if (error.code === "failed-precondition") {
+      console.warn("Firestore persistence failed: Multiple tabs open");
+    } else if (error.code === "unimplemented") {
+      console.warn("Firestore persistence not supported in this browser");
+    } else {
+      console.error("Firestore persistence error:", error);
+    }
+    return false;
+  }
+};
+
+// Initialize persistence
+enableFirestorePersistence();
 export const storage = getStorage(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
