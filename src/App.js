@@ -169,9 +169,7 @@ function AppContent() {
             className="glass-card p-6 animate-pulse"
             style={{ minHeight: "140px" }}
           >
-            <div className="text-gray-600">
-              Loading elevation profile…
-            </div>
+            <div className="text-gray-600">Loading elevation profile…</div>
           </div>
 
           <div
@@ -226,12 +224,14 @@ function AppContent() {
             className="slide-up p-0 m-0 h-full"
             style={{ marginBottom: "10px" }}
           >
-            <Suspense fallback={
-              <div className="glass-card p-8 text-center">
-                <div className="text-6xl mb-4">🗺️</div>
-                <div className="text-gray-600">Loading map...</div>
-              </div>
-            }>
+            <Suspense
+              fallback={
+                <div className="glass-card p-8 text-center">
+                  <div className="text-6xl mb-4">🗺️</div>
+                  <div className="text-gray-600">Loading map...</div>
+                </div>
+              }
+            >
               <MapView
                 routePolyline={route.polyline}
                 hikes={hikes}
