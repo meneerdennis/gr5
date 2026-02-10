@@ -109,27 +109,15 @@ export function useHikeData() {
         // Set hikes first so app can show
         setHikes(mergedHikes);
         hikesRef.current = mergedHikes;
-        setLoading(false); // Allow app to show with just hikes
 
-        // Load photos asynchronously
+        // Load route data synchronously before showing the app
+        let routeData;
         try {
-          const photosData = await getAllPhotosWithHikes(photoLimit, {
-            useCache: true,
-            cacheTtlMs: PHOTO_CACHE_TTL_MS,
-            hikes: mergedHikes,
-          });
-          setPhotos(photosData);
-        } catch (photoError) {
-          console.error("Error loading photos:", photoError);
-          setPhotos([]); // Set empty array so photos loading state can end
-        }
-        try {
-          const routeData = await getRouteData({ hikes: mergedHikes });
-          setRoute(routeData);
+          routeData = await getRouteData({ hikes: mergedHikes });
         } catch (routeError) {
           console.error("Error loading route data:", routeError);
           // Set a fallback route so the app can still function
-          setRoute({
+          routeData = {
             polyline: [
               [51.979, 4.133],
               [50.85, 4.35],
@@ -148,11 +136,49 @@ export function useHikeData() {
             ],
             totalDistanceKm: 1000,
             walkedDistanceKm: 0,
+          };
+        }
+        setRoute(routeData);
+
+        setLoading(false); // Allow app to show with hikes and route
+
+        // Load photos asynchronously after the app is visible
+        try {
+          const photosData = await getAllPhotosWithHikes(photoLimit, {
+            useCache: true,
+            cacheTtlMs: PHOTO_CACHE_TTL_MS,
+            hikes: mergedHikes,
           });
+          setPhotos(photosData);
+        } catch (photoError) {
+          console.error("Error loading photos:", photoError);
+          setPhotos([]); // Set empty array so photos loading state can end
         }
       } catch (e) {
         console.error(e);
         setError(e);
+        // Set fallback data so app can still show something
+        setHikes([]);
+        setRoute({
+          polyline: [
+            [51.979, 4.133],
+            [50.85, 4.35],
+            [49.6, 6.1],
+            [46.5, 6.6],
+            [45.0, 6.0],
+            [43.7, 7.26],
+          ],
+          elevationProfile: [
+            { distanceKm: 0, elevationM: 0, lat: 51.979, lon: 4.133 },
+            { distanceKm: 200, elevationM: 200, lat: 50.85, lon: 4.35 },
+            { distanceKm: 400, elevationM: 500, lat: 49.6, lon: 6.1 },
+            { distanceKm: 600, elevationM: 1500, lat: 46.5, lon: 6.6 },
+            { distanceKm: 800, elevationM: 1000, lat: 45.0, lon: 6.0 },
+            { distanceKm: 1000, elevationM: 0, lat: 43.7, lon: 7.26 },
+          ],
+          totalDistanceKm: 1000,
+          walkedDistanceKm: 0,
+        });
         setLoading(false);
       } finally {
         setPhotosLoading(false);
