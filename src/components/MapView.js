@@ -584,7 +584,6 @@ function MapInteraction({
   zoomRange,
   onZoomChange,
   suppressZoomUpdates = false,
-  loadPhotosWithinBounds,
 }) {
   const map = useMap();
   const isUpdatingFromZoomRange = useRef(false);
@@ -766,20 +765,7 @@ function MapInteraction({
         try {
           lastMapUpdate.current = Date.now();
           const bounds = map.getBounds();
-          const zoomLevel = map.getZoom();
-
           updateElevationProfileFromBounds(bounds, false);
-
-          // Load photos within bounds if zoomed in enough
-          if (loadPhotosWithinBounds && zoomLevel > 8) {
-            const boundsObj = {
-              north: bounds.getNorth(),
-              south: bounds.getSouth(),
-              east: bounds.getEast(),
-              west: bounds.getWest(),
-            };
-            loadPhotosWithinBounds(boundsObj, zoomLevel);
-          }
         } catch (error) {
           console.warn("Error handling move end:", error);
         }
@@ -802,21 +788,7 @@ function MapInteraction({
         try {
           lastMapUpdate.current = Date.now();
           const bounds = map.getBounds();
-          const zoomLevel = map.getZoom();
-
           updateElevationProfileFromBounds(bounds, true);
-
-          // Load photos within bounds if zoomed in enough
-          if (loadPhotosWithinBounds && zoomLevel > 8) {
-            const boundsObj = {
-              north: bounds.getNorth(),
-              south: bounds.getSouth(),
-              east: bounds.getEast(),
-              west: bounds.getWest(),
-            };
-            loadPhotosWithinBounds(boundsObj, zoomLevel);
-          }
-
           isUserZooming.current = false;
         } catch (error) {
           console.warn("Error handling zoom end:", error);
@@ -879,24 +851,7 @@ function MapInteraction({
       map.off("zoomend", handleZoomEnd);
       map.off("moveend", handleMoveEnd);
     };
-  }, [map, elevationProfile, onZoomChange, loadPhotosWithinBounds]);
-
-  // Initial photo loading when map is ready and zoomed in enough
-  useEffect(() => {
-    if (!map || !isMapReady.current || !loadPhotosWithinBounds) return;
-
-    const zoomLevel = map.getZoom();
-    if (zoomLevel > 8) {
-      const bounds = map.getBounds();
-      const boundsObj = {
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-      };
-      loadPhotosWithinBounds(boundsObj, zoomLevel);
-    }
-  }, [map, isMapReady.current, loadPhotosWithinBounds]);
+  }, [map, elevationProfile, onZoomChange]);
 
   // Handle map click for hover
   useEffect(() => {
@@ -1004,7 +959,6 @@ function MapView({
   hikeBounds,
   onRefresh,
   refreshInProgress,
-  loadPhotosWithinBounds,
 }) {
   const [currentPosition, setCurrentPosition] = useState(null);
   const [mapReady, setMapReady] = useState(false);
@@ -1475,7 +1429,6 @@ function MapView({
             zoomRange={zoomRange}
             onZoomChange={onZoomChange}
             suppressZoomUpdates={suppressZoomUpdates}
-            loadPhotosWithinBounds={loadPhotosWithinBounds}
           />
 
           {/* Map initializer */}
