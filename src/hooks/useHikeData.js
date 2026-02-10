@@ -8,6 +8,9 @@ import {
   getPhotosFromHikes,
   updateHikeCache,
   clearHikeCache,
+  setupHikesRealtimeListener,
+  setupPhotosRealtimeListener,
+  getHikesFromFirebase,
 } from "../services/firebaseService";
 import { db } from "../services/firebase";
 import {
@@ -271,12 +274,7 @@ export function useHikeData() {
   }, [hikes]);
 
   useEffect(() => {
-    loadData(false); // Load initial data
-
-    // Load full dataset after initial load completes (with delay to prioritize initial render)
-    const fullDataTimer = setTimeout(() => {
-      loadFullData();
-    }, 2000); // Load full data after 2 seconds
+    loadData(true); // Load full data directly
 
     // Load comment counts after initial data is loaded
     const commentTimer = setTimeout(() => {
@@ -321,8 +319,18 @@ export function useHikeData() {
     window.addEventListener("photoDeleted", handlePhotoDeleted);
     window.addEventListener("hikeUpdated", handleHikeUpdated);
 
+    // Set up real-time listeners for hikes and photos
+    const unsubscribeHikes = setupHikesRealtimeListener(() => {
+      // When hikes change, reload hikes
+      reloadHikes();
+    });
+
+    const unsubscribePhotos = setupPhotosRealtimeListener(() => {
+      // When photos change, reload photos
+      reloadPhotos();
+    });
+
     return () => {
-      clearTimeout(fullDataTimer);
       clearTimeout(commentTimer);
       window.removeEventListener("photoUploaded", handlePhotoUpload);
       window.removeEventListener("photoDeleted", handlePhotoDeleted);
@@ -330,8 +338,11 @@ export function useHikeData() {
       if (photoUploadTimeoutRef.current) {
         clearTimeout(photoUploadTimeoutRef.current);
       }
+      // Clean up real-time listeners
+      unsubscribeHikes();
+      unsubscribePhotos();
     };
-  }, [loadData, loadFullData, reloadPhotos]);
+  }, [loadData, loadFullData, reloadPhotos, reloadHikes]);
 
   useEffect(() => {
     const pollComments = () => {

@@ -75,8 +75,16 @@ const buttonTexts = {
 };
 
 function AppContent() {
-  const { route, hikes, photos, loading, error, refreshUpdates, refreshing } =
-    useHikeData();
+  const {
+    route,
+    hikes,
+    photos,
+    loading,
+    photosLoading,
+    error,
+    refreshUpdates,
+    refreshing,
+  } = useHikeData();
   const [hoverPoint, setHoverPoint] = useState(null);
   const [zoomRange, setZoomRange] = useState(null);
   const [currentWalkedDistance, setCurrentWalkedDistance] = useState(0);
@@ -143,7 +151,7 @@ function AppContent() {
   // Build the inner content: either a loading/error/no-route card, or the full routes
   let innerContent;
 
-  if (loading) {
+  if (loading || photosLoading) {
     innerContent = (
       <>
         <div className="inline-loading-overlay" aria-hidden>

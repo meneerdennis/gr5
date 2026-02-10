@@ -17,7 +17,7 @@ import {
   runTransaction,
   limit,
 } from "firebase/firestore";
-import { getAllPhotos } from "./photoService";
+import { getAllPhotos, clearPhotoCache } from "./photoService";
 
 const HIKE_CACHE_KEY = "gr5_hikes_cache";
 const PHOTO_CACHE_KEY = "gr5_all_photos_cache";
@@ -928,4 +928,68 @@ export async function markMultipleActivitiesAsViewedInFirebase(
     console.error("Error marking multiple activities as viewed:", error);
     return { success: false, error: error.message };
   }
+}
+
+// Real-time listeners for hikes and photos
+let hikesListener = null;
+let photosListener = null;
+
+export function setupHikesRealtimeListener(onHikesChange) {
+  if (hikesListener) {
+    hikesListener(); // Unsubscribe previous listener
+  }
+
+  const hikesCollection = collection(db, "hikes");
+  const q = query(hikesCollection, orderBy("startDate", "desc"), limit(1000));
+
+  hikesListener = onSnapshot(
+    q,
+    (querySnapshot) => {
+      console.log("Hikes collection changed, invalidating cache");
+      // Clear cache to force fresh fetch on next request
+      clearHikeCache();
+      // Notify the hook to refresh
+      if (onHikesChange) onHikesChange();
+    },
+    (error) => {
+      console.error("Hikes realtime listener error:", error);
+    },
+  );
+
+  return () => {
+    if (hikesListener) {
+      hikesListener();
+      hikesListener = null;
+    }
+  };
+}
+
+export function setupPhotosRealtimeListener(onPhotosChange) {
+  if (photosListener) {
+    photosListener(); // Unsubscribe previous listener
+  }
+
+  const photosCollection = collection(db, "photos");
+  const q = query(photosCollection, orderBy("uploadedAt", "desc"), limit(1000));
+
+  photosListener = onSnapshot(
+    q,
+    (querySnapshot) => {
+      console.log("Photos collection changed, invalidating cache");
+      // Clear cache to force fresh fetch on next request
+      clearPhotoCache();
+      // Notify the hook to refresh
+      if (onPhotosChange) onPhotosChange();
+    },
+    (error) => {
+      console.error("Photos realtime listener error:", error);
+    },
+  );
+
+  return () => {
+    if (photosListener) {
+      photosListener();
+      photosListener = null;
+    }
+  };
 }

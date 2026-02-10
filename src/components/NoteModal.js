@@ -167,6 +167,22 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
   useEffect(() => {
     if (selectedHikeId) {
       markAsViewed(selectedHikeId);
+      // Also update localStorage for Dropdown synchronization
+      const stored = localStorage.getItem("viewedActivities");
+      let viewed = new Set();
+      if (stored) {
+        try {
+          viewed = new Set(JSON.parse(stored));
+        } catch (e) {}
+      }
+      viewed.add(selectedHikeId);
+      localStorage.setItem("viewedActivities", JSON.stringify([...viewed]));
+      // Dispatch custom event to update Dropdown
+      window.dispatchEvent(
+        new CustomEvent("viewedActivitiesUpdated", {
+          detail: { viewedActivities: viewed },
+        }),
+      );
     }
   }, [selectedHikeId, markAsViewed]);
 

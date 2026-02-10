@@ -439,18 +439,6 @@ function ElevationProfile({
             stroke="none"
           />
 
-          {/* Green progress fill - shows completed portion */}
-          {markerX !== null && (
-            <rect
-              width={Math.max(0, markerX)}
-              height={height}
-              fill="#4caf50"
-              opacity="0.6"
-              style={{ transition: "width 0.2s ease" }}
-              z-index="19"
-            />
-          )}
-
           {/* Elevation line */}
           <polyline
             points={points}

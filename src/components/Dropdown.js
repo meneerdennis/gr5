@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useAuth } from "../hooks/useAuth";
 
 // Add slideDown animation
 const slideDownKeyframes = `
@@ -32,7 +31,7 @@ function Dropdown({
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const { user } = useAuth();
+  const [viewedActivities, setViewedActivities] = useState(new Set());
   const dropdownRef = useRef(null);
 
   // Mobile detection
@@ -43,12 +42,41 @@ function Dropdown({
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Load viewed activities from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("viewedActivities");
+    if (stored) {
+      try {
+        const viewedIds = JSON.parse(stored);
+        setViewedActivities(new Set(viewedIds));
+      } catch (e) {
+        console.error("Error parsing viewed activities:", e);
+      }
+    }
+  }, []);
+  // Listen for viewed activities updates from other components
+  useEffect(() => {
+    const handleViewedUpdate = (event) => {
+      if (event.detail?.viewedActivities) {
+        setViewedActivities(event.detail.viewedActivities);
+      }
+    };
+
+    window.addEventListener("viewedActivitiesUpdated", handleViewedUpdate);
+    return () =>
+      window.removeEventListener("viewedActivitiesUpdated", handleViewedUpdate);
+  }, []);
   // Sort hikes by date (most recent first)
   const sortedHikes = [...hikes].sort((a, b) => {
     const dateA = new Date(a.startDate);
     const dateB = new Date(b.startDate);
     return dateB - dateA;
   });
+
+  // Get unread activities count for the notification badge
+  const unreadCount = sortedHikes.filter(
+    (hike) => !viewedActivities.has(hike.id),
+  ).length;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -79,8 +107,18 @@ function Dropdown({
     });
   };
 
-  // Handle activity selection
+  // Handle activity selection and mark as viewed
   const handleActivitySelect = (hikeId) => {
+    // Mark activity as viewed
+    const newViewed = new Set(viewedActivities);
+    newViewed.add(hikeId);
+    setViewedActivities(newViewed);
+    localStorage.setItem("viewedActivities", JSON.stringify([...newViewed])); // Dispatch custom event to sync with other components
+    window.dispatchEvent(
+      new CustomEvent("viewedActivitiesUpdated", {
+        detail: { viewedActivities: newViewed },
+      }),
+    );
     // Call the original onSelectHike function
     onSelectHike(hikeId);
   };
@@ -221,6 +259,29 @@ function Dropdown({
                       {hike.name || "Unnamed Activity"}
                       {hike.distanceKm && ` (${hike.distanceKm.toFixed(1)} km)`}
                     </span>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                        marginLeft: "8px",
+                      }}
+                    >
+                      {!viewedActivities.has(hike.id) && (
+                        <span
+                          style={{
+                            width: "8px",
+                            height: "8px",
+                            borderRadius: "50%",
+                            backgroundColor: "#0066cc",
+                            display: "inline-block",
+                          }}
+                          title="New activity"
+                        />
+                      )}
+                    </span>
                   </div>
                 );
               })(),
@@ -229,7 +290,7 @@ function Dropdown({
         )}
 
         {/* iOS-style notification badge - only show if there are unread activities */}
-        {false && (
+        {unreadCount > 0 && (
           <div
             className="notification-badge"
             style={{
@@ -252,7 +313,7 @@ function Dropdown({
               animation: "pulse 2s infinite",
             }}
           >
-            {0}
+            {unreadCount > 99 ? "99+" : unreadCount}
           </div>
         )}
       </div>
