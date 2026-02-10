@@ -99,11 +99,16 @@ function ZoomToHike({ bounds }) {
 
   useEffect(() => {
     if (bounds && map && map.getContainer()) {
-      try {
-        map.fitBounds(bounds, { padding: [50, 50] });
-      } catch (error) {
-        console.warn("Error fitting bounds:", error);
-      }
+      // Small delay to ensure map is fully ready
+      setTimeout(() => {
+        try {
+          if (map && map.getContainer()) {
+            map.fitBounds(bounds, { padding: [50, 50] });
+          }
+        } catch (error) {
+          console.warn("Error fitting bounds:", error);
+        }
+      }, 100);
     }
   }, [bounds, map]);
 
@@ -658,6 +663,7 @@ function MapInteraction({
     if (
       !map ||
       !map.getContainer() ||
+      !isMapReady.current ||
       !elevationProfile ||
       elevationProfile.length === 0
     )
