@@ -43,7 +43,14 @@ const buttonTexts = {
   },
 };
 
-function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
+function NoteModal({
+  hikes,
+  photos,
+  user,
+  markAsViewed,
+  hikesWithNotes,
+  loadPhotosForHike,
+}) {
   const {
     selectedHikeId,
     selectedPhotoUrl,
@@ -136,12 +143,17 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
     checkPWA();
   }, []);
 
-  // Reset translation when hike changes
+  // Reset translation when hike changes and load photos if needed
   useEffect(() => {
     resetTranslation();
     isInitialSlideRef.current = true;
     setLoadedPhotos({});
-  }, [selectedHikeId, resetTranslation]);
+
+    // Load photos for this hike if not already loaded
+    if (selectedHikeId && loadPhotosForHike) {
+      loadPhotosForHike(selectedHikeId);
+    }
+  }, [selectedHikeId, resetTranslation, loadPhotosForHike]);
 
   // Set map bounds to show entire hike when modal opens
   useEffect(() => {

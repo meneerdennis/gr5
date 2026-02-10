@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import ProgressBar from "./ProgressBar";
 import quotesData from "../data/quotes.json";
-import GR5Info from "./GR5Info";
+// Lazy load GR5Info since it's only shown in modal
+const GR5Info = lazy(() => import("./GR5Info"));
 import { useNotifications } from "../hooks/useNotifications";
-import NotificationPrompt from "./NotificationPrompt";
+// Lazy load components that are only shown conditionally
+const NotificationPrompt = lazy(() => import("./NotificationPrompt"));
 
 function Layout({
   children,
@@ -314,16 +316,20 @@ function Layout({
           <div style={{ opacity: 0.9 }}>{toastMessage.body}</div>
         </div>
       )}
-      <GR5Info
-        isOpen={isGR5InfoOpen}
-        onClose={() => setIsGR5InfoOpen(false)}
-        isMobile={isMobile}
-        initialTab={initialTab}
-      />
-      <NotificationPrompt
-        open={notifyOpen}
-        onClose={() => setNotifyOpen(false)}
-      />
+      <Suspense fallback={null}>
+        <GR5Info
+          isOpen={isGR5InfoOpen}
+          onClose={() => setIsGR5InfoOpen(false)}
+          isMobile={isMobile}
+          initialTab={initialTab}
+        />
+      </Suspense>
+      <Suspense fallback={null}>
+        <NotificationPrompt
+          open={notifyOpen}
+          onClose={() => setNotifyOpen(false)}
+        />
+      </Suspense>
     </div>
   );
 }

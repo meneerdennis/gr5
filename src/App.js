@@ -15,14 +15,15 @@ import {
 import { useHikeData } from "./hooks/useHikeData";
 import { useAuth } from "./hooks/useAuth";
 import Layout from "./components/Layout";
-import MapView from "./components/MapView";
 import { NoteModalProvider, useNoteModal } from "./contexts/NoteModalContext";
 import {
   ViewedActivitiesProvider,
   useViewedActivitiesContext,
 } from "./contexts/ViewedActivitiesContext";
 import { ViewedCommentsProvider } from "./contexts/ViewedCommentsContext";
-import NoteModal from "./components/NoteModal";
+// Lazy load heavy components
+const MapView = lazy(() => import("./components/MapView"));
+const NoteModal = lazy(() => import("./components/NoteModal"));
 
 // Lazy load admin components
 const AdminPhotoManager = lazy(() => import("./components/AdminPhotoManager"));
@@ -85,6 +86,7 @@ function AppContent() {
     refreshUpdates,
     refreshing,
     loadPhotosWithinBounds,
+    loadPhotosForHike,
   } = useHikeData();
   const [hoverPoint, setHoverPoint] = useState(null);
   const [zoomRange, setZoomRange] = useState(null);
@@ -224,39 +226,49 @@ function AppContent() {
             className="slide-up p-0 m-0 h-full"
             style={{ marginBottom: "10px" }}
           >
-            <MapView
-              routePolyline={route.polyline}
-              hikes={hikes}
-              photos={photos}
-              gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
-              elevationProfile={route.elevationProfile}
-              walkedDistanceKm={currentWalkedDistance}
-              totalDistanceKm={route.totalDistanceKm}
-              hoverPoint={hoverPoint}
-              onHover={setHoverPoint}
-              zoomRange={zoomRange}
-              onZoomChange={setZoomRange}
-              onWalkedDistanceChange={handleWalkedDistanceChange}
-              onSelectHike={handleSelectHike}
-              onPhotoClick={handlePhotoClick}
-              onClearSelectedHike={handleClearSelectedHike}
-              selectedPhotoLocation={selectedPhotoLocation}
-              hikeBounds={hikeBounds}
-              onRefresh={refreshUpdates}
-              refreshInProgress={refreshing}
-              loadPhotosWithinBounds={loadPhotosWithinBounds}
-            />
+            <Suspense fallback={
+              <div className="glass-card p-8 text-center">
+                <div className="text-6xl mb-4">🗺️</div>
+                <div className="text-gray-600">Loading map...</div>
+              </div>
+            }>
+              <MapView
+                routePolyline={route.polyline}
+                hikes={hikes}
+                photos={photos}
+                gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
+                elevationProfile={route.elevationProfile}
+                walkedDistanceKm={currentWalkedDistance}
+                totalDistanceKm={route.totalDistanceKm}
+                hoverPoint={hoverPoint}
+                onHover={setHoverPoint}
+                zoomRange={zoomRange}
+                onZoomChange={setZoomRange}
+                onWalkedDistanceChange={handleWalkedDistanceChange}
+                onSelectHike={handleSelectHike}
+                onPhotoClick={handlePhotoClick}
+                onClearSelectedHike={handleClearSelectedHike}
+                selectedPhotoLocation={selectedPhotoLocation}
+                hikeBounds={hikeBounds}
+                onRefresh={refreshUpdates}
+                refreshInProgress={refreshing}
+                loadPhotosWithinBounds={loadPhotosWithinBounds}
+              />
+            </Suspense>
           </div>
         </div>
 
         {/* Note Modal - Now a separate component using context */}
-        <NoteModal
-          hikes={hikes}
-          photos={photos}
-          user={user}
-          markAsViewed={markAsViewed}
-          hikesWithNotes={hikesWithNotes}
-        />
+        <Suspense fallback={null}>
+          <NoteModal
+            hikes={hikes}
+            photos={photos}
+            user={user}
+            markAsViewed={markAsViewed}
+            hikesWithNotes={hikesWithNotes}
+            loadPhotosForHike={loadPhotosForHike}
+          />
+        </Suspense>
       </>
     );
   }

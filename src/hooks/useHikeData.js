@@ -142,8 +142,18 @@ export function useHikeData() {
 
         setLoading(false); // Allow app to show with hikes and route
 
-        // Skip loading photos at startup - they will be loaded lazily when user zooms in
-        setPhotos([]); // Set empty array so photos loading state can end
+        // Load initial photos for NoteModal functionality
+        try {
+          const photosData = await getAllPhotosWithHikes(INITIAL_PHOTO_LIMIT, {
+            useCache: true,
+            cacheTtlMs: PHOTO_CACHE_TTL_MS,
+            hikes: mergedHikes,
+          });
+          setPhotos(photosData);
+        } catch (photoError) {
+          console.error("Error loading initial photos:", photoError);
+          setPhotos([]); // Set empty array so photos loading state can end
+        }
       } catch (e) {
         console.error(e);
         setError(e);
@@ -681,10 +691,11 @@ export function useHikeData() {
           const newPhotos = photosInBounds.filter(
             (p) => !existingIds.has(p.id),
           );
+          console.log(
+            `Loaded ${newPhotos.length} additional photos within bounds (total: ${prevPhotos.length + newPhotos.length})`,
+          );
           return [...prevPhotos, ...newPhotos];
         });
-
-        console.log(`Loaded ${photosInBounds.length} photos within bounds`);
       } catch (error) {
         console.error("Error loading photos within bounds:", error);
       } finally {
@@ -692,6 +703,47 @@ export function useHikeData() {
       }
     },
     [PHOTO_LIMIT, PHOTO_CACHE_TTL_MS],
+  );
+
+  // Load photos for a specific hike (used by NoteModal)
+  const loadPhotosForHike = useCallback(
+    async (hikeId) => {
+      if (!hikeId) return;
+
+      try {
+        setPhotosLoading(true);
+
+        // Check if we already have photos for this hike
+        const existingPhotos = photos.filter((p) => p.hikeId === hikeId);
+        if (existingPhotos.length > 0) {
+          // Already have photos for this hike
+          setPhotosLoading(false);
+          return;
+        }
+
+        // Load all photos and filter for this hike
+        const allPhotos = await getAllPhotosWithHikes(PHOTO_LIMIT, {
+          useCache: true,
+          cacheTtlMs: PHOTO_CACHE_TTL_MS,
+          hikes: hikesRef.current,
+        });
+
+        const hikePhotos = allPhotos.filter((photo) => photo.hikeId === hikeId);
+
+        // Add to existing photos
+        setPhotos((prevPhotos) => {
+          const existingIds = new Set(prevPhotos.map((p) => p.id));
+          const newPhotos = hikePhotos.filter((p) => !existingIds.has(p.id));
+          console.log(`Loaded ${newPhotos.length} photos for hike ${hikeId}`);
+          return [...prevPhotos, ...newPhotos];
+        });
+      } catch (error) {
+        console.error("Error loading photos for hike:", error);
+      } finally {
+        setPhotosLoading(false);
+      }
+    },
+    [PHOTO_LIMIT, PHOTO_CACHE_TTL_MS, photos],
   );
 
   return {
