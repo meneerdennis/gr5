@@ -142,18 +142,8 @@ export function useHikeData() {
 
         setLoading(false); // Allow app to show with hikes and route
 
-        // Load photos asynchronously after the app is visible
-        try {
-          const photosData = await getAllPhotosWithHikes(photoLimit, {
-            useCache: true,
-            cacheTtlMs: PHOTO_CACHE_TTL_MS,
-            hikes: mergedHikes,
-          });
-          setPhotos(photosData);
-        } catch (photoError) {
-          console.error("Error loading photos:", photoError);
-          setPhotos([]); // Set empty array so photos loading state can end
-        }
+        // Skip loading photos at startup - they will be loaded lazily when user zooms in
+        setPhotos([]); // Set empty array so photos loading state can end
       } catch (e) {
         console.error(e);
         setError(e);
@@ -658,6 +648,52 @@ export function useHikeData() {
     }
   }, [HIKE_LIMIT, PHOTO_LIMIT, photos, refreshing, loadCommentCounts]);
 
+  // Load photos within map bounds for lazy loading
+  const loadPhotosWithinBounds = useCallback(
+    async (bounds, zoomLevel) => {
+      if (!bounds || zoomLevel <= 8) return; // Only load when zoomed in enough
+
+      try {
+        setPhotosLoading(true);
+
+        // Get all photos (we'll filter by bounds client-side for simplicity)
+        const allPhotos = await getAllPhotosWithHikes(PHOTO_LIMIT, {
+          useCache: true,
+          cacheTtlMs: PHOTO_CACHE_TTL_MS,
+          hikes: hikesRef.current,
+        });
+
+        // Filter photos within bounds
+        const photosInBounds = allPhotos.filter((photo) => {
+          const lat = parseFloat(photo.lat);
+          const lng = parseFloat(photo.lng);
+          return (
+            lat >= bounds.south &&
+            lat <= bounds.north &&
+            lng >= bounds.west &&
+            lng <= bounds.east
+          );
+        });
+
+        // Merge with existing photos (avoid duplicates)
+        setPhotos((prevPhotos) => {
+          const existingIds = new Set(prevPhotos.map((p) => p.id));
+          const newPhotos = photosInBounds.filter(
+            (p) => !existingIds.has(p.id),
+          );
+          return [...prevPhotos, ...newPhotos];
+        });
+
+        console.log(`Loaded ${photosInBounds.length} photos within bounds`);
+      } catch (error) {
+        console.error("Error loading photos within bounds:", error);
+      } finally {
+        setPhotosLoading(false);
+      }
+    },
+    [PHOTO_LIMIT, PHOTO_CACHE_TTL_MS],
+  );
+
   return {
     route,
     hikes,
@@ -669,5 +705,6 @@ export function useHikeData() {
     refetch: loadData,
     refreshUpdates,
     reloadPhotos,
+    loadPhotosWithinBounds,
   };
 }

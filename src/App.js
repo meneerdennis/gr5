@@ -84,6 +84,7 @@ function AppContent() {
     error,
     refreshUpdates,
     refreshing,
+    loadPhotosWithinBounds,
   } = useHikeData();
   const [hoverPoint, setHoverPoint] = useState(null);
   const [zoomRange, setZoomRange] = useState(null);
@@ -243,6 +244,7 @@ function AppContent() {
               hikeBounds={hikeBounds}
               onRefresh={refreshUpdates}
               refreshInProgress={refreshing}
+              loadPhotosWithinBounds={loadPhotosWithinBounds}
             />
           </div>
         </div>
