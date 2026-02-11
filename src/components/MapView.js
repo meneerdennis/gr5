@@ -1300,6 +1300,8 @@ function MapView({
           <TileLayer
             attribution="&copy; OpenStreetMap-bijdragers"
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            crossOrigin="anonymous"
+            updateWhenIdle={true}
           />
 
           {/* GPX-route (temporarily disabled due to plugin issues) */}

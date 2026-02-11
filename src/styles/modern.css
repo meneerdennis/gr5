@@ -2078,6 +2078,18 @@ input[type="file"] {
   }
 }
 
+/* Small slide-down animation used by Dropdown; kept in CSS to avoid runtime injection */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .pulse {
   animation: pulse 2s infinite;
 }

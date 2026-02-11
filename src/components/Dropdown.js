@@ -14,12 +14,7 @@ const slideDownKeyframes = `
   }
 `;
 
-// Inject the keyframes into the document head
-if (typeof document !== "undefined") {
-  const style = document.createElement("style");
-  style.textContent = slideDownKeyframes;
-  document.head.appendChild(style);
-}
+// Keyframes are provided via CSS to avoid runtime head injection (faster first paint)
 
 function Dropdown({
   hikes,

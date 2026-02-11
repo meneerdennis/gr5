@@ -51,6 +51,7 @@
       as="image"
       href="https://a.tile.openstreetmap.org/5/16/11.png"
       crossorigin
+      fetchpriority="high"
     />
     <script>
       // Create a high-priority image fetch for the LCP tile so browsers start it early.
@@ -142,8 +143,56 @@
       gtag("js", new Date());
       gtag("config", "G-WQW6GWLS5Q");
     </script>
-    <script src="%PUBLIC_URL%/firebase-config.js"></script>
-    <style></style>
+    <!-- Inline small Firebase runtime config to avoid an extra head fetch -->
+    <script>
+      window.__FIREBASE_CONFIG__ = {
+        apiKey: "AIzaSyC6nE2hjCvcGTz-VeCbrpycDwIzqzIvIV8",
+        authDomain: "gr-5-4df65.firebaseapp.com",
+        projectId: "gr-5-4df65",
+        storageBucket: "gr-5-4df65.firebasestorage.app",
+        messagingSenderId: "843113923788",
+        appId: "1:843113923788:web:4d4e87dfff681460bd6e69",
+      };
+    </script>
+
+    <!-- Preload compiled main CSS early (points to current build filename) -->
+    <link
+      rel="preload"
+      href="%PUBLIC_URL%/static/css/main.4675213c.css"
+      as="style"
+      onload="this.rel = 'stylesheet'"
+      crossorigin
+    />
+    <noscript>
+      <link rel="stylesheet" href="%PUBLIC_URL%/static/css/main.4675213c.css" />
+    </noscript>
+
+    <!-- Critical mobile CSS inlined to speed up first render -->
+    <style>
+      /* Mobile Travel Journal Button - critical subset inlined for faster paint */
+      @media (max-width: 768px) {
+        .unified-journal-button .travel-journal-text {
+          display: none !important;
+        }
+        .unified-journal-button {
+          gap: 0 !important;
+          padding: 6px !important;
+        }
+        .journal-icon-image {
+          width: 44px !important;
+          height: 44px !important;
+        }
+      }
+      @media (max-width: 640px) {
+        .unified-journal-button {
+          padding: 4px !important;
+        }
+        .journal-icon-image {
+          width: 40px !important;
+          height: 40px !important;
+        }
+      }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
