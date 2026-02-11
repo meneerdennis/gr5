@@ -26,7 +26,7 @@
     <link rel="dns-prefetch" href="//fonts.googleapis.com" />
     <link rel="dns-prefetch" href="//www.googletagmanager.com" />
 
-    <!-- Preconnect to Firebase services for faster connections -->
+    <!-- Keep only the most critical preconnects (max 4) -->
     <link
       rel="preconnect"
       href="https://gr-5-4df65.firebaseapp.com"
@@ -37,33 +37,19 @@
       href="https://identitytoolkit.googleapis.com"
       crossorigin
     />
-    <link rel="preconnect" href="https://www.googleapis.com" crossorigin />
     <link rel="preconnect" href="https://apis.google.com" crossorigin />
-    <link
-      rel="preconnect"
-      href="https://firestore.googleapis.com"
-      crossorigin
-    />
-    <link
-      rel="preconnect"
-      href="https://firebasestorage.googleapis.com"
-      crossorigin
-    />
     <link
       rel="preconnect"
       href="https://a.tile.openstreetmap.org"
       crossorigin
     />
-    <link
-      rel="preconnect"
-      href="https://b.tile.openstreetmap.org"
-      crossorigin
-    />
-    <link
-      rel="preconnect"
-      href="https://c.tile.openstreetmap.org"
-      crossorigin
-    />
+
+    <!-- Demoted to dns-prefetch to reduce number of preconnects -->
+    <link rel="dns-prefetch" href="//www.googleapis.com" />
+    <link rel="dns-prefetch" href="//firestore.googleapis.com" />
+    <link rel="dns-prefetch" href="//firebasestorage.googleapis.com" />
+    <link rel="dns-prefetch" href="//b.tile.openstreetmap.org" />
+    <link rel="dns-prefetch" href="//c.tile.openstreetmap.org" />
     <!-- Google tag (gtag.js) -->
     <script
       async
