@@ -36,9 +36,6 @@ import AdminRoute from "./components/AdminRoute";
 import { useLikes } from "./hooks/useLikes";
 import { useComments } from "./hooks/useComments";
 import LikeButton from "./components/LikeButton";
-import CommentsSection from "./components/CommentsSection";
-import SwiperComponent from "./components/SwiperComponent";
-import { SwiperSlide } from "swiper/react";
 import { translateText, getUserLanguage } from "./services/translationService";
 // Localized button texts
 const buttonTexts = {

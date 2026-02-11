@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import HCaptcha from "@hcaptcha/react-hcaptcha";
+import React, { useEffect, useState, lazy, Suspense } from "react";
+const HCaptcha = lazy(() => import("@hcaptcha/react-hcaptcha"));
 import { useComments } from "../hooks/useComments";
 import { addComment, deleteComment } from "../services/firebaseService";
 import { useAuth } from "../hooks/useAuth";
@@ -267,13 +267,17 @@ function CommentsSection({ activityId }) {
             required
           />
 
-          {/* hCaptcha Widget */}
+          {/* hCaptcha Widget (dynamically loaded) */}
           <div style={{ margin: "8px 0" }}>
-            <HCaptcha
-              sitekey={process.env.REACT_APP_HCAPTCHA_SITE_KEY}
-              onVerify={(token) => setCaptchaToken(token)}
-              onExpire={() => setCaptchaToken(null)}
-            />
+            <Suspense
+              fallback={<div style={{ height: 60, color: "#8e8e8e" }}>Loading captcha...</div>}
+            >
+              <HCaptcha
+                sitekey={process.env.REACT_APP_HCAPTCHA_SITE_KEY}
+                onVerify={(token) => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken(null)}
+              />
+            </Suspense>
           </div>
 
           <button

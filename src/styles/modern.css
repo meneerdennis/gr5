@@ -1344,15 +1344,14 @@ body.modal-open {
 
 /* Instagram Modal Swiper Pagination */
 .instagram-photos .swiper-pagination {
+  position: absolute;
+  bottom: 16px;
+  left: 0;
+  right: 0;
   display: flex;
   justify-content: center;
   gap: 3px;
-  margin-top: 16px;
-  margin-bottom: 8px;
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
+  margin: 0;
   z-index: 10;
 }
 

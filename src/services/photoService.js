@@ -21,7 +21,6 @@ import {
   limit,
 } from "firebase/firestore";
 import EXIF from "exif-js";
-import heic2any from "heic2any";
 
 const PHOTO_CACHE_KEY = "gr5_photos_cache";
 const photoCacheStore = new Map();
@@ -248,8 +247,17 @@ async function resizeImageForWeb(file, maxWidth = 600, quality = 0.75) {
           `Processing HEIC file: ${file.name}. Converting to JPEG for resizing.`,
         );
         try {
+          // Dynamically import heic2any only when needed
+          const heic2anyModule = await import(
+            /* webpackChunkName: "heic2any" */ "heic2any"
+          );
+          const heic2anyFn =
+            heic2anyModule && heic2anyModule.default
+              ? heic2anyModule.default
+              : heic2anyModule;
+
           // Convert HEIC to JPEG using heic2any
-          const jpegBuffer = await heic2any({
+          const jpegBuffer = await heic2anyFn({
             blob: file,
             toType: "image/jpeg",
             quality: 0.75,
