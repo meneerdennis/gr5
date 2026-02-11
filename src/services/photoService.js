@@ -13,6 +13,8 @@ import {
   doc,
   getDoc,
   getDocs,
+  setDoc,
+  arrayUnion,
   query,
   where,
   orderBy,
@@ -750,15 +752,19 @@ export async function uploadMultiplePhotos(
 async function addPhotoToHike(hikeId, photo) {
   try {
     const hikeRef = doc(db, "hikes", hikeId);
-    const hikeDoc = await getDoc(hikeRef);
 
-    if (hikeDoc.exists()) {
-      const hikeData = hikeDoc.data();
-      const currentPhotos = hikeData.photos || [];
-
+    try {
+      // Use arrayUnion to append without reading the full document
       await updateDoc(hikeRef, {
-        photos: [...currentPhotos, photo],
+        photos: arrayUnion(photo),
       });
+    } catch (err) {
+      // Fallback: if the doc doesn't exist yet, create it with the photo array
+      console.warn(
+        "updateDoc failed when adding photo to hike; attempting setDoc",
+        err,
+      );
+      await setDoc(hikeRef, { photos: [photo] }, { merge: true });
     }
   } catch (error) {
     console.error("Error adding photo to hike:", error);

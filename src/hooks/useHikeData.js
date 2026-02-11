@@ -10,7 +10,10 @@ import {
   clearHikeCache,
   setupHikesRealtimeListener,
   setupPhotosRealtimeListener,
+  setupHikesChangeListener,
   getHikesFromFirebase,
+  getHikeById,
+  setLastSeenFromData,
 } from "../services/firebaseService";
 import { db } from "../services/firebase";
 import {
@@ -150,6 +153,13 @@ export function useHikeData() {
             hikes: mergedHikes,
           });
           setPhotos(photosData);
+
+          // Initialize last-seen timestamps in the realtime listener module to avoid duplicate triggers
+          try {
+            setLastSeenFromData({ photos: photosData, hikes: mergedHikes });
+          } catch (err) {
+            console.warn("Failed to set last-seen timestamps:", err);
+          }
         } catch (photoError) {
           console.error("Error loading initial photos:", photoError);
           setPhotos([]); // Set empty array so photos loading state can end
@@ -469,16 +479,112 @@ export function useHikeData() {
     window.addEventListener("photoDeleted", handlePhotoDeleted);
     window.addEventListener("hikeUpdated", handleHikeUpdated);
 
-    // Set up real-time listeners for hikes and photos
-    const unsubscribeHikes = setupHikesRealtimeListener((changes) => {
-      // Handle incremental hike updates instead of full reload
-      handleHikeChanges(changes);
-    });
+    let unsubscribeHikes = null;
+    let unsubscribePhotos = null;
+    let unsubscribeHikeChange = null;
+    let hiddenDetachTimer = null;
 
-    const unsubscribePhotos = setupPhotosRealtimeListener((changes) => {
-      // Handle incremental photo updates instead of full reload
-      handlePhotoChanges(changes);
-    });
+    const attachListeners = () => {
+      if (!unsubscribeHikes) {
+        unsubscribeHikes = setupHikesRealtimeListener((changes) => {
+          handleHikeChanges(changes);
+        });
+      }
+      if (!unsubscribePhotos) {
+        unsubscribePhotos = setupPhotosRealtimeListener((changes) => {
+          handlePhotoChanges(changes);
+        });
+      }
+      if (!unsubscribeHikeChange) {
+        unsubscribeHikeChange = setupHikesChangeListener(async (change) => {
+          if (!change || !change.id) return;
+          const { id, type } = change;
+          // Handle removal
+          if (type === "removed") {
+            setHikes((prev) => prev.filter((h) => h.id !== id));
+            hikesRef.current = hikesRef.current.filter((h) => h.id !== id);
+            // Clear cached hikes so future fetches reflect deletion
+            try {
+              clearHikeCache();
+            } catch (err) {
+              console.warn("Error clearing hike cache after deletion:", err);
+            }
+            // Notify other parts of the app (triggers a debounced reload if needed)
+            try {
+              window.dispatchEvent(
+                new CustomEvent("hikeUpdated", { detail: { hikeId: id, type: "removed" } }),
+              );
+            } catch (err) {}
+            return;
+          }
+
+          // For added or modified, fetch single hike and upsert
+          try {
+            const hike = await getHikeById(id);
+            if (!hike) return;
+            setHikes((prev) => {
+              const exists = prev.some((p) => p.id === hike.id);
+              if (exists) {
+                const next = prev.map((p) => (p.id === hike.id ? hike : p));
+                hikesRef.current = next;
+                return next;
+              } else {
+                const next = [hike, ...prev];
+                hikesRef.current = next;
+                return next;
+              }
+            });
+          } catch (err) {
+            console.error("Error handling hike change:", err);
+          }
+        });
+      }
+    };
+
+    const detachListeners = () => {
+      if (unsubscribeHikes) {
+        try {
+          unsubscribeHikes();
+        } catch (e) {}
+        unsubscribeHikes = null;
+      }
+      if (unsubscribePhotos) {
+        try {
+          unsubscribePhotos();
+        } catch (e) {}
+        unsubscribePhotos = null;
+      }
+      if (unsubscribeHikeChange) {
+        try {
+          unsubscribeHikeChange();
+        } catch (e) {}
+        unsubscribeHikeChange = null;
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document?.visibilityState === "visible") {
+        // Clear any pending detach timer and attach listeners
+        if (hiddenDetachTimer) {
+          clearTimeout(hiddenDetachTimer);
+          hiddenDetachTimer = null;
+        }
+        attachListeners();
+      } else {
+        // If hidden, detach listeners after short delay to avoid churn (1 minute)
+        if (hiddenDetachTimer) clearTimeout(hiddenDetachTimer);
+        hiddenDetachTimer = setTimeout(() => {
+          detachListeners();
+          hiddenDetachTimer = null;
+        }, 60 * 1000);
+      }
+    };
+
+    // Attach immediately if visible
+    if (document?.visibilityState === "visible") {
+      attachListeners();
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       clearTimeout(commentTimer);
@@ -489,8 +595,9 @@ export function useHikeData() {
         clearTimeout(photoUploadTimeoutRef.current);
       }
       // Clean up real-time listeners
-      unsubscribeHikes();
-      unsubscribePhotos();
+      if (hiddenDetachTimer) clearTimeout(hiddenDetachTimer);
+      detachListeners();
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [
     loadData,
@@ -516,46 +623,7 @@ export function useHikeData() {
     }
   }, [user, authLoading]);
 
-  // Advanced listener management - clean up when page hidden for too long
-  useEffect(() => {
-    let hiddenStartTime = null;
-    let cleanupTimer = null;
-
-    const handleVisibilityChange = () => {
-      if (document?.visibilityState === "hidden") {
-        hiddenStartTime = Date.now();
-        // Set a timer to clean up listeners if page stays hidden for 30 minutes
-        cleanupTimer = setTimeout(
-          () => {
-            console.log("Page hidden for 30 minutes, cleaning up listeners");
-            // The listeners will be cleaned up by their unsubscribe functions
-            // when the component re-mounts or user returns
-          },
-          30 * 60 * 1000,
-        ); // 30 minutes
-      } else if (document?.visibilityState === "visible" && hiddenStartTime) {
-        // User returned, clear the cleanup timer
-        if (cleanupTimer) {
-          clearTimeout(cleanupTimer);
-          cleanupTimer = null;
-        }
-        const hiddenDuration = Date.now() - hiddenStartTime;
-        console.log(
-          `Page was hidden for ${Math.round(hiddenDuration / 1000)}s`,
-        );
-        hiddenStartTime = null;
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      if (cleanupTimer) {
-        clearTimeout(cleanupTimer);
-      }
-    };
-  }, []);
+  // Visibility cleanup handled in the main listener effect (attach/detach with a short delay)
 
   useEffect(() => {
     const pollComments = () => {
@@ -614,6 +682,13 @@ export function useHikeData() {
       // For refresh, use the full refreshed photos data
       setPhotos(allPhotos);
       updatePhotoCache(PHOTO_LIMIT, allPhotos);
+
+      // Update last-seen timestamps after a manual refresh so listeners won't treat these as new
+      try {
+        setLastSeenFromData({ photos: allPhotos, hikes: mergedHikes });
+      } catch (err) {
+        console.warn("Failed to set last-seen timestamps after refresh:", err);
+      }
 
       // Also fetch a fresh full hikes list from the server to pick up deletions
       try {

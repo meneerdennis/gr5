@@ -168,6 +168,13 @@ exports.notifyNewComment = functions.firestore
 
     // Push notifications to users who previously commented on this hike
     try {
+      // Push notifications are disabled by default. To re-enable, set:
+      // ENABLE_COMMENT_PUSH='true' in your functions environment.
+      if (process.env.ENABLE_COMMENT_PUSH !== 'true') {
+        console.log('Comment push notifications are disabled (ENABLE_COMMENT_PUSH !== true).');
+        return null;
+      }
+
       const commentUid = comment?.uid || null;
       const isApproved = comment?.approved !== false;
       if (!isApproved) return;
@@ -187,6 +194,7 @@ exports.notifyNewComment = functions.firestore
       const updatedUids = commentUid
         ? Array.from(new Set([...storedUids, commentUid]))
         : storedUids;
+
       const uniqueUids = updatedUids.filter((uid) => uid && uid !== commentUid);
 
       if (uniqueUids.length === 0) return;
@@ -301,6 +309,38 @@ exports.notifyNewComment = functions.firestore
     } catch (error) {
       console.error("Error sending comment push notifications:", error);
     }
+  });
+
+// Record a tiny meta doc when hikes change so clients can react to edits/deletes cheaply
+exports.trackHikeChanges = functions.firestore
+  .document("hikes/{hikeId}")
+  .onWrite(async (change, context) => {
+    const hikeId = context.params.hikeId;
+    const beforeExists = change.before.exists;
+    const afterExists = change.after.exists;
+
+    let type = "modified";
+    if (!beforeExists && afterExists) type = "added";
+    else if (beforeExists && !afterExists) type = "removed";
+
+    try {
+      await admin
+        .firestore()
+        .doc("meta/hikesLatestChange")
+        .set(
+          {
+            id: String(hikeId),
+            type,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      console.log(`Recorded hike change: ${hikeId} (${type})`);
+    } catch (err) {
+      console.error("Error writing hike change meta:", err);
+    }
+
+    return null;
   });
 
 exports.updateHikeCommentCount = functions.firestore

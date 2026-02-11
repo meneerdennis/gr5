@@ -351,4 +351,26 @@ function App() {
   );
 }
 
+// HMR: accept updates to lazy-loaded child modules so App.js isn't disposed
+if (typeof module !== "undefined" && module.hot) {
+  const acceptNoop = () => {
+    /* no-op: allow lazy imports to be reloaded without disposing App */
+  };
+  try {
+    module.hot.accept("./components/MapView", acceptNoop);
+  } catch (err) {}
+  try {
+    module.hot.accept("./components/NoteModal", acceptNoop);
+  } catch (err) {}
+  try {
+    module.hot.accept("./components/AdminPhotoManager", acceptNoop);
+  } catch (err) {}
+  try {
+    module.hot.accept("./components/AdminNoteEditor", acceptNoop);
+  } catch (err) {}
+  try {
+    module.hot.accept("./components/AdminActivityManager", acceptNoop);
+  } catch (err) {}
+}
+
 export default App;

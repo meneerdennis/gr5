@@ -63,5 +63,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+
+    // Meta docs for lightweight change notifications
+    match /meta/{docId} {
+      allow read: if true; // Allow clients to listen to small change documents
+      allow write: if false; // Only functions (admin SDK) should write
+    }
   }
 }

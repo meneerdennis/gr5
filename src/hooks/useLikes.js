@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, getDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
 
 export function useLikes(activityId, uid) {
@@ -12,45 +12,55 @@ export function useLikes(activityId, uid) {
       setLoading(false);
       return;
     }
+
+    let mounted = true;
+
     const activityRef = doc(db, "hikes", activityId);
-    const unsubscribers = [];
 
-    // Listen to activity for likesCount
-    const activityUnsub = onSnapshot(
-      activityRef,
-      (doc) => {
-        if (doc.exists()) {
-          setLikesCount(doc.data().likesCount || 0);
-        } else {
-          setLikesCount(0);
-        }
-      },
-      (error) => {
-        console.error("Error listening to likes count:", error);
+    // Get initial likes count once (cheap)
+    (async () => {
+      try {
+        const snap = await getDoc(activityRef);
+        if (!mounted) return;
+        setLikesCount(snap.exists() ? snap.data().likesCount || 0 : 0);
+      } catch (error) {
+        console.error("Error fetching likes count:", error);
       }
-    );
+    })();
 
-    unsubscribers.push(activityUnsub);
-
-    // Listen to user's like
+    // Listen only to the user's like doc for isLiked state
+    let likeUnsub = null;
     if (uid) {
       const likeRef = doc(db, "hikes", activityId, "likes", uid);
-      const likeUnsub = onSnapshot(
+      likeUnsub = onSnapshot(
         likeRef,
         (doc) => {
           setIsLiked(doc.exists());
         },
         (error) => {
           console.error("Error listening to user like:", error);
-        }
+        },
       );
-      unsubscribers.push(likeUnsub);
     }
+
+    // Listen for optimistic local updates triggered by toggleLike
+    const handleLocalLikesUpdate = (e) => {
+      const detail = e?.detail || {};
+      if (
+        detail.activityId === activityId &&
+        typeof detail.likesCount === "number"
+      ) {
+        setLikesCount(detail.likesCount);
+      }
+    };
+    window.addEventListener("likesUpdated", handleLocalLikesUpdate);
 
     setLoading(false);
 
     return () => {
-      unsubscribers.forEach((unsub) => unsub());
+      mounted = false;
+      if (likeUnsub) likeUnsub();
+      window.removeEventListener("likesUpdated", handleLocalLikesUpdate);
     };
   }, [activityId, uid]);
 

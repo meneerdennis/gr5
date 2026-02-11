@@ -17,7 +17,7 @@ import {
   runTransaction,
   limit,
 } from "firebase/firestore";
-import { getAllPhotos, clearPhotoCache } from "./photoService";
+import { getAllPhotos, clearPhotoCache, getPhotosSince } from "./photoService";
 
 const HIKE_CACHE_KEY = "gr5_hikes_cache";
 const PHOTO_CACHE_KEY = "gr5_all_photos_cache";
@@ -279,7 +279,8 @@ export function subscribeToHikes(onUpdate, onError, limitCount = null) {
 export async function addHikeToFirebase(hikeData) {
   try {
     const hikesCollection = collection(db, "hikes");
-    const docRef = await addDoc(hikesCollection, hikeData);
+    const payload = { ...hikeData, updatedAt: serverTimestamp() };
+    const docRef = await addDoc(hikesCollection, payload);
     // Clear cache to ensure fresh data on next fetch
     clearHikeCache();
     return { success: true, id: docRef.id };
@@ -740,9 +741,11 @@ export async function updateHikeNote(hikeId, note) {
 // Update hike fields
 export async function updateHike(hikeId, updates) {
   try {
-    const { doc, updateDoc } = await import("firebase/firestore");
+    const { doc, updateDoc, serverTimestamp } =
+      await import("firebase/firestore");
     const hikeRef = doc(db, "hikes", hikeId);
-    await updateDoc(hikeRef, updates);
+    const payload = { ...updates, updatedAt: serverTimestamp() };
+    await updateDoc(hikeRef, payload);
     // Clear cache to ensure fresh data on next fetch
     clearHikeCache();
     return { success: true };
@@ -775,30 +778,30 @@ export async function toggleLike(activityId, uid) {
     return await runTransaction(db, async (transaction) => {
       const likeDoc = await transaction.get(likeRef);
       const activityDoc = await transaction.get(activityRef);
+      const currentCount = activityDoc.exists()
+        ? activityDoc.data().likesCount || 0
+        : 0;
+
       if (likeDoc.exists()) {
         // Unlike
+        const nextCount = Math.max(0, currentCount - 1);
         transaction.delete(likeRef);
-        const currentCount = activityDoc.exists()
-          ? activityDoc.data().likesCount || 0
-          : 0;
         transaction.set(
           activityRef,
-          { likesCount: Math.max(0, currentCount - 1) },
+          { likesCount: nextCount },
           { merge: true },
         );
-        return false;
+        return { liked: false, likesCount: nextCount };
       } else {
         // Like
+        const nextCount = currentCount + 1;
         transaction.set(likeRef, { createdAt: serverTimestamp() });
-        const currentCount = activityDoc.exists()
-          ? activityDoc.data().likesCount || 0
-          : 0;
         transaction.set(
           activityRef,
-          { likesCount: currentCount + 1 },
+          { likesCount: nextCount },
           { merge: true },
         );
-        return true;
+        return { liked: true, likesCount: nextCount };
       }
     });
   } catch (error) {
@@ -933,8 +936,48 @@ export async function markMultipleActivitiesAsViewedInFirebase(
 // Real-time listeners for hikes and photos
 let hikesListener = null;
 let photosListener = null;
+let hikesChangeListener = null;
 let hikesDebounceTimeout = null;
 let photosDebounceTimeout = null;
+let photosLastSeenUploadedAt = null;
+let hikesLastSeenStartDate = null;
+
+/**
+ * Set the last-seen timestamps from initial data to avoid immediate duplicate listener triggers
+ * @param {{photos?: Array, hikes?: Array}} data
+ */
+export function setLastSeenFromData(data = {}) {
+  try {
+    if (Array.isArray(data.photos) && data.photos.length > 0) {
+      const parsed = data.photos
+        .map((p) => {
+          const v = p && (p.uploadedAt ?? p.date);
+          const ts = typeof v === "number" ? v : Date.parse(String(v || ""));
+          return Number.isNaN(ts) ? null : ts;
+        })
+        .filter(Boolean);
+      if (parsed.length > 0) {
+        photosLastSeenUploadedAt = Math.max(...parsed);
+      }
+    }
+
+    if (Array.isArray(data.hikes) && data.hikes.length > 0) {
+      const parsed = data.hikes
+        .map((h) => {
+          const v = h && h.startDate;
+          const ts = typeof v === "number" ? v : Date.parse(String(v || ""));
+          return Number.isNaN(ts) ? null : ts;
+        })
+        .filter(Boolean);
+      if (parsed.length > 0) {
+        hikesLastSeenStartDate = Math.max(...parsed);
+      }
+    }
+  } catch (err) {
+    console.warn("setLastSeenFromData failed:", err);
+  }
+}
+
 const DEBOUNCE_DELAY_MS = 3000; // 3 seconds debounce
 
 export function setupHikesRealtimeListener(onHikesChange) {
@@ -943,39 +986,54 @@ export function setupHikesRealtimeListener(onHikesChange) {
   }
 
   const hikesCollection = collection(db, "hikes");
-  const q = query(hikesCollection, orderBy("startDate", "desc"), limit(1000));
+  // Listen only to the newest hike to cheaply detect additions
+  const q = query(hikesCollection, orderBy("startDate", "desc"), limit(1));
 
   hikesListener = onSnapshot(
     q,
-    (querySnapshot) => {
+    async (querySnapshot) => {
       // Only process changes if page is visible to the user
       if (document?.visibilityState !== "visible") {
         console.log("Hikes changed but page not visible, skipping refresh");
         return;
       }
 
-      // Analyze changes for incremental updates
-      const changes = [];
-      querySnapshot.docChanges().forEach((change) => {
-        const hikeData = {
-          id: change.doc.id,
-          ...change.doc.data(),
-        };
+      if (!querySnapshot || querySnapshot.empty) return;
 
-        changes.push({
-          type: change.type, // 'added', 'modified', 'removed'
-          hike: hikeData,
-          oldIndex: change.oldIndex,
-          newIndex: change.newIndex,
-        });
-      });
+      const topDoc = querySnapshot.docs[0];
+      const topStartDate = topDoc?.data()?.startDate || null;
 
-      if (changes.length === 0) return; // No actual changes
+      // If we haven't seen any hikes yet, initialize last seen and don't trigger updates
+      if (!hikesLastSeenStartDate) {
+        hikesLastSeenStartDate = topStartDate;
+        return;
+      }
 
-      console.log(
-        `Hikes collection changed: ${changes.length} changes detected`,
-        changes,
-      );
+      // If nothing newer, skip
+      if (!topStartDate || topStartDate <= hikesLastSeenStartDate) return;
+
+      // Fetch all hikes added since last seen (small incremental query)
+      let changes = [];
+      try {
+        const newHikes = await getHikesSince(hikesLastSeenStartDate);
+        if (Array.isArray(newHikes) && newHikes.length > 0) {
+          changes = newHikes.map((hike) => ({
+            type: "added",
+            hike,
+            oldIndex: -1,
+            newIndex: 0,
+          }));
+          // Update last seen to newest startDate
+          hikesLastSeenStartDate = newHikes.reduce(
+            (max, h) => (h.startDate > max ? h.startDate : max),
+            hikesLastSeenStartDate,
+          );
+        }
+      } catch (err) {
+        console.error("Error fetching new hikes since last seen:", err);
+      }
+
+      if (changes.length === 0) return; // No actual new changes
 
       // Clear any existing timeout
       if (hikesDebounceTimeout) {
@@ -1013,39 +1071,61 @@ export function setupPhotosRealtimeListener(onPhotosChange) {
   }
 
   const photosCollection = collection(db, "photos");
-  const q = query(photosCollection, orderBy("uploadedAt", "desc"), limit(1000));
+  // Listen only to the most recent photo to cheaply detect uploads
+  const q = query(photosCollection, orderBy("uploadedAt", "desc"), limit(1));
 
   photosListener = onSnapshot(
     q,
-    (querySnapshot) => {
+    async (querySnapshot) => {
       // Only process changes if page is visible to the user
       if (document?.visibilityState !== "visible") {
         console.log("Photos changed but page not visible, skipping refresh");
         return;
       }
 
-      // Analyze changes for incremental updates
-      const changes = [];
-      querySnapshot.docChanges().forEach((change) => {
-        const photoData = {
-          id: change.doc.id,
-          ...change.doc.data(),
-        };
+      if (!querySnapshot || querySnapshot.empty) return;
 
-        changes.push({
-          type: change.type, // 'added', 'modified', 'removed'
-          photo: photoData,
-          oldIndex: change.oldIndex,
-          newIndex: change.newIndex,
-        });
-      });
+      const topDoc = querySnapshot.docs[0];
+      const topUploadedAt = topDoc?.data()?.uploadedAt || null;
+
+      // If we haven't seen any photos yet, initialize last seen and don't trigger updates
+      if (!photosLastSeenUploadedAt) {
+        photosLastSeenUploadedAt = topUploadedAt;
+        return;
+      }
+
+      // If nothing newer, skip
+      if (!topUploadedAt || topUploadedAt <= photosLastSeenUploadedAt) return;
+
+      // Fetch all photos added since last seen (small incremental query)
+      let changes = [];
+      try {
+        const newPhotos = await getPhotosSince(photosLastSeenUploadedAt);
+        if (Array.isArray(newPhotos) && newPhotos.length > 0) {
+          changes = newPhotos.map((photo) => ({
+            type: "added",
+            photo,
+            oldIndex: -1,
+            newIndex: 0,
+          }));
+          // Update last seen to newest uploadedAt
+          photosLastSeenUploadedAt = newPhotos.reduce(
+            (max, p) => (p.uploadedAt > max ? p.uploadedAt : max),
+            photosLastSeenUploadedAt,
+          );
+        } else {
+          // Fallback to single topDoc
+          const photoData = { id: topDoc.id, ...topDoc.data() };
+          changes = [
+            { type: "added", photo: photoData, oldIndex: -1, newIndex: 0 },
+          ];
+          photosLastSeenUploadedAt = topUploadedAt;
+        }
+      } catch (err) {
+        console.error("Error fetching new photos since last seen:", err);
+      }
 
       if (changes.length === 0) return; // No actual changes
-
-      console.log(
-        `Photos collection changed: ${changes.length} changes detected`,
-        changes,
-      );
 
       // Clear any existing timeout
       if (photosDebounceTimeout) {
@@ -1073,6 +1153,90 @@ export function setupPhotosRealtimeListener(onPhotosChange) {
     if (photosDebounceTimeout) {
       clearTimeout(photosDebounceTimeout);
       photosDebounceTimeout = null;
+    }
+  };
+}
+
+// Get a single hike by id
+export async function getHikeById(hikeId) {
+  try {
+    if (!hikeId) return null;
+    const hikeRef = doc(db, "hikes", hikeId);
+    const snap = await getDoc(hikeRef);
+    if (!snap.exists()) return null;
+    const data = snap.data() || {};
+    const latlng = [];
+    if (data.lat && data.lng && data.lat.length === data.lng.length) {
+      for (let i = 0; i < data.lat.length; i++) {
+        latlng.push([data.lat[i], data.lng[i]]);
+      }
+    }
+    return {
+      id: snap.id,
+      stravaId: data.stravaId,
+      name: data.name,
+      description: data.description,
+      distanceKm: data.distanceKm,
+      movingTimeSec: data.movingTimeSec,
+      elapsedTimeSec: data.elapsedTimeSec,
+      startDate: data.startDate,
+      type: data.type,
+      commentsCount: data.commentsCount || 0,
+      polyline: data.polyline,
+      photos: data.photos || [],
+      latlng,
+      altitude: data.altitude || [],
+      time: data.time || [],
+      note: data.note || "",
+      start: data.start || "",
+      end: data.end || "",
+      notifiedAt: data.notifiedAt || null,
+    };
+  } catch (error) {
+    console.error("Error fetching single hike:", error);
+    return null;
+  }
+}
+
+// Listen for hike change meta doc (small trigger written by Cloud Function)
+export function setupHikesChangeListener(onChange) {
+  if (typeof hikesChangeListener !== "undefined" && hikesChangeListener) {
+    try {
+      hikesChangeListener();
+    } catch (err) {
+      console.warn(
+        "Error unsubscribing previous hikesChangeListener during HMR:",
+        err,
+      );
+    }
+    hikesChangeListener = null;
+  }
+
+  const metaRef = doc(db, "meta", "hikesLatestChange");
+  hikesChangeListener = onSnapshot(
+    metaRef,
+    (snap) => {
+      if (!snap.exists()) return;
+      if (document?.visibilityState !== "visible") return;
+      const data = snap.data() || {};
+      const id = data.id;
+      const type = data.type || "modified";
+      if (onChange) onChange({ id, type, timestamp: data.timestamp });
+    },
+    (err) => console.error("Hike change listener error:", err),
+  );
+
+  return () => {
+    if (typeof hikesChangeListener !== "undefined" && hikesChangeListener) {
+      try {
+        hikesChangeListener();
+      } catch (err) {
+        console.warn(
+          "Error unsubscribing hikesChangeListener during cleanup:",
+          err,
+        );
+      }
+      hikesChangeListener = null;
     }
   };
 }

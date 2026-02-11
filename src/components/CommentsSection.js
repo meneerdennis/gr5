@@ -45,6 +45,7 @@ function CommentsSection({ activityId }) {
   const [commentTranslations, setCommentTranslations] = useState({});
   const [translatingComments, setTranslatingComments] = useState(new Set());
 
+
   useEffect(() => {
     if (!activityId || loading) return;
     markCommentsAsViewed(activityId, comments.length);
@@ -82,17 +83,6 @@ function CommentsSection({ activityId }) {
       alert("Failed to post comment. Please try again.");
     }
   };
-
-  const handleDelete = async (commentId) => {
-    if (!confirm("Are you sure you want to delete this comment?")) return;
-    try {
-      await deleteComment(activityId, commentId, user.uid);
-    } catch (error) {
-      console.error("Error deleting comment:", error);
-      alert("Failed to delete comment. Please try again.");
-    }
-  };
-
   const handleTranslateComment = async (commentId, commentText) => {
     const currentTranslation = commentTranslations[commentId];
 
@@ -140,6 +130,23 @@ function CommentsSection({ activityId }) {
         newSet.delete(commentId);
         return newSet;
       });
+    }
+  };
+
+  const handleDelete = async (commentId) => {
+    if (!user) return;
+    if (!confirm("Are you sure you want to delete this comment?")) return;
+    try {
+      await deleteComment(activityId, commentId, user.uid);
+      // Optionally dispatch an event to let other components know comments changed
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("commentDeleted", { detail: { activityId, commentId } }),
+        );
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      alert("Failed to delete comment. Please try again.");
     }
   };
 
@@ -204,6 +211,7 @@ function CommentsSection({ activityId }) {
                           commentButtonTexts.en.translate}
                   </button>
                 )}
+
                 {user && comment.uid === user.uid && (
                   <button
                     onClick={() => handleDelete(comment.id)}
@@ -227,6 +235,8 @@ function CommentsSection({ activityId }) {
 
       {user ? (
         <form onSubmit={handleSubmit}>
+    
+
           <input
             type="text"
             placeholder="Nickname (optional)"
