@@ -1,4 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+
+// Module-level flag to avoid logging the same listener registration message repeatedly
+// (React StrictMode may mount/unmount components twice in development which can
+// produce duplicate console messages). This flag ensures the message is shown only once.
+let photosMetaListenerLogShown = false;
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { getRouteData } from "../services/routeService";
 import { getStravaHikes } from "../services/stravaService";
@@ -33,8 +38,11 @@ export function useHikeData() {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const photoUploadTimeoutRef = useRef(null);
+  // Prevent initial data load from running twice (React StrictMode double-invokes effects in dev)
+  const initialLoadRef = useRef(false);
   const hikesRef = useRef([]);
   const commentCountsRef = useRef(new Map());
+  const hadUserRef = useRef(false);
   const lastRefreshAtRef = useRef(0);
   const HIKE_LIMIT = Number(process.env.REACT_APP_HIKE_LIMIT || 200);
   const PHOTO_LIMIT = Number(process.env.REACT_APP_PHOTO_LIMIT || 500);
@@ -365,7 +373,9 @@ export function useHikeData() {
 
   // Handle incremental photo updates from real-time listener
   const handlePhotoChanges = useCallback((changes) => {
-    console.log("Processing incremental photo changes:", changes.length);
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("Processing incremental photo changes:", changes.length);
+    }
 
     setPhotos((prevPhotos) => {
       let updatedPhotos = [...prevPhotos];
@@ -425,13 +435,25 @@ export function useHikeData() {
     hikesRef.current = hikes;
   }, [hikes]);
 
+  // Track whether we ever had a signed-in user so we don't treat initial anonymous state as a logout
+  useEffect(() => {
+    if (user) {
+      hadUserRef.current = true;
+    }
+  }, [user]);
+
   useEffect(() => {
     // Only set up listeners and load data when user is authenticated
     if (!user || authLoading) {
       return;
     }
 
-    loadData(true); // Load full data directly
+    // Ensure initial load only runs once. In React strict mode effects may run twice
+    // during development which can cause duplicate fetches/logs (the gray "2" in console).
+    if (!initialLoadRef.current) {
+      initialLoadRef.current = true;
+      loadData(true); // Load full data directly
+    }
 
     // Load comment counts after initial data is loaded
     const commentTimer = setTimeout(() => {
@@ -491,7 +513,10 @@ export function useHikeData() {
         if (process.env.REACT_APP_USE_META_CHANGE_LISTENER === "true") {
           // Use meta-doc change listener: single small doc subscription + one-off get
           try {
-            console.log("useHikeData: enabling photos meta change listener");
+            if (!photosMetaListenerLogShown) {
+              console.log("useHikeData: enabling photos meta change listener");
+              photosMetaListenerLogShown = true;
+            }
             unsubscribePhotos = setupPhotosChangeListener(async (change) => {
               console.log("photos meta change received:", change);
               if (!change || !change.id) return;
@@ -651,7 +676,8 @@ export function useHikeData() {
 
   // Clean up listeners and data when user logs out
   useEffect(() => {
-    if (!user && !authLoading) {
+    // Only clear data when a previously-signed-in user actually logs out.
+    if (!user && !authLoading && hadUserRef.current) {
       console.log("User logged out, clearing data");
       // Clear data when user logs out
       setHikes([]);
@@ -659,6 +685,7 @@ export function useHikeData() {
       setRoute(null);
       hikesRef.current = [];
       commentCountsRef.current.clear();
+      hadUserRef.current = false;
     }
   }, [user, authLoading]);
 
