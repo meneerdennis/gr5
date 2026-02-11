@@ -30,12 +30,7 @@ const STATIC_FILES = [
   "/gr5.gpx",
   "/favicon.ico",
   "/appicon.png",
-  "/hikersmall.png",
   "/hiker.png",
-  "/hiker2.png",
-  "/hikersmall2.png",
-  "/hikersmall3.png",
-  "/travel_journal_button_transparent.png",
 ];
 
 // Install event - cache static assets

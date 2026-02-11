@@ -41,9 +41,6 @@ export function useHikeData() {
   const INITIAL_HIKE_LIMIT = Number(
     process.env.REACT_APP_INITIAL_HIKE_LIMIT || 10,
   );
-  const INITIAL_PHOTO_LIMIT = Number(
-    process.env.REACT_APP_INITIAL_PHOTO_LIMIT || 20,
-  );
   const HIKE_CACHE_TTL_MS = 10 * 60 * 1000; // Reduced to 10 minutes (Firestore handles most caching now)
   const PHOTO_CACHE_TTL_MS = 10 * 60 * 1000; // Reduced to 10 minutes (Firestore handles most caching now)
   const COMMENT_POLL_INTERVAL_MS = 10 * 60 * 1000;
@@ -81,7 +78,7 @@ export function useHikeData() {
   const loadData = useCallback(
     async (useFullLimits = false) => {
       const hikeLimit = useFullLimits ? HIKE_LIMIT : INITIAL_HIKE_LIMIT;
-      const photoLimit = useFullLimits ? PHOTO_LIMIT : INITIAL_PHOTO_LIMIT;
+      const photoLimit = useFullLimits ? PHOTO_LIMIT : null;
 
       try {
         setLoading(true);
@@ -147,7 +144,7 @@ export function useHikeData() {
 
         // Load initial photos for NoteModal functionality
         try {
-          const photosData = await getAllPhotosWithHikes(INITIAL_PHOTO_LIMIT, {
+          const photosData = await getAllPhotosWithHikes(photoLimit, {
             useCache: true,
             cacheTtlMs: PHOTO_CACHE_TTL_MS,
             hikes: mergedHikes,
@@ -200,7 +197,6 @@ export function useHikeData() {
       PHOTO_LIMIT,
       PHOTO_CACHE_TTL_MS,
       INITIAL_HIKE_LIMIT,
-      INITIAL_PHOTO_LIMIT,
     ],
   );
 
@@ -512,7 +508,9 @@ export function useHikeData() {
             // Notify other parts of the app (triggers a debounced reload if needed)
             try {
               window.dispatchEvent(
-                new CustomEvent("hikeUpdated", { detail: { hikeId: id, type: "removed" } }),
+                new CustomEvent("hikeUpdated", {
+                  detail: { hikeId: id, type: "removed" },
+                }),
               );
             } catch (err) {}
             return;
