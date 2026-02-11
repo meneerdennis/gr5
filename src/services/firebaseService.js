@@ -937,6 +937,7 @@ export async function markMultipleActivitiesAsViewedInFirebase(
 let hikesListener = null;
 let photosListener = null;
 let hikesChangeListener = null;
+let photosChangeListener = null;
 let hikesDebounceTimeout = null;
 let photosDebounceTimeout = null;
 let photosLastSeenUploadedAt = null;
@@ -1237,6 +1238,61 @@ export function setupHikesChangeListener(onChange) {
         );
       }
       hikesChangeListener = null;
+    }
+  };
+}
+
+// Listen for photo change meta doc (small trigger written by Cloud Function)
+export function setupPhotosChangeListener(onChange) {
+  if (typeof photosChangeListener !== "undefined" && photosChangeListener) {
+    try {
+      photosChangeListener();
+    } catch (err) {
+      console.warn(
+        "Error unsubscribing previous photosChangeListener during HMR:",
+        err,
+      );
+    }
+    photosChangeListener = null;
+  }
+
+  try {
+    const metaRef = doc(db, "meta", "photosLatestChange");
+    photosChangeListener = onSnapshot(
+      metaRef,
+      (snap) => {
+        try {
+          if (!snap.exists()) return;
+          if (document?.visibilityState !== "visible") return;
+          const data = snap.data() || {};
+          const id = data.id;
+          const type = data.type || "modified";
+          const uploadedAt = data.uploadedAt || null;
+          if (onChange)
+            onChange({ id, type, uploadedAt, timestamp: data.timestamp });
+        } catch (innerErr) {
+          console.error("Error in photosChangeListener callback:", innerErr);
+        }
+      },
+      (err) => console.error("Photos change listener error:", err),
+    );
+  } catch (err) {
+    console.error("Failed to setup photosChangeListener:", err);
+    photosChangeListener = null;
+    return () => {};
+  }
+
+  return () => {
+    if (typeof photosChangeListener !== "undefined" && photosChangeListener) {
+      try {
+        photosChangeListener();
+      } catch (err) {
+        console.warn(
+          "Error unsubscribing photosChangeListener during cleanup:",
+          err,
+        );
+      }
+      photosChangeListener = null;
     }
   };
 }

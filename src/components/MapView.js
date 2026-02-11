@@ -1230,6 +1230,16 @@ function MapView({
 
     useEffect(() => {
       if (map) {
+        // Enable scroll wheel zoom only after map is initialized to avoid
+        // internal Leaflet errors when the container is not yet ready.
+        try {
+          if (map.scrollWheelZoom && map.scrollWheelZoom.enable) {
+            map.scrollWheelZoom.enable();
+          }
+        } catch (err) {
+          // ignore
+        }
+
         const timer = setTimeout(() => {
           onReady();
         }, 100); // Small delay to ensure map is fully initialized
@@ -1285,6 +1295,7 @@ function MapView({
           }}
           whenCreated={handleMapCreated}
           whenReady={handleMapReady}
+          scrollWheelZoom={false}
         >
           <TileLayer
             attribution="&copy; OpenStreetMap-bijdragers"

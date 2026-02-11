@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { getRouteData } from "../services/routeService";
 import { getStravaHikes } from "../services/stravaService";
 import {
@@ -10,6 +10,7 @@ import {
   clearHikeCache,
   setupHikesRealtimeListener,
   setupPhotosRealtimeListener,
+  setupPhotosChangeListener,
   setupHikesChangeListener,
   getHikesFromFirebase,
   getHikeById,
@@ -487,9 +488,49 @@ export function useHikeData() {
         });
       }
       if (!unsubscribePhotos) {
-        unsubscribePhotos = setupPhotosRealtimeListener((changes) => {
-          handlePhotoChanges(changes);
-        });
+        if (process.env.REACT_APP_USE_META_CHANGE_LISTENER === "true") {
+          // Use meta-doc change listener: single small doc subscription + one-off get
+          try {
+            console.log("useHikeData: enabling photos meta change listener");
+            unsubscribePhotos = setupPhotosChangeListener(async (change) => {
+              console.log("photos meta change received:", change);
+              if (!change || !change.id) return;
+              try {
+                const photoSnap = await getDoc(doc(db, "photos", change.id));
+                if (!photoSnap.exists()) {
+                  handlePhotoChanges([
+                    { type: "removed", photo: { id: change.id } },
+                  ]);
+                  return;
+                }
+                const photoData = { id: photoSnap.id, ...photoSnap.data() };
+                handlePhotoChanges([
+                  {
+                    type: change.type === "removed" ? "removed" : "added",
+                    photo: photoData,
+                    oldIndex: -1,
+                    newIndex: 0,
+                  },
+                ]);
+              } catch (err) {
+                console.error("Error handling photos meta change:", err);
+              }
+            });
+          } catch (err) {
+            console.error(
+              "Failed to register photos meta listener, falling back:",
+              err,
+            );
+            unsubscribePhotos = setupPhotosRealtimeListener((changes) => {
+              handlePhotoChanges(changes);
+            });
+          }
+        } else {
+          // Fallback to existing cheap limit(1) collection listener
+          unsubscribePhotos = setupPhotosRealtimeListener((changes) => {
+            handlePhotoChanges(changes);
+          });
+        }
       }
       if (!unsubscribeHikeChange) {
         unsubscribeHikeChange = setupHikesChangeListener(async (change) => {

@@ -345,6 +345,43 @@ exports.trackHikeChanges = functions.firestore
     return null;
   });
 
+// Record a tiny meta doc when photos change so clients can react cheaply
+exports.trackPhotoChanges = functions.firestore
+  .document("photos/{photoId}")
+  .onWrite(async (change, context) => {
+    const photoId = context.params.photoId;
+    const beforeExists = change.before.exists;
+    const afterExists = change.after.exists;
+
+    let type = "modified";
+    if (!beforeExists && afterExists) type = "added";
+    else if (beforeExists && !afterExists) type = "removed";
+
+    const afterData = change.after.exists ? change.after.data() : null;
+    const uploadedAt = afterData?.uploadedAt || afterData?.date || null;
+
+    try {
+      await admin
+        .firestore()
+        .doc("meta/photosLatestChange")
+        .set(
+          {
+            id: String(photoId),
+            type,
+            uploadedAt:
+              uploadedAt || admin.firestore.FieldValue.serverTimestamp(),
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      console.log(`Recorded photo change: ${photoId} (${type})`);
+    } catch (err) {
+      console.error("Error writing photosLatestChange meta doc:", err);
+    }
+
+    return null;
+  });
+
 exports.updateHikeCommentCount = functions.firestore
   .document("hikes/{hikeId}/comments/{commentId}")
   .onWrite(async (change, context) => {
