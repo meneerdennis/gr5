@@ -27,7 +27,6 @@ const STATIC_FILES = [
   "/",
   "/index.html",
   "/manifest.json",
-  "/gr5.gpx",
   "/favicon.ico",
   "/appicon.png",
   "/hiker.png",
