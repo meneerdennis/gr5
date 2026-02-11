@@ -30,17 +30,30 @@ export function useLikes(activityId, uid) {
 
     // Listen only to the user's like doc for isLiked state
     let likeUnsub = null;
+    let scheduledId = null;
     if (uid) {
       const likeRef = doc(db, "hikes", activityId, "likes", uid);
-      likeUnsub = onSnapshot(
-        likeRef,
-        (doc) => {
-          setIsLiked(doc.exists());
-        },
-        (error) => {
-          console.error("Error listening to user like:", error);
-        },
-      );
+      const attach = () => {
+        likeUnsub = onSnapshot(
+          likeRef,
+          (doc) => {
+            setIsLiked(doc.exists());
+          },
+          (error) => {
+            console.error("Error listening to user like:", error);
+          },
+        );
+      };
+
+      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+        try {
+          scheduledId = window.requestIdleCallback(attach, { timeout: 2000 });
+        } catch (e) {
+          scheduledId = setTimeout(attach, 500);
+        }
+      } else {
+        scheduledId = setTimeout(attach, 500);
+      }
     }
 
     // Listen for optimistic local updates triggered by toggleLike
@@ -59,6 +72,17 @@ export function useLikes(activityId, uid) {
 
     return () => {
       mounted = false;
+      if (scheduledId !== null) {
+        if (typeof window !== "undefined" && window.cancelIdleCallback) {
+          try {
+            window.cancelIdleCallback(scheduledId);
+          } catch (e) {
+            clearTimeout(scheduledId);
+          }
+        } else {
+          clearTimeout(scheduledId);
+        }
+      }
       if (likeUnsub) likeUnsub();
       window.removeEventListener("likesUpdated", handleLocalLikesUpdate);
     };

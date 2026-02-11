@@ -224,51 +224,84 @@ export function subscribeToHikes(onUpdate, onError, limitCount = null) {
       );
     }
 
-    const unsubscribe = onSnapshot(
-      q,
-      (querySnapshot) => {
-        const hikes = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          const latlng = [];
-          if (data.lat && data.lng && data.lat.length === data.lng.length) {
-            for (let i = 0; i < data.lat.length; i++) {
-              latlng.push([data.lat[i], data.lng[i]]);
-            }
-          }
-          hikes.push({
-            id: doc.id,
-            stravaId: data.stravaId,
-            name: data.name,
-            description: data.description,
-            distanceKm: data.distanceKm,
-            movingTimeSec: data.movingTimeSec,
-            elapsedTimeSec: data.elapsedTimeSec,
-            startDate: data.startDate,
-            type: data.type,
-            commentsCount: data.commentsCount || 0,
-            polyline: data.polyline,
-            photos: data.photos || [],
-            latlng,
-            altitude: data.altitude || [],
-            time: data.time || [],
-            note: data.note || "",
-            start: data.start || "",
-            end: data.end || "",
-            notifiedAt: data.notifiedAt || null,
-          });
-        });
-        const cacheKey = getCacheKey(HIKE_CACHE_KEY, limitCount);
-        writeCachedValue(cacheKey, hikes);
-        onUpdate(hikes);
-      },
-      (error) => {
-        console.error("Error subscribing to hikes:", error);
-        if (onError) onError(error);
-      },
-    );
+    // Defer attaching the persistent Firestore listener until the browser is idle
+    let scheduledId = null;
+    let unsubscribe = null;
+    const attach = () => {
+      try {
+        unsubscribe = onSnapshot(
+          q,
+          (querySnapshot) => {
+            const hikes = [];
+            querySnapshot.forEach((doc) => {
+              const data = doc.data();
+              const latlng = [];
+              if (data.lat && data.lng && data.lat.length === data.lng.length) {
+                for (let i = 0; i < data.lat.length; i++) {
+                  latlng.push([data.lat[i], data.lng[i]]);
+                }
+              }
+              hikes.push({
+                id: doc.id,
+                stravaId: data.stravaId,
+                name: data.name,
+                description: data.description,
+                distanceKm: data.distanceKm,
+                movingTimeSec: data.movingTimeSec,
+                elapsedTimeSec: data.elapsedTimeSec,
+                startDate: data.startDate,
+                type: data.type,
+                commentsCount: data.commentsCount || 0,
+                polyline: data.polyline,
+                photos: data.photos || [],
+                latlng,
+                altitude: data.altitude || [],
+                time: data.time || [],
+                note: data.note || "",
+                start: data.start || "",
+                end: data.end || "",
+                notifiedAt: data.notifiedAt || null,
+              });
+            });
+            const cacheKey = getCacheKey(HIKE_CACHE_KEY, limitCount);
+            writeCachedValue(cacheKey, hikes);
+            onUpdate(hikes);
+          },
+          (error) => {
+            console.error("Error subscribing to hikes:", error);
+            if (onError) onError(error);
+          },
+        );
+      } catch (e) {
+        console.error("Failed to attach hikes listener:", e);
+      }
+    };
 
-    return unsubscribe;
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      try {
+        scheduledId = window.requestIdleCallback(attach, { timeout: 2000 });
+      } catch (e) {
+        scheduledId = setTimeout(attach, 500);
+      }
+    } else {
+      scheduledId = setTimeout(attach, 500);
+    }
+
+    // Return cleanup that cancels the scheduled attach or unsubscribes
+    return () => {
+      if (scheduledId !== null) {
+        if (typeof window !== "undefined" && window.cancelIdleCallback) {
+          try {
+            window.cancelIdleCallback(scheduledId);
+          } catch (e) {
+            clearTimeout(scheduledId);
+          }
+        } else {
+          clearTimeout(scheduledId);
+        }
+      }
+      if (unsubscribe) unsubscribe();
+    };
   } catch (error) {
     console.error("Error setting up hike subscription:", error);
     if (onError) onError(error);

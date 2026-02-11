@@ -77,6 +77,30 @@ export const ensureAuthPersistence = async () => {
   );
 };
 
-ensureAuthPersistence().catch((error) => {
-  console.warn("Failed to enable Firebase persistence:", error);
-});
+// Defer enabling auth persistence until the browser is idle to avoid early
+// network contention that can delay LCP (e.g., Firestore channel setup).
+const scheduleEnsureAuthPersistence = () => {
+  const run = () => {
+    ensureAuthPersistence().catch((error) => {
+      console.warn("Failed to enable Firebase persistence:", error);
+    });
+  };
+
+  if (typeof window !== "undefined") {
+    if ("requestIdleCallback" in window) {
+      try {
+        window.requestIdleCallback(run, { timeout: 2000 });
+      } catch (e) {
+        setTimeout(run, 2000);
+      }
+    } else {
+      // Fallback: schedule shortly after load
+      window.addEventListener("load", () => setTimeout(run, 500));
+    }
+  } else {
+    // Non-browser environment: run immediately
+    run();
+  }
+};
+
+scheduleEnsureAuthPersistence();

@@ -45,6 +45,26 @@
       crossorigin
     />
 
+    <!-- Preload the first OpenStreetMap tile to make the LCP tile discoverable -->
+    <link
+      rel="preload"
+      as="image"
+      href="https://a.tile.openstreetmap.org/5/16/11.png"
+    />
+    <script>
+      // Create a high-priority image fetch for the LCP tile so browsers start it early.
+      (function () {
+        try {
+          const img = new Image();
+          img.decoding = "async";
+          img.setAttribute && img.setAttribute("fetchpriority", "high");
+          img.src = "https://a.tile.openstreetmap.org/5/16/11.png";
+        } catch (e) {
+          // swallow errors in old browsers
+        }
+      })();
+    </script>
+
     <!-- Keep www.googleapis.com as preconnect because Firebase may call it early -->
     <link rel="preconnect" href="https://www.googleapis.com" crossorigin />
     <link rel="dns-prefetch" href="//firestore.googleapis.com" />
