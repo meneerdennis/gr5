@@ -37,15 +37,16 @@
       href="https://identitytoolkit.googleapis.com"
       crossorigin
     />
-    <link rel="preconnect" href="https://apis.google.com" crossorigin />
+    <!-- Demoted apis.google.com to dns-prefetch (used only for optional Google Sign-In) -->
+    <link rel="dns-prefetch" href="//apis.google.com" />
     <link
       rel="preconnect"
       href="https://a.tile.openstreetmap.org"
       crossorigin
     />
 
-    <!-- Demoted to dns-prefetch to reduce number of preconnects -->
-    <link rel="dns-prefetch" href="//www.googleapis.com" />
+    <!-- Keep www.googleapis.com as preconnect because Firebase may call it early -->
+    <link rel="preconnect" href="https://www.googleapis.com" crossorigin />
     <link rel="dns-prefetch" href="//firestore.googleapis.com" />
     <link rel="dns-prefetch" href="//firebasestorage.googleapis.com" />
     <link rel="dns-prefetch" href="//b.tile.openstreetmap.org" />
