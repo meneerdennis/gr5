@@ -170,8 +170,10 @@ exports.notifyNewComment = functions.firestore
     try {
       // Push notifications are disabled by default. To re-enable, set:
       // ENABLE_COMMENT_PUSH='true' in your functions environment.
-      if (process.env.ENABLE_COMMENT_PUSH !== 'true') {
-        console.log('Comment push notifications are disabled (ENABLE_COMMENT_PUSH !== true).');
+      if (process.env.ENABLE_COMMENT_PUSH !== "true") {
+        console.log(
+          "Comment push notifications are disabled (ENABLE_COMMENT_PUSH !== true).",
+        );
         return null;
       }
 
