@@ -44,15 +44,16 @@ export function useHikeData() {
   const commentCountsRef = useRef(new Map());
   const hadUserRef = useRef(false);
   const lastRefreshAtRef = useRef(0);
-  const HIKE_LIMIT = Number(process.env.REACT_APP_HIKE_LIMIT || 200);
-  const PHOTO_LIMIT = Number(process.env.REACT_APP_PHOTO_LIMIT || 500);
-  // Reduced initial limits for faster first-time loading
-  const INITIAL_HIKE_LIMIT = Number(
-    process.env.REACT_APP_INITIAL_HIKE_LIMIT || 10,
-  );
-  const HIKE_CACHE_TTL_MS = 10 * 60 * 1000; // Reduced to 10 minutes (Firestore handles most caching now)
-  const PHOTO_CACHE_TTL_MS = 10 * 60 * 1000; // Reduced to 10 minutes (Firestore handles most caching now)
-  const COMMENT_POLL_INTERVAL_MS = 10 * 60 * 1000;
+  // Configuration constants moved to separate module
+  // (makes the hook easier to split/test later)
+  const {
+    HIKE_LIMIT,
+    PHOTO_LIMIT,
+    INITIAL_HIKE_LIMIT,
+    HIKE_CACHE_TTL_MS,
+    PHOTO_CACHE_TTL_MS,
+    COMMENT_POLL_INTERVAL_MS,
+  } = require("./hikeDataConfig");
 
   const { user, loading: authLoading } = useAuth();
 
