@@ -68,6 +68,8 @@ const STATIC_FILES = [
   "/favicon.ico",
   "/appicon.png",
   "/hiker.png",
+  "/gr5-polyline-simplified.txt",
+  "/gr5-simplified.geojson",
 ];
 
 // Install event - cache static assets

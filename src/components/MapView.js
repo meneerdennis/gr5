@@ -27,6 +27,7 @@ import ElevationProfile from "./ElevationProfile";
 import { useViewedActivities } from "../hooks/useViewedActivities";
 import PhotoMarkers from "./PhotoMarkers";
 import MapInteraction from "./MapInteraction";
+import simplify from "simplify-js";
 
 // Global function for photo modal (will be set by MapView)
 let globalPhotoClickHandler = null;
@@ -558,7 +559,10 @@ function MapView({
           {/* Primary route display - GR5.gpx track (rendered first, below) */}
           {elevationProfile.length > 0 && (
             <Polyline
-              positions={elevationProfile
+              positions={simplifyRoute(
+                elevationProfile,
+                isMobile ? 0.0005 : 0.0001,
+              )
                 .map((p) => [p.lat, p.lon])
                 .filter((pos) => pos[0] && pos[1])}
               color="#ff5722"
@@ -785,3 +789,10 @@ function MapView({
 }
 
 export default MapView;
+
+function simplifyRoute(route, tolerance) {
+  return simplify(
+    route.map((point) => ({ x: point.lat, y: point.lon })),
+    tolerance,
+  ).map((point) => ({ lat: point.x, lon: point.y }));
+}
