@@ -29,6 +29,9 @@
     "web-vitals": "^2.1.4"
   },
   "devDependencies": {
+    "@mapbox/togeojson": "^0.16.2",
+    "@turf/turf": "^7.3.4",
+    "@xmldom/xmldom": "^0.8.11",
     "baseline-browser-mapping": "^2.9.16",
     "gh-pages": "^6.0.0",
     "sharp": "^0.34.5"

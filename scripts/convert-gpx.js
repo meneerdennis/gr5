@@ -1,12 +1,60 @@
 const fs = require("fs");
 const path = require("path");
 const { DOMParser } = require("@xmldom/xmldom");
-const tj = require("togeojson");
+const tj = require("@mapbox/togeojson");
 const turf = require("@turf/turf");
 
 const gpxPath = path.join(__dirname, "..", "public", "gr5.gpx");
 const outGeo = path.join(__dirname, "..", "public", "gr5.geojson");
 const outRoute = path.join(__dirname, "..", "public", "gr5-route.json");
+const outPolyline = path.join(__dirname, "..", "public", "gr5-polyline.txt");
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Google Maps polyline encoding function
+function encodePolyline(coordinates) {
+  let encoded = "";
+  let prevLat = 0;
+  let prevLng = 0;
+
+  for (const coord of coordinates) {
+    const lat = Math.round(coord[1] * 1e5);
+    const lng = Math.round(coord[0] * 1e5);
+
+    encoded += encodeValue(lat - prevLat);
+    encoded += encodeValue(lng - prevLng);
+
+    prevLat = lat;
+    prevLng = lng;
+  }
+
+  return encoded;
+}
+
+function encodeValue(value) {
+  value = value < 0 ? ~(value << 1) : value << 1;
+  let encoded = "";
+
+  while (value >= 0x20) {
+    encoded += String.fromCharCode((0x20 | (value & 0x1f)) + 63);
+    value >>= 5;
+  }
+
+  encoded += String.fromCharCode(value + 63);
+  return encoded;
+}
 
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371; // km
@@ -120,8 +168,14 @@ try {
     JSON.stringify({ elevationProfile, totalDistanceKm }),
   );
 
+  // Generate and save polyline
+  const polylineCoords = elevationProfile.map((p) => [p.lon, p.lat]);
+  const polyline = encodePolyline(polylineCoords);
+  fs.writeFileSync(outPolyline, polyline);
+
   console.log("Wrote:", outGeo);
   console.log("Wrote:", outRoute);
+  console.log("Wrote:", outPolyline);
   console.log(
     "Total trkpt:",
     trkpts.length,
