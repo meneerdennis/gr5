@@ -92,6 +92,12 @@ function Layout({
     return () => clearInterval(interval);
   }, [quotes]);
 
+  useEffect(() => {
+    if (notifyOpen && notificationPermission === "granted") {
+      setNotifyOpen(false); // Close the notification prompt if already granted
+    }
+  }, [notifyOpen, notificationPermission]);
+
   return (
     <div
       className="flex-1 flex-col min-h-screen"

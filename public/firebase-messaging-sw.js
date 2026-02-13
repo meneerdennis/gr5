@@ -1,10 +1,10 @@
 /* eslint-disable no-undef */
 importScripts("/firebase-config.js");
 importScripts(
-  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js",
+  "https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js",
 );
 importScripts(
-  "https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js",
+  "https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js",
 );
 
 if (!self.__FIREBASE_CONFIG__) {

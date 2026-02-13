@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNotifications } from "../hooks/useNotifications";
 
 const STORAGE_KEY = "gr5_notify_prompt_v1";
 
@@ -6,6 +7,8 @@ export default function NotificationPrompt({
   open = false,
   onClose = () => {},
 }) {
+  const { subscribeForNotifications } = useNotifications();
+
   const [visible, setVisible] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [shownOnce, setShownOnce] = useState(false);
@@ -92,6 +95,15 @@ export default function NotificationPrompt({
         } catch (e) {
           // ignore contexts where a Service Worker is required
         }
+
+        // Call subscribeForNotifications correctly
+        try {
+          const subscriptionResult = await subscribeForNotifications();
+          console.log("Notification subscription result:", subscriptionResult);
+        } catch (err) {
+          console.error("Failed to subscribe for notifications:", err);
+        }
+
         dismiss("accepted");
       } else {
         dismiss("dismissed");
