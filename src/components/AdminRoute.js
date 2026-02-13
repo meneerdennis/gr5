@@ -56,6 +56,11 @@ function AdminRoute({ children }) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
+  // Ensure only authenticated users can access admin pages
+  if (!user) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
   // User is authenticated, render the protected content
   return (
     <div
