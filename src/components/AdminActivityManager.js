@@ -38,6 +38,7 @@ function AdminActivityManager() {
   const [editName, setEditName] = useState("");
   const [editStart, setEditStart] = useState("");
   const [editEnd, setEditEnd] = useState("");
+  const [editSongOfTheDay, setEditSongOfTheDay] = useState("");
   const [editStatus, setEditStatus] = useState(null);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -108,7 +109,7 @@ function AdminActivityManager() {
     setEditName(hike.name);
     setEditStart(hike.start || "");
     setEditEnd(hike.end || "");
-    setEditStatus(null);
+    setEditSongOfTheDay(hike.songOfTheDay || "");
   };
 
   const handleSaveEdit = async () => {
@@ -116,10 +117,17 @@ function AdminActivityManager() {
 
     try {
       setEditStatus(null);
+      console.log("Updating hike with payload:", {
+        name: editName.trim(),
+        start: editStart.trim(),
+        end: editEnd.trim(),
+        songOfTheDay: editSongOfTheDay,
+      });
       const result = await updateHike(editingHikeId, {
         name: editName.trim(),
         start: editStart.trim(),
         end: editEnd.trim(),
+        songOfTheDay: editSongOfTheDay,
       });
       if (result.success) {
         setEditStatus({
@@ -144,6 +152,7 @@ function AdminActivityManager() {
       setEditName("");
       setEditStart("");
       setEditEnd("");
+      setEditSongOfTheDay("");
     }
   };
 
@@ -152,6 +161,7 @@ function AdminActivityManager() {
     setEditName("");
     setEditStart("");
     setEditEnd("");
+    setEditSongOfTheDay("");
     setEditStatus(null);
   };
 
@@ -287,25 +297,9 @@ function AdminActivityManager() {
     <div className="p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         <div className="glass-card p-4 sm:p-6 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-100 mb-2 sm:mb-0">
-              🗑️ Activity Manager
-            </h1>
-            <button
-              onClick={() => {
-                setLoading(true);
-                loadHikes();
-              }}
-              className="btn btn-primary flex items-center space-x-2 text-sm px-4 py-2"
-              disabled={loading}
-              title="Refresh activities"
-            >
-              <span role="img" aria-label="refresh">
-                🔄
-              </span>
-              <span>Refresh</span>
-            </button>
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-100 mb-4">
+            🗑️ Activity Manager
+          </h1>
           <p className="text-gray-300 mb-6">
             View and manage all your activities. Delete unwanted
             activities/hikes from your collection.
@@ -469,6 +463,19 @@ function AdminActivityManager() {
                           hike.end || "N/A"
                         )}
                       </td>
+                      <td className="p-3 text-gray-300">
+                        {editingHikeId === hike.id ? (
+                          <input
+                            type="text"
+                            value={editSongOfTheDay}
+                            onChange={(e) => setEditSongOfTheDay(e.target.value)}
+                            className="w-full px-2 py-1 bg-gray-700 text-gray-200 border border-gray-600 rounded"
+                            placeholder="Spotify Song URL"
+                          />
+                        ) : (
+                          hike.songOfTheDay || "N/A"
+                        )}
+                      </td>
                       <td className="p-3 flex space-x-2">
                         {editingHikeId === hike.id ? (
                           <>
@@ -492,17 +499,6 @@ function AdminActivityManager() {
                               className="btn btn-primary text-sm"
                             >
                               ✏️ Edit
-                            </button>
-                            <button
-                              onClick={() => handleNotifyUsers(hike)}
-                              className="btn btn-secondary text-sm"
-                              disabled={notifyingHikeId === hike.id}
-                            >
-                              {notifyingHikeId === hike.id
-                                ? "📣 Notifying..."
-                                : hike.notifiedAt
-                                  ? "📣 Notify Again"
-                                  : "📣 Notify Users"}
                             </button>
                             <button
                               onClick={() => handleDeleteClick(hike)}

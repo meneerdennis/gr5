@@ -676,3 +676,20 @@ exports.stravaWebhook = onRequest(
     return res.status(405).send("Method not allowed");
   },
 );
+
+// Firestore trigger to handle updates to the Song of the Day field
+exports.updateSongOfTheDay = functions.firestore
+  .document("hikes/{hikeId}")
+  .onUpdate((change, context) => {
+    const beforeData = change.before.data();
+    const afterData = change.after.data();
+
+    if (beforeData.songOfTheDay !== afterData.songOfTheDay) {
+      console.log(
+        `Song of the Day updated for hike ${context.params.hikeId}:`,
+        afterData.songOfTheDay
+      );
+    }
+
+    return null;
+  });

@@ -140,6 +140,7 @@ export async function getHikesFromFirebase(limitCount = null, options = {}) {
         start: data.start || "",
         end: data.end || "",
         notifiedAt: data.notifiedAt || null,
+        songOfTheDay: data.songOfTheDay || "",
       });
     });
 
@@ -202,6 +203,7 @@ export async function getHikesSince(startDate, limitCount = null) {
         start: data.start || "",
         end: data.end || "",
         notifiedAt: data.notifiedAt || null,
+        songOfTheDay: data.songOfTheDay || "",
       });
     });
 
@@ -261,6 +263,7 @@ export function subscribeToHikes(onUpdate, onError, limitCount = null) {
                 start: data.start || "",
                 end: data.end || "",
                 notifiedAt: data.notifiedAt || null,
+                songOfTheDay: data.songOfTheDay || "",
               });
             });
             const cacheKey = getCacheKey(HIKE_CACHE_KEY, limitCount);
@@ -1225,6 +1228,7 @@ export async function getHikeById(hikeId) {
       start: data.start || "",
       end: data.end || "",
       notifiedAt: data.notifiedAt || null,
+      songOfTheDay: data.songOfTheDay || "",
     };
   } catch (error) {
     console.error("Error fetching single hike:", error);

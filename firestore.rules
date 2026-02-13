@@ -4,7 +4,10 @@ service cloud.firestore {
     // Hikes collection - read access for everyone, write restricted
     match /hikes/{hikeId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null &&
+        (request.resource.data.songOfTheDay == null ||
+         request.resource.data.songOfTheDay.matches("^https://open\.spotify\.com/track/[a-zA-Z0-9]+$")
+        );
       match /likes/{uid} {
         // Allow read for everyone
         allow read;

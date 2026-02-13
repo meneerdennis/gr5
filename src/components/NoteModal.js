@@ -82,6 +82,11 @@ function NoteModal({
 
   // Get selected hike early (before useEffects that need it)
   const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
+  const songOfTheDay = selectedHike?.songOfTheDay;
+
+  useEffect(() => {
+    console.log("Song of the Day:", songOfTheDay);
+  }, [songOfTheDay]);
 
   // Handle touch events for swipe-down-to-close
   const isScrollAtTop = () => {
@@ -644,7 +649,31 @@ function NoteModal({
             </div>
           </div>
         )}
-
+        {/* Spotify Widget */}
+        {songOfTheDay && (
+          <>
+            <h4 style={{ margin: "0 0 4px 0", fontSize: "14px", fontWeight: "bold", color: "#3b3b3b", padding: "0 10px" }}>
+              Song of the Day
+            </h4>
+            <div
+              style={{
+                margin: "4px 0", // Minimal margin
+                padding: "0 10px",
+              }}
+            >
+              <iframe
+                src={`https://open.spotify.com/embed/track/${songOfTheDay.split("/").pop().split("?")[0]}`}
+                width="100%"
+                height="80"
+                frameBorder="0"
+                allow="encrypted-media"
+                title="Spotify Song of the Day"
+                scrolling="no"
+                style={{ borderRadius: "4px", overflow: "hidden" }}
+              ></iframe>
+            </div>
+          </>
+        )}
         {/* Post Content */}
         <div
           className="instagram-content"
@@ -852,6 +881,7 @@ function NoteModal({
             )}
           </div>
         )}
+
       </div>
     </div>
   );
