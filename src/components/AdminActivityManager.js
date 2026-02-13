@@ -468,7 +468,9 @@ function AdminActivityManager() {
                           <input
                             type="text"
                             value={editSongOfTheDay}
-                            onChange={(e) => setEditSongOfTheDay(e.target.value)}
+                            onChange={(e) =>
+                              setEditSongOfTheDay(e.target.value)
+                            }
                             className="w-full px-2 py-1 bg-gray-700 text-gray-200 border border-gray-600 rounded"
                             placeholder="Spotify Song URL"
                           />

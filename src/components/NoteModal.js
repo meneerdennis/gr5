@@ -652,7 +652,15 @@ function NoteModal({
         {/* Spotify Widget */}
         {songOfTheDay && (
           <>
-            <h4 style={{ margin: "0 0 4px 0", fontSize: "14px", fontWeight: "bold", color: "#3b3b3b", padding: "0 10px" }}>
+            <h4
+              style={{
+                margin: "0 0 4px 0",
+                fontSize: "14px",
+                fontWeight: "bold",
+                color: "#3b3b3b",
+                padding: "0 10px",
+              }}
+            >
               Song of the Day
             </h4>
             <div
@@ -881,7 +889,6 @@ function NoteModal({
             )}
           </div>
         )}
-
       </div>
     </div>
   );

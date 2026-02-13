@@ -687,7 +687,7 @@ exports.updateSongOfTheDay = functions.firestore
     if (beforeData.songOfTheDay !== afterData.songOfTheDay) {
       console.log(
         `Song of the Day updated for hike ${context.params.hikeId}:`,
-        afterData.songOfTheDay
+        afterData.songOfTheDay,
       );
     }
 
