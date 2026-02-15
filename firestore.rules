@@ -1,11 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Hikes collection - read access for everyone, write restricted
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+    // Hikes collection - read access for everyone, write restricted to admins
     match /hikes/{hikeId} {
       allow read: if true;
-      // Require authentication for writes. (Removed strict Spotify URL regex — kept simple to avoid rules compile issues)
-      allow write: if request.auth != null;
+      // Admin-only writes: prevents anonymous or regular authenticated users from creating/updating/deleting hikes
+      allow write: if isAdmin();
       match /likes/{uid} {
         // Allow read for everyone
         allow read;
@@ -24,14 +32,15 @@ service cloud.firestore {
     
     match /quotes/{quote} {
       allow read: if true;  // Allow anyone to read quotes
-      allow write: if request.auth != null;  // Require auth for writes
+      // Only administrators may write/modify quotes
+      allow write: if isAdmin();
     }
     
-    // Photos collection - allow read and write for photo uploads
+    // Photos collection - reads public, writes restricted to admins (managed via AdminPhotoManager)
     match /photos/{document} {
       allow read: if true;
-      allow create: if request.auth != null; // Require auth for photo creation
-      allow update, delete: if request.auth != null;
+      // Only admins can create/update/delete photos
+      allow create, update, delete: if isAdmin();
     }
     
     // User preferences - allow read and write only by the user themselves

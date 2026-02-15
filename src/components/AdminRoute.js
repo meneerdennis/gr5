@@ -52,12 +52,8 @@ function AdminRoute({ children }) {
     );
   }
 
-  if (!user) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
-  }
-
-  // Ensure only authenticated users can access admin pages
-  if (!user) {
+  if (!user || user.isAnonymous) {
+    // Anonymous users are not allowed in the admin panel — show login prompt instead
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
