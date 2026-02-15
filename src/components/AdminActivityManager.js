@@ -497,6 +497,17 @@ function AdminActivityManager() {
                         ) : (
                           <>
                             <button
+                              onClick={() => handleNotifyUsers(hike)}
+                              className="btn btn-secondary text-sm"
+                              disabled={notifyingHikeId === hike.id}
+                            >
+                              {notifyingHikeId === hike.id
+                                ? "📣 Notifying..."
+                                : hike.notifiedAt
+                                  ? "📣 Notify Again"
+                                  : "📣 Notify Users"}
+                            </button>
+                            <button
                               onClick={() => handleEditClick(hike)}
                               className="btn btn-primary text-sm"
                             >
