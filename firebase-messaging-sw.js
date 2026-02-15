@@ -7,14 +7,18 @@ importScripts(
   "https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js",
 );
 
+console.log("Firebase messaging service worker loaded");
+
 if (!self.__FIREBASE_CONFIG__) {
   console.warn("Firebase config not found for messaging service worker.");
 } else {
+  console.log("Initializing Firebase in service worker");
   firebase.initializeApp(self.__FIREBASE_CONFIG__);
 
   const messaging = firebase.messaging();
 
   messaging.onBackgroundMessage((payload) => {
+    console.log("Received background message:", payload);
     const title =
       payload?.notification?.title || payload?.data?.title || "New GR5 update";
     const options = {
