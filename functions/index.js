@@ -356,6 +356,20 @@ exports.trackHikeChanges = functions.firestore
           { merge: true },
         );
       console.log(`Recorded hike change: ${hikeId} (${type})`);
+
+      // Maintain a lightweight count so clients can run a single consistency check
+      const statsRef = admin.firestore().doc("meta/hikesStats");
+      if (type === "added") {
+        await statsRef.set(
+          { total: admin.firestore.FieldValue.increment(1) },
+          { merge: true },
+        );
+      } else if (type === "removed") {
+        await statsRef.set(
+          { total: admin.firestore.FieldValue.increment(-1) },
+          { merge: true },
+        );
+      }
     } catch (err) {
       console.error("Error writing hike change meta:", err);
     }
@@ -393,6 +407,20 @@ exports.trackPhotoChanges = functions.firestore
           { merge: true },
         );
       console.log(`Recorded photo change: ${photoId} (${type})`);
+
+      // Maintain a lightweight photos count for client consistency checks
+      const photosStatsRef = admin.firestore().doc("meta/photosStats");
+      if (type === "added") {
+        await photosStatsRef.set(
+          { total: admin.firestore.FieldValue.increment(1) },
+          { merge: true },
+        );
+      } else if (type === "removed") {
+        await photosStatsRef.set(
+          { total: admin.firestore.FieldValue.increment(-1) },
+          { merge: true },
+        );
+      }
     } catch (err) {
       console.error("Error writing photosLatestChange meta doc:", err);
     }

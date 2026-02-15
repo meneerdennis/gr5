@@ -759,67 +759,191 @@ export function useHikeData() {
   const refreshUpdates = useCallback(async () => {
     if (refreshing) return;
     setRefreshing(true);
+
+    const prevRefreshAt = lastRefreshAtRef.current || 0; // use previous timestamp for incremental checks
     lastRefreshAtRef.current = Date.now();
+
     try {
-      // Clear caches to ensure fresh data
-      clearHikeCache();
-      clearPhotoCache();
-
-      // For refresh, do a full refetch to get updated data
-      const allHikes = await getStravaHikes({
-        limit: HIKE_LIMIT,
-        useCache: false, // Bypass cache for refresh
-      });
-      const newHikes = allHikes.map((hike) => {
-        const override = commentCountsRef.current.get(hike.id);
-        return typeof override === "number"
-          ? { ...hike, commentsCount: override }
-          : hike;
-      });
-
-      let mergedHikes = newHikes; // Use the full refreshed data
-      setHikes(mergedHikes);
-      hikesRef.current = mergedHikes;
-      updateHikeCache(HIKE_LIMIT, mergedHikes);
-
-      // For refresh, refetch all photos
-      const allPhotos = await getAllPhotosWithHikes(PHOTO_LIMIT, {
-        useCache: false, // Bypass cache for refresh
-        hikes: mergedHikes,
-      });
-
-      // For refresh, use the full refreshed photos data
-      setPhotos(allPhotos);
-      updatePhotoCache(PHOTO_LIMIT, allPhotos);
-
-      // Update last-seen timestamps after a manual refresh so listeners won't treat these as new
+      // Check meta docs first — if nothing changed since last refresh, skip heavy full-refresh
       try {
-        setLastSeenFromData({ photos: allPhotos, hikes: mergedHikes });
+        const hikesMetaSnap = await getDoc(
+          doc(db, "meta", "hikesLatestChange"),
+        );
+        const photosMetaSnap = await getDoc(
+          doc(db, "meta", "photosLatestChange"),
+        );
+        const hikesChangedAt =
+          hikesMetaSnap.exists() && hikesMetaSnap.data().timestamp
+            ? hikesMetaSnap.data().timestamp.toMillis()
+            : 0;
+        const photosChangedAt =
+          photosMetaSnap.exists() && photosMetaSnap.data().timestamp
+            ? photosMetaSnap.data().timestamp.toMillis()
+            : 0;
+
+        if (
+          hikesChangedAt <= prevRefreshAt &&
+          photosChangedAt <= prevRefreshAt
+        ) {
+          // No visible changes since last refresh — skip full refresh to save reads
+          if (process.env.NODE_ENV !== "production") {
+            console.debug(
+              "Skipping full refresh: no meta changes since last refresh",
+            );
+          }
+          setRefreshing(false);
+          return;
+        }
       } catch (err) {
-        console.warn("Failed to set last-seen timestamps after refresh:", err);
+        // If meta-doc check fails, fall back to safe full refresh
+        console.warn(
+          "Meta doc check failed, falling back to full refresh:",
+          err,
+        );
       }
 
-      // Also fetch a fresh full hikes list from the server to pick up deletions
+      // Incremental refresh: fetch only new hikes/photos since last known values
+      // 1) Hikes added since the newest local startDate
+      const localHikes = hikesRef.current || [];
+      const maxLocalStartDate = localHikes.length
+        ? localHikes.reduce((max, h) => {
+            const ts = h?.startDate ? Date.parse(String(h.startDate)) : 0;
+            return Number.isNaN(ts) ? max : Math.max(max, ts);
+          }, 0)
+        : 0;
+
+      let mergedHikes = [...localHikes];
       try {
-        const freshHikes = await getStravaHikes({
-          limit: HIKE_LIMIT,
-          useCache: false,
-        });
-        // If the fresh list differs from the merged list (e.g. a hike was deleted), replace local state and update cache
-        const freshIds = new Set(freshHikes.map((h) => h.id));
-        const mergedIds = new Set(mergedHikes.map((h) => h.id));
-        let listsDiffer = false;
-        if (freshIds.size !== mergedIds.size) listsDiffer = true;
-        if (!listsDiffer) {
-          for (const id of freshIds) {
-            if (!mergedIds.has(id)) {
-              listsDiffer = true;
-              break;
+        const addedHikes = maxLocalStartDate
+          ? await getHikesSince(new Date(maxLocalStartDate).toISOString())
+          : [];
+        if (Array.isArray(addedHikes) && addedHikes.length > 0) {
+          const mapped = addedHikes.map((h) => ({
+            ...h,
+            commentsCount:
+              commentCountsRef.current.get(h.id) ?? h.commentsCount ?? 0,
+          }));
+          // Prepend newest additions (newest first)
+          mergedHikes = [...mapped, ...mergedHikes];
+          // Deduplicate by id (keep first occurrence)
+          const seen = new Set();
+          mergedHikes = mergedHikes.filter((x) => {
+            if (!x || !x.id) return false;
+            if (seen.has(x.id)) return false;
+            seen.add(x.id);
+            return true;
+          });
+          setHikes(mergedHikes);
+          hikesRef.current = mergedHikes;
+          updateHikeCache(HIKE_LIMIT, mergedHikes);
+        }
+      } catch (err) {
+        console.warn(
+          "Incremental hikes fetch failed, falling back to full fetch:",
+          err,
+        );
+      }
+
+      // 2) If meta indicates a specific hike was modified since last refresh, fetch that single hike
+      try {
+        const hikesMetaSnap = await getDoc(
+          doc(db, "meta", "hikesLatestChange"),
+        );
+        if (hikesMetaSnap.exists()) {
+          const meta = hikesMetaSnap.data() || {};
+          const metaTs =
+            meta.timestamp && meta.timestamp.toMillis
+              ? meta.timestamp.toMillis()
+              : 0;
+          if (metaTs > prevRefreshAt && meta.id) {
+            try {
+              const hike = await getHikeById(meta.id);
+              if (hike) {
+                setHikes((prev) => {
+                  const exists = prev.some((p) => p.id === hike.id);
+                  const next = exists
+                    ? prev.map((p) => (p.id === hike.id ? hike : p))
+                    : [hike, ...prev];
+                  hikesRef.current = next;
+                  return next;
+                });
+              }
+            } catch (err) {
+              console.warn(
+                "Failed to fetch single hike from meta change:",
+                err,
+              );
             }
           }
         }
+      } catch (err) {
+        console.warn(
+          "Failed to read hikes meta during incremental refresh:",
+          err,
+        );
+      }
 
-        if (listsDiffer) {
+      // 3) Photos incremental (since newest local uploadedAt)
+      const localPhotos = photos || [];
+      const maxLocalUploadedAt = localPhotos.length
+        ? localPhotos.reduce((max, p) => {
+            const v = p && (p.uploadedAt ?? p.date);
+            const ts = typeof v === "number" ? v : Date.parse(String(v || ""));
+            return Number.isNaN(ts) ? max : Math.max(max, ts);
+          }, 0)
+        : 0;
+
+      try {
+        const newPhotos = maxLocalUploadedAt
+          ? await getPhotosSince(maxLocalUploadedAt)
+          : [];
+        if (Array.isArray(newPhotos) && newPhotos.length > 0) {
+          setPhotos((prev) => {
+            const existingIds = new Set(prev.map((p) => p.id));
+            const deduped = newPhotos.filter((p) => !existingIds.has(p.id));
+            const next = [...deduped, ...prev];
+            return next;
+          });
+        }
+      } catch (err) {
+        console.warn(
+          "Incremental photos fetch failed, falling back to full fetch:",
+          err,
+        );
+      }
+
+      // 4) Lightweight consistency check via meta stats — if counts disagree, do a full sync
+      try {
+        const hikesStatsSnap = await getDoc(doc(db, "meta", "hikesStats"));
+        const photosStatsSnap = await getDoc(doc(db, "meta", "photosStats"));
+        const serverHikesTotal = hikesStatsSnap.exists()
+          ? Number(hikesStatsSnap.data().total || 0)
+          : null;
+        const serverPhotosTotal = photosStatsSnap.exists()
+          ? Number(photosStatsSnap.data().total || 0)
+          : null;
+
+        let needFullHikesSync = false;
+        let needFullPhotosSync = false;
+
+        if (
+          typeof serverHikesTotal === "number" &&
+          serverHikesTotal !== hikesRef.current.length
+        ) {
+          needFullHikesSync = true;
+        }
+        if (
+          typeof serverPhotosTotal === "number" &&
+          serverPhotosTotal !== (photos || []).length
+        ) {
+          needFullPhotosSync = true;
+        }
+
+        if (needFullHikesSync) {
+          // Rare fallback: fetch entire hikes collection to reconcile deletions
+          const freshHikes = await getHikesFromFirebase(HIKE_LIMIT, {
+            useCache: false,
+          });
           const mergedWithComments = freshHikes.map((hike) => {
             const override = commentCountsRef.current.get(hike.id);
             return typeof override === "number"
@@ -830,11 +954,31 @@ export function useHikeData() {
           hikesRef.current = mergedWithComments;
           updateHikeCache(HIKE_LIMIT, mergedWithComments);
         }
-      } catch (e) {
-        console.error("Error fetching fresh hikes during refresh:", e);
+
+        if (needFullPhotosSync) {
+          const allPhotos = await getAllPhotosWithHikes(PHOTO_LIMIT, {
+            useCache: false,
+            hikes: hikesRef.current,
+          });
+          setPhotos(allPhotos);
+          updatePhotoCache(PHOTO_LIMIT, allPhotos);
+        }
+      } catch (err) {
+        console.warn(
+          "Consistency check failed, skipping incremental-only reconciliation:",
+          err,
+        );
       }
 
-      await loadCommentCounts();
+      // 5) Update last-seen timestamps so listeners won't treat these as new
+      try {
+        setLastSeenFromData({ photos: photos || [], hikes: hikesRef.current });
+      } catch (err) {
+        console.warn(
+          "Failed to set last-seen timestamps after incremental refresh:",
+          err,
+        );
+      }
     } catch (e) {
       console.error("Error refreshing updates:", e);
     } finally {
