@@ -2255,3 +2255,42 @@ input[type="file"] {
   overflow: hidden;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
+
+.spotify-toggle-button {
+  background-color: #e8e8e8 !important;
+  border: 0 !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  outline: none !important;
+  border-radius: 12px !important;
+  padding: 6px 10px !important;
+  margin: 0;
+  cursor: pointer;
+  color: #333 !important;
+  font-size: 12px !important;
+  line-height: 1.1;
+  text-align: left;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.spotify-toggle-button .spotify-toggle-caret {
+  font-size: 12px;
+  opacity: 0.85;
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease;
+  transform-origin: center;
+}
+
+.spotify-toggle-button[aria-expanded="true"] .spotify-toggle-caret {
+  transform: rotate(180deg);
+  opacity: 1;
+}

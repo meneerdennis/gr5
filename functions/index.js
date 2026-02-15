@@ -382,6 +382,100 @@ exports.trackPhotoChanges = functions.firestore
     return null;
   });
 
+// Callable function: return Spotify track metadata (artist(s), track name, album)
+// Requires SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to be set in the functions environment.
+exports.getSpotifyTrack = functions.https.onCall(async (data, context) => {
+  const track = data?.track || data?.trackId || null;
+  if (!track) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Missing track id or url.",
+    );
+  }
+
+  // Extract track id from a URL, spotify:uri or raw id
+  const extractId = (val) => {
+    if (!val) return null;
+    const uri = String(val).trim();
+    const uriMatch = uri.match(/^spotify:track:([a-zA-Z0-9]+)$/);
+    if (uriMatch) return uriMatch[1];
+    const urlMatch = uri.match(/track\/([A-Za-z0-9]+)/);
+    if (urlMatch) return urlMatch[1];
+    const idMatch = uri.match(/^([A-Za-z0-9]{22})$/);
+    if (idMatch) return idMatch[1];
+    return null;
+  };
+
+  const trackId = extractId(track);
+  if (!trackId) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Unable to extract Spotify track id.",
+    );
+  }
+
+  const CLIENT_ID =
+    process.env.SPOTIFY_CLIENT_ID || process.env.REACT_APP_SPOTIFY_CLIENT_ID;
+  const CLIENT_SECRET =
+    process.env.SPOTIFY_CLIENT_SECRET ||
+    process.env.REACT_APP_SPOTIFY_CLIENT_SECRET;
+
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    console.error(
+      "Missing SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET in functions environment",
+    );
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "Spotify credentials not configured on server.",
+    );
+  }
+
+  try {
+    // 1) get client-credentials token
+    const tokenResp = await axios({
+      method: "post",
+      url: "https://accounts.spotify.com/api/token",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      data: `grant_type=client_credentials&client_id=${encodeURIComponent(CLIENT_ID)}&client_secret=${encodeURIComponent(CLIENT_SECRET)}`,
+    });
+
+    const accessToken = tokenResp.data?.access_token;
+    if (!accessToken) {
+      throw new Error("Failed to obtain Spotify access token");
+    }
+
+    // 2) fetch track metadata
+    const trackResp = await axios.get(
+      `https://api.spotify.com/v1/tracks/${trackId}`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+
+    const t = trackResp.data || {};
+    const artists = Array.isArray(t.artists)
+      ? t.artists.map((a) => a.name)
+      : [];
+
+    return {
+      id: t.id || trackId,
+      name: t.name || null,
+      artists,
+      album: t.album?.name || null,
+      preview_url: t.preview_url || null,
+    };
+  } catch (err) {
+    console.error(
+      "getSpotifyTrack error:",
+      err?.response?.data || err.message || err,
+    );
+    throw new functions.https.HttpsError(
+      "internal",
+      "Failed to fetch Spotify track information.",
+    );
+  }
+});
+
 exports.updateHikeCommentCount = functions.firestore
   .document("hikes/{hikeId}/comments/{commentId}")
   .onWrite(async (change, context) => {

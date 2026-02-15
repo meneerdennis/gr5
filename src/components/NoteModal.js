@@ -8,6 +8,8 @@ import SwiperComponent, { SwiperSlide } from "./SwiperComponent";
 import LikeButton from "./LikeButton";
 import CommentsSection from "./CommentsSection";
 import { translateText, getUserLanguage } from "../services/translationService";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { app as firebaseApp } from "../services/firebase";
 
 const buttonTexts = {
   en: {
@@ -34,14 +36,7 @@ const buttonTexts = {
     same: "Der Text ist bereits in Ihrer Sprache.",
     error: "Übersetzung fehlgeschlagen. Bitte versuchen Sie es erneut.",
   },
-  lt: {
-    see: "Žiūrėti vertimą",
-    show: "Rodyti originalą",
-    same: "Tekstas jau yra jūsų kalba.",
-    error: "Vertimas nepavyko. Bandykite dar kartą.",
-  },
 };
-
 function NoteModal({
   hikes,
   photos,
@@ -80,11 +75,18 @@ function NoteModal({
   const canSwipeToCloseRef = useRef(false);
   const SWIPE_THRESHOLD = 100; // pixels
 
+  const [oembedTitle, setOembedTitle] = useState(null);
+  const [songArtist, setSongArtist] = useState(null);
+  const [songTitle, setSongTitle] = useState(null);
+  const [showPlayer, setShowPlayer] = useState(false);
+
   // Get selected hike early (before useEffects that need it)
   const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
   const songOfTheDay = selectedHike?.songOfTheDay;
 
   useEffect(() => {
+    console.log("NoteModal open - selectedHikeId:", selectedHikeId);
+    console.log("selectedHike object:", selectedHike);
     console.log("Song of the Day:", songOfTheDay);
   }, [songOfTheDay]);
 
@@ -157,7 +159,138 @@ function NoteModal({
     if (selectedHikeId && loadPhotosForHike) {
       loadPhotosForHike(selectedHikeId);
     }
+    // Reset Spotify player state when hike changes
+    setOembedTitle(null);
+    setSongArtist(null);
+    setSongTitle(null);
+    setShowPlayer(false);
   }, [selectedHikeId, resetTranslation, loadPhotosForHike]);
+
+  // Fetch Spotify oEmbed info to extract artist and song title
+  useEffect(() => {
+    if (!songOfTheDay) return;
+    let cancelled = false;
+    setOembedTitle(null);
+    setSongArtist(null);
+    setSongTitle(null);
+    setShowPlayer(false);
+
+    // Normalize songOfTheDay into a Spotify track URL (support full URLs, spotify:track:<id>, or raw id)
+    const getSpotifyTrackUrl = (val) => {
+      if (!val) return null;
+      // spotify URI: spotify:track:<id>
+      const uriMatch = val.match(/^spotify:track:([a-zA-Z0-9]+)$/);
+      if (uriMatch) return `https://open.spotify.com/track/${uriMatch[1]}`;
+      // raw Spotify id (typically 22 chars)
+      const idMatch = val.match(/^([A-Za-z0-9]{22})$/);
+      if (idMatch) return `https://open.spotify.com/track/${idMatch[1]}`;
+      // already a URL
+      if (/^https?:\/\//i.test(val)) return val;
+      // fallback: treat value as an id
+      return `https://open.spotify.com/track/${val}`;
+    };
+
+    const trackUrl = getSpotifyTrackUrl(songOfTheDay);
+    const oembedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(
+      trackUrl,
+    )}`;
+
+    fetch(oembedUrl)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        const title = (data.title || "").trim();
+        const author = (data.author_name || "").trim() || null;
+        setOembedTitle(title || null);
+
+        // Track whether we successfully determined an artist from oEmbed/title parsing
+        let foundArtist = false;
+
+        if (author) {
+          // oEmbed `author_name` is usually the artist
+          setSongArtist(author);
+          foundArtist = true;
+
+          // Try to derive a cleaner song title from the returned title
+          const splitBySep = title.split(/ - | – | — /);
+          if (splitBySep.length >= 2) {
+            // If the title starts with the artist, take the remainder as song title;
+            // otherwise assume the last segment is the artist and take the rest.
+            if (splitBySep[0].toLowerCase() === author.toLowerCase()) {
+              setSongTitle(splitBySep.slice(1).join(" - ").trim());
+            } else {
+              setSongTitle(splitBySep.slice(0, -1).join(" - ").trim() || title);
+            }
+          } else {
+            setSongTitle(title);
+          }
+        } else if (title) {
+          // Parse "Artist - Title" first (most common), fall back to "Title - Artist"
+          const seps = [" - ", " – ", " — "];
+          let parsed = false;
+          for (const sep of seps) {
+            if (title.includes(sep)) {
+              const parts = title.split(sep).map((p) => p.trim());
+              if (parts.length >= 2) {
+                // Prefer artist-first (Artist - Title)
+                const artistFirst = {
+                  artist: parts[0],
+                  song: parts.slice(1).join(sep).trim(),
+                };
+                setSongArtist(artistFirst.artist);
+                setSongTitle(artistFirst.song);
+                parsed = true;
+                foundArtist = true;
+                break;
+              }
+            }
+          }
+          if (!parsed) {
+            setSongTitle(title);
+          }
+        }
+
+        // If we couldn't determine an artist from oEmbed/title, try server-side Spotify API (callable function)
+        if (!foundArtist) {
+          (async () => {
+            try {
+              const functions = getFunctions(firebaseApp);
+              const callable = httpsCallable(functions, "getSpotifyTrack");
+              const resp = await callable({ track: songOfTheDay });
+              const payload = resp.data || {};
+              if (
+                Array.isArray(payload.artists) &&
+                payload.artists.length > 0
+              ) {
+                setSongArtist(payload.artists.join(", "));
+                if (!songTitle && payload.name) setSongTitle(payload.name);
+              }
+            } catch (err) {
+              // don't spam console on predictable failures
+              // (missing server creds or callable not deployed)
+              console.debug("Spotify callable failed:", err?.message || err);
+            }
+          })();
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch Spotify oEmbed:", err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [songOfTheDay]);
+
+  // Build a safe label for the Spotify button to avoid showing 'undefined'
+  const spotifyLabel = (() => {
+    const artist = songArtist || null;
+    const title = songTitle || oembedTitle || null;
+    if (artist && title) return `${artist} - ${title}`;
+    if (title && !artist) return title;
+    if (artist && !title) return artist;
+    return null;
+  })();
 
   // Set map bounds to show entire hike when modal opens
   useEffect(() => {
@@ -652,34 +785,40 @@ function NoteModal({
         {/* Spotify Widget */}
         {songOfTheDay && (
           <>
-            <h4
-              style={{
-                margin: "0 0 4px 0",
-                fontSize: "14px",
-                fontWeight: "bold",
-                color: "#3b3b3b",
-                padding: "0 10px",
-              }}
-            >
-              Song of the Day
-            </h4>
-            <div
-              style={{
-                margin: "4px 0", // Minimal margin
-                padding: "0 10px",
-              }}
-            >
-              <iframe
-                src={`https://open.spotify.com/embed/track/${songOfTheDay.split("/").pop().split("?")[0]}`}
-                width="100%"
-                height="80"
-                frameBorder="0"
-                allow="encrypted-media"
-                title="Spotify Song of the Day"
-                scrolling="no"
-                style={{ borderRadius: "4px", overflow: "hidden" }}
-              ></iframe>
+            <div style={{ padding: "0 10px", marginTop: "8px" }}>
+              <button
+                className="spotify-toggle-button"
+                onClick={() => setShowPlayer((s) => !s)}
+                aria-expanded={showPlayer}
+                title={showPlayer ? "Hide player" : "Show player"}
+              >
+                <span className="spotify-toggle-label">
+                  ▶️ Song of the Day: {spotifyLabel || "Play"}
+                </span>
+                <span className="spotify-toggle-caret" aria-hidden="true">
+                  ⌄
+                </span>
+              </button>
             </div>
+            {showPlayer && (
+              <div
+                style={{
+                  margin: "4px 0", // Minimal margin
+                  padding: "0 10px",
+                }}
+              >
+                <iframe
+                  src={`https://open.spotify.com/embed/track/${songOfTheDay.split("/").pop().split("?")[0]}`}
+                  width="100%"
+                  height="80"
+                  frameBorder="0"
+                  allow="encrypted-media"
+                  title="Spotify Song of the Day"
+                  scrolling="no"
+                  style={{ borderRadius: "4px", overflow: "hidden" }}
+                ></iframe>
+              </div>
+            )}
           </>
         )}
         {/* Post Content */}
