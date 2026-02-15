@@ -371,8 +371,8 @@ function NoteModal({
     });
   }, [photos, selectedHikeId]);
 
-  const selectedPhotoIndex =
-    hikePhotos.findIndex((p) => p.url === selectedPhotoUrl) || 0;
+  const foundIndex = hikePhotos.findIndex((p) => p.url === selectedPhotoUrl);
+  const selectedPhotoIndex = foundIndex >= 0 ? foundIndex : 0;
 
   // Navigation helpers
   const currentNoteIndex = useMemo(() => {
@@ -752,12 +752,27 @@ function NoteModal({
                               ? " is-loaded"
                               : ""
                           }`}
-                          loading="eager"
+                          loading={
+                            index === selectedPhotoIndex ||
+                            index === selectedPhotoIndex - 1 ||
+                            index === selectedPhotoIndex + 1
+                              ? "eager"
+                              : "lazy"
+                          }
                           decoding={
-                            index === selectedPhotoIndex ? "sync" : "async"
+                            index === selectedPhotoIndex ||
+                            index === selectedPhotoIndex - 1 ||
+                            index === selectedPhotoIndex + 1
+                              ? "sync"
+                              : "async"
                           }
                           fetchpriority={
-                            index === selectedPhotoIndex ? "high" : "auto"
+                            index === selectedPhotoIndex
+                              ? "high"
+                              : index === selectedPhotoIndex - 1 ||
+                                  index === selectedPhotoIndex + 1
+                                ? "auto"
+                                : "low"
                           }
                           onLoad={() => {
                             const key = photo.id || photo.url || index;
