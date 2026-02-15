@@ -168,6 +168,15 @@ exports.notifyNewComment = functions.firestore
 
     // Push notifications to users who previously commented on this hike
     try {
+      // Push notifications are disabled by default. To re-enable, set:
+      // ENABLE_COMMENT_PUSH='true' in your functions environment.
+      if (process.env.ENABLE_COMMENT_PUSH !== "true") {
+        console.log(
+          "Comment push notifications are disabled (ENABLE_COMMENT_PUSH !== true).",
+        );
+        return null;
+      }
+
       const commentUid = comment?.uid || null;
       const isApproved = comment?.approved !== false;
       if (!isApproved) return;
@@ -187,6 +196,7 @@ exports.notifyNewComment = functions.firestore
       const updatedUids = commentUid
         ? Array.from(new Set([...storedUids, commentUid]))
         : storedUids;
+
       const uniqueUids = updatedUids.filter((uid) => uid && uid !== commentUid);
 
       if (uniqueUids.length === 0) return;
@@ -301,7 +311,216 @@ exports.notifyNewComment = functions.firestore
     } catch (error) {
       console.error("Error sending comment push notifications:", error);
     }
+
+    // Also record a tiny meta doc so clients can react to comment changes without polling
+    try {
+      await admin
+        .firestore()
+        .doc("meta/commentsLatestChange")
+        .set(
+          {
+            id: String(hikeId),
+            type: "added",
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      console.log(`Recorded comments change meta for hike ${hikeId}`);
+    } catch (err) {
+      console.error("Error writing commentsLatestChange meta doc:", err);
+    }
   });
+
+// Record a tiny meta doc when hikes change so clients can react to edits/deletes cheaply
+exports.trackHikeChanges = functions.firestore
+  .document("hikes/{hikeId}")
+  .onWrite(async (change, context) => {
+    const hikeId = context.params.hikeId;
+    const beforeExists = change.before.exists;
+    const afterExists = change.after.exists;
+
+    let type = "modified";
+    if (!beforeExists && afterExists) type = "added";
+    else if (beforeExists && !afterExists) type = "removed";
+
+    try {
+      await admin
+        .firestore()
+        .doc("meta/hikesLatestChange")
+        .set(
+          {
+            id: String(hikeId),
+            type,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      console.log(`Recorded hike change: ${hikeId} (${type})`);
+
+      // Maintain a lightweight count so clients can run a single consistency check
+      const statsRef = admin.firestore().doc("meta/hikesStats");
+      if (type === "added") {
+        await statsRef.set(
+          { total: admin.firestore.FieldValue.increment(1) },
+          { merge: true },
+        );
+      } else if (type === "removed") {
+        await statsRef.set(
+          { total: admin.firestore.FieldValue.increment(-1) },
+          { merge: true },
+        );
+      }
+    } catch (err) {
+      console.error("Error writing hike change meta:", err);
+    }
+
+    return null;
+  });
+
+// Record a tiny meta doc when photos change so clients can react cheaply
+exports.trackPhotoChanges = functions.firestore
+  .document("photos/{photoId}")
+  .onWrite(async (change, context) => {
+    const photoId = context.params.photoId;
+    const beforeExists = change.before.exists;
+    const afterExists = change.after.exists;
+
+    let type = "modified";
+    if (!beforeExists && afterExists) type = "added";
+    else if (beforeExists && !afterExists) type = "removed";
+
+    const afterData = change.after.exists ? change.after.data() : null;
+    const uploadedAt = afterData?.uploadedAt || afterData?.date || null;
+
+    try {
+      await admin
+        .firestore()
+        .doc("meta/photosLatestChange")
+        .set(
+          {
+            id: String(photoId),
+            type,
+            uploadedAt:
+              uploadedAt || admin.firestore.FieldValue.serverTimestamp(),
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      console.log(`Recorded photo change: ${photoId} (${type})`);
+
+      // Maintain a lightweight photos count for client consistency checks
+      const photosStatsRef = admin.firestore().doc("meta/photosStats");
+      if (type === "added") {
+        await photosStatsRef.set(
+          { total: admin.firestore.FieldValue.increment(1) },
+          { merge: true },
+        );
+      } else if (type === "removed") {
+        await photosStatsRef.set(
+          { total: admin.firestore.FieldValue.increment(-1) },
+          { merge: true },
+        );
+      }
+    } catch (err) {
+      console.error("Error writing photosLatestChange meta doc:", err);
+    }
+
+    return null;
+  });
+
+// Callable function: return Spotify track metadata (artist(s), track name, album)
+// Requires SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to be set in the functions environment.
+exports.getSpotifyTrack = functions.https.onCall(async (data, context) => {
+  const track = data?.track || data?.trackId || null;
+  if (!track) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Missing track id or url.",
+    );
+  }
+
+  // Extract track id from a URL, spotify:uri or raw id
+  const extractId = (val) => {
+    if (!val) return null;
+    const uri = String(val).trim();
+    const uriMatch = uri.match(/^spotify:track:([a-zA-Z0-9]+)$/);
+    if (uriMatch) return uriMatch[1];
+    const urlMatch = uri.match(/track\/([A-Za-z0-9]+)/);
+    if (urlMatch) return urlMatch[1];
+    const idMatch = uri.match(/^([A-Za-z0-9]{22})$/);
+    if (idMatch) return idMatch[1];
+    return null;
+  };
+
+  const trackId = extractId(track);
+  if (!trackId) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Unable to extract Spotify track id.",
+    );
+  }
+
+  const CLIENT_ID =
+    process.env.SPOTIFY_CLIENT_ID || process.env.REACT_APP_SPOTIFY_CLIENT_ID;
+  const CLIENT_SECRET =
+    process.env.SPOTIFY_CLIENT_SECRET ||
+    process.env.REACT_APP_SPOTIFY_CLIENT_SECRET;
+
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    console.error(
+      "Missing SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET in functions environment",
+    );
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "Spotify credentials not configured on server.",
+    );
+  }
+
+  try {
+    // 1) get client-credentials token
+    const tokenResp = await axios({
+      method: "post",
+      url: "https://accounts.spotify.com/api/token",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      data: `grant_type=client_credentials&client_id=${encodeURIComponent(CLIENT_ID)}&client_secret=${encodeURIComponent(CLIENT_SECRET)}`,
+    });
+
+    const accessToken = tokenResp.data?.access_token;
+    if (!accessToken) {
+      throw new Error("Failed to obtain Spotify access token");
+    }
+
+    // 2) fetch track metadata
+    const trackResp = await axios.get(
+      `https://api.spotify.com/v1/tracks/${trackId}`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+
+    const t = trackResp.data || {};
+    const artists = Array.isArray(t.artists)
+      ? t.artists.map((a) => a.name)
+      : [];
+
+    return {
+      id: t.id || trackId,
+      name: t.name || null,
+      artists,
+      album: t.album?.name || null,
+      preview_url: t.preview_url || null,
+    };
+  } catch (err) {
+    console.error(
+      "getSpotifyTrack error:",
+      err?.response?.data || err.message || err,
+    );
+    throw new functions.https.HttpsError(
+      "internal",
+      "Failed to fetch Spotify track information.",
+    );
+  }
+});
 
 exports.updateHikeCommentCount = functions.firestore
   .document("hikes/{hikeId}/comments/{commentId}")
@@ -597,3 +816,20 @@ exports.stravaWebhook = onRequest(
     return res.status(405).send("Method not allowed");
   },
 );
+
+// Firestore trigger to handle updates to the Song of the Day field
+exports.updateSongOfTheDay = functions.firestore
+  .document("hikes/{hikeId}")
+  .onUpdate((change, context) => {
+    const beforeData = change.before.data();
+    const afterData = change.after.data();
+
+    if (beforeData.songOfTheDay !== afterData.songOfTheDay) {
+      console.log(
+        `Song of the Day updated for hike ${context.params.hikeId}:`,
+        afterData.songOfTheDay,
+      );
+    }
+
+    return null;
+  });

@@ -4,6 +4,7 @@ service cloud.firestore {
     // Hikes collection - read access for everyone, write restricted
     match /hikes/{hikeId} {
       allow read: if true;
+      // Require authentication for writes. (Removed strict Spotify URL regex — kept simple to avoid rules compile issues)
       allow write: if request.auth != null;
       match /likes/{uid} {
         // Allow read for everyone
@@ -62,6 +63,12 @@ service cloud.firestore {
     match /hikeCommentCounts/{hikeId} {
       allow read: if true;
       allow write: if false;
+    }
+
+    // Meta docs for lightweight change notifications
+    match /meta/{docId} {
+      allow read: if true; // Allow clients to listen to small change documents
+      allow write: if false; // Only functions (admin SDK) should write
     }
   }
 }

@@ -15,15 +15,15 @@ import {
 import { useHikeData } from "./hooks/useHikeData";
 import { useAuth } from "./hooks/useAuth";
 import Layout from "./components/Layout";
-import ElevationProfile from "./components/ElevationProfile";
-import MapView from "./components/MapView";
 import { NoteModalProvider, useNoteModal } from "./contexts/NoteModalContext";
 import {
   ViewedActivitiesProvider,
   useViewedActivitiesContext,
 } from "./contexts/ViewedActivitiesContext";
 import { ViewedCommentsProvider } from "./contexts/ViewedCommentsContext";
-import NoteModal from "./components/NoteModal";
+// Lazy load heavy components
+const MapView = lazy(() => import("./components/MapView"));
+const NoteModal = lazy(() => import("./components/NoteModal"));
 
 // Lazy load admin components
 const AdminPhotoManager = lazy(() => import("./components/AdminPhotoManager"));
@@ -36,9 +36,6 @@ import AdminRoute from "./components/AdminRoute";
 import { useLikes } from "./hooks/useLikes";
 import { useComments } from "./hooks/useComments";
 import LikeButton from "./components/LikeButton";
-import CommentsSection from "./components/CommentsSection";
-import SwiperComponent from "./components/SwiperComponent";
-import { SwiperSlide } from "swiper/react";
 import { translateText, getUserLanguage } from "./services/translationService";
 // Localized button texts
 const buttonTexts = {
@@ -76,8 +73,18 @@ const buttonTexts = {
 };
 
 function AppContent() {
-  const { route, hikes, photos, loading, error, refreshUpdates, refreshing } =
-    useHikeData();
+  const {
+    route,
+    hikes,
+    photos,
+    loading,
+    photosLoading,
+    error,
+    refreshUpdates,
+    refreshing,
+    loadPhotosWithinBounds,
+    loadPhotosForHike,
+  } = useHikeData();
   const [hoverPoint, setHoverPoint] = useState(null);
   const [zoomRange, setZoomRange] = useState(null);
   const [currentWalkedDistance, setCurrentWalkedDistance] = useState(0);
@@ -141,11 +148,11 @@ function AppContent() {
     }
   };
 
-  // Build the inner content: either a loading/error/no-route card, or the full routes
-  let innerContent;
+  // Build the main content for the "/" route based on loading/error/route state
+  let mainContent;
 
-  if (loading) {
-    innerContent = (
+  if (loading || photosLoading) {
+    mainContent = (
       <>
         <div className="inline-loading-overlay" aria-hidden>
           <div className="inline-loading-box">
@@ -154,38 +161,25 @@ function AppContent() {
           </div>
         </div>
         {/* Render the app shell with lightweight placeholders so there's no full-screen swap */}
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <>
-                <div className="grid grid-cols-1 gap-6">
-                  <div
-                    className="glass-card p-6 animate-pulse"
-                    style={{ minHeight: "140px" }}
-                  >
-                    <div className="text-gray-600">
-                      Loading elevation profile…
-                    </div>
-                  </div>
+        <div className="grid grid-cols-1 gap-6">
+          <div
+            className="glass-card p-6 animate-pulse"
+            style={{ minHeight: "140px" }}
+          >
+            <div className="text-gray-600">Loading elevation profile…</div>
+          </div>
 
-                  <div
-                    className="glass-card p-6 animate-pulse"
-                    style={{ minHeight: "320px" }}
-                  >
-                    <div className="text-gray-600">Loading map…</div>
-                  </div>
-                </div>
-              </>
-            }
-          />
-          {/* Keep redirect in place while loading */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+          <div
+            className="glass-card p-6 animate-pulse"
+            style={{ minHeight: "320px" }}
+          >
+            <div className="text-gray-600">Loading map…</div>
+          </div>
+        </div>
       </>
     );
   } else if (error) {
-    innerContent = (
+    mainContent = (
       <div className="glass-card p-8 text-center">
         <div className="bounce-in">
           <div className="text-6xl mb-4">⚠️</div>
@@ -203,7 +197,7 @@ function AppContent() {
       </div>
     );
   } else if (!route) {
-    innerContent = (
+    mainContent = (
       <div className="glass-card p-8 text-center">
         <div className="bounce-in">
           <div className="text-6xl mb-4">🗺️</div>
@@ -217,112 +211,116 @@ function AppContent() {
       </div>
     );
   } else {
-    innerContent = (
-      <Routes>
-        {/* Protected admin routes */}
-        <Route
-          path="/admin"
-          element={
-            <Suspense fallback={<div>Loading...</div>}>
-              <AdminRoute>
-                <Navigate to="/admin/manage" replace />
-              </AdminRoute>
-            </Suspense>
-          }
-        />
-        <Route
-          path="/admin/manage"
-          element={
-            <Suspense fallback={<div>Loading...</div>}>
-              <AdminRoute>
-                <AdminPhotoManager />
-              </AdminRoute>
-            </Suspense>
-          }
-        />
-        <Route
-          path="/admin/notes"
-          element={
-            <Suspense fallback={<div>Loading...</div>}>
-              <AdminRoute>
-                <AdminNoteEditor />
-              </AdminRoute>
-            </Suspense>
-          }
-        />
-        <Route
-          path="/admin/activities"
-          element={
-            <Suspense fallback={<div>Loading...</div>}>
-              <AdminRoute>
-                <AdminActivityManager />
-              </AdminRoute>
-            </Suspense>
-          }
-        />
-        {/* Main application route */}
-        <Route
-          path="/"
-          element={
-            <>
-              {/* Main Dashboard Grid */}
-              <div className="grid grid-cols-1 gap-6">
-                {/* Elevation Profile Section */}
-                <div className="slide-up ">
-                  <ElevationProfile
-                    elevationProfile={route.elevationProfile}
-                    walkedDistanceKm={currentWalkedDistance}
-                    totalDistanceKm={route.totalDistanceKm}
-                    hoverPoint={hoverPoint}
-                    onHover={setHoverPoint}
-                    zoomRange={zoomRange}
-                    onZoomChange={setZoomRange}
-                    hikes={hikes}
-                  />
+    mainContent = (
+      <>
+        {/* Main Dashboard Grid */}
+        <div className="grid grid-cols-1 gap-6 h-full">
+          {/* Map Section */}
+          <div
+            id="map-section"
+            className="slide-up p-0 m-0 h-full"
+            style={{ marginBottom: "10px" }}
+          >
+            <Suspense
+              fallback={
+                <div className="glass-card p-8 text-center">
+                  <div className="text-6xl mb-4">🗺️</div>
+                  <div className="text-gray-600">Loading map...</div>
                 </div>
-
-                {/* Map Section */}
-                <div id="map-section" className="slide-up p-0 m-0">
-                  <MapView
-                    routePolyline={route.polyline}
-                    hikes={hikes}
-                    photos={photos}
-                    gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
-                    elevationProfile={route.elevationProfile}
-                    walkedDistanceKm={currentWalkedDistance}
-                    hoverPoint={hoverPoint}
-                    onHover={setHoverPoint}
-                    zoomRange={zoomRange}
-                    onZoomChange={setZoomRange}
-                    onWalkedDistanceChange={handleWalkedDistanceChange}
-                    onSelectHike={handleSelectHike}
-                    onPhotoClick={handlePhotoClick}
-                    onClearSelectedHike={handleClearSelectedHike}
-                    selectedPhotoLocation={selectedPhotoLocation}
-                    hikeBounds={hikeBounds}
-                    onRefresh={refreshUpdates}
-                    refreshInProgress={refreshing}
-                  />
-                </div>
-              </div>
-
-              {/* Note Modal - Now a separate component using context */}
-              <NoteModal
+              }
+            >
+              <MapView
+                routePolyline={route.polyline}
                 hikes={hikes}
                 photos={photos}
-                user={user}
-                markAsViewed={markAsViewed}
-                hikesWithNotes={hikesWithNotes}
+                gpxUrl={process.env.PUBLIC_URL + "/gr5.gpx"}
+                elevationProfile={route.elevationProfile}
+                walkedDistanceKm={currentWalkedDistance}
+                totalDistanceKm={route.totalDistanceKm}
+                hoverPoint={hoverPoint}
+                onHover={setHoverPoint}
+                zoomRange={zoomRange}
+                onZoomChange={setZoomRange}
+                onWalkedDistanceChange={handleWalkedDistanceChange}
+                onSelectHike={handleSelectHike}
+                onPhotoClick={handlePhotoClick}
+                onClearSelectedHike={handleClearSelectedHike}
+                selectedPhotoLocation={selectedPhotoLocation}
+                hikeBounds={hikeBounds}
+                onRefresh={refreshUpdates}
+                refreshInProgress={refreshing}
+                loadPhotosWithinBounds={loadPhotosWithinBounds}
               />
-            </>
-          }
-        />
+            </Suspense>
+          </div>
+        </div>
 
-        {/* Redirect unknown routes to main page */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+        {/* Note Modal - Now a separate component using context */}
+        <Suspense fallback={null}>
+          <NoteModal
+            hikes={hikes}
+            photos={photos}
+            user={user}
+            markAsViewed={markAsViewed}
+            hikesWithNotes={hikesWithNotes}
+            loadPhotosForHike={loadPhotosForHike}
+          />
+        </Suspense>
+      </>
     );
   }
+
+  // Always render Routes so admin pages are accessible regardless of route data state
+  const innerContent = (
+    <Routes>
+      {/* Protected admin routes - always available */}
+      <Route
+        path="/admin"
+        element={
+          <Suspense fallback={<div>Loading...</div>}>
+            <AdminRoute>
+              <Navigate to="/admin/manage" replace />
+            </AdminRoute>
+          </Suspense>
+        }
+      />
+      <Route
+        path="/admin/manage"
+        element={
+          <Suspense fallback={<div>Loading...</div>}>
+            <AdminRoute>
+              <AdminPhotoManager />
+            </AdminRoute>
+          </Suspense>
+        }
+      />
+      <Route
+        path="/admin/notes"
+        element={
+          <Suspense fallback={<div>Loading...</div>}>
+            <AdminRoute>
+              <AdminNoteEditor />
+            </AdminRoute>
+          </Suspense>
+        }
+      />
+      <Route
+        path="/admin/activities"
+        element={
+          <Suspense fallback={<div>Loading...</div>}>
+            <AdminRoute>
+              <AdminActivityManager />
+            </AdminRoute>
+          </Suspense>
+        }
+      />
+      {/* Main application route */}
+      <Route path="/" element={mainContent} />
+
+      {/* Redirect unknown routes to main page */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 
   // Always render Layout so global UI (notifications, prompts) remain mounted
   return (
@@ -348,6 +346,28 @@ function App() {
       </ViewedActivitiesProvider>
     </NoteModalProvider>
   );
+}
+
+// HMR: accept updates to lazy-loaded child modules so App.js isn't disposed
+if (typeof module !== "undefined" && module.hot) {
+  const acceptNoop = () => {
+    /* no-op: allow lazy imports to be reloaded without disposing App */
+  };
+  try {
+    module.hot.accept("./components/MapView", acceptNoop);
+  } catch (err) {}
+  try {
+    module.hot.accept("./components/NoteModal", acceptNoop);
+  } catch (err) {}
+  try {
+    module.hot.accept("./components/AdminPhotoManager", acceptNoop);
+  } catch (err) {}
+  try {
+    module.hot.accept("./components/AdminNoteEditor", acceptNoop);
+  } catch (err) {}
+  try {
+    module.hot.accept("./components/AdminActivityManager", acceptNoop);
+  } catch (err) {}
 }
 
 export default App;

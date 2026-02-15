@@ -111,3 +111,5 @@ export function useNotifications() {
     supportReason,
   };
 }
+
+// Removed duplicate isMessagingSupported function declaration

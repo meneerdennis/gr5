@@ -13,13 +13,14 @@ import {
   doc,
   getDoc,
   getDocs,
+  setDoc,
+  arrayUnion,
   query,
   where,
   orderBy,
   limit,
 } from "firebase/firestore";
 import EXIF from "exif-js";
-import heic2any from "heic2any";
 
 const PHOTO_CACHE_KEY = "gr5_photos_cache";
 const photoCacheStore = new Map();
@@ -101,6 +102,13 @@ function extractExifData(file) {
         const gpsLatitudeRef = EXIF.getTag(this, "GPSLatitudeRef");
         const gpsLongitudeRef = EXIF.getTag(this, "GPSLongitudeRef");
 
+        // Check for alternative location tags (sometimes used by iPhone when manually adding location)
+        const latitude = EXIF.getTag(this, "Latitude") || gpsLatitude;
+        const longitude = EXIF.getTag(this, "Longitude") || gpsLongitude;
+        const latitudeRef = EXIF.getTag(this, "LatitudeRef") || gpsLatitudeRef;
+        const longitudeRef =
+          EXIF.getTag(this, "LongitudeRef") || gpsLongitudeRef;
+
         // Extract date taken
         const dateTimeOriginal = EXIF.getTag(this, "DateTimeOriginal");
         const createDate = EXIF.getTag(this, "CreateDate");
@@ -109,9 +117,47 @@ function extractExifData(file) {
         let lat = null;
         let lng = null;
 
-        if (gpsLatitude && gpsLongitude) {
-          lat = convertToDecimal(gpsLatitude, gpsLatitudeRef);
-          lng = convertToDecimal(gpsLongitude, gpsLongitudeRef);
+        if (latitude && longitude) {
+          lat = convertToDecimal(latitude, latitudeRef);
+          lng = convertToDecimal(longitude, longitudeRef);
+        }
+
+        // If no location found with standard tags, check for decimal format
+        if (!lat || !lng) {
+          const decimalLat =
+            EXIF.getTag(this, "GPSLatitude") || EXIF.getTag(this, "Latitude");
+          const decimalLng =
+            EXIF.getTag(this, "GPSLongitude") || EXIF.getTag(this, "Longitude");
+
+          if (
+            decimalLat &&
+            decimalLng &&
+            typeof decimalLat === "number" &&
+            typeof decimalLng === "number"
+          ) {
+            lat = decimalLat;
+            lng = decimalLng;
+          }
+        }
+
+        // If still no location, log all metadata for debugging
+        if (!lat || !lng) {
+          console.log("No location found in EXIF for file:", file.name);
+          console.log("All EXIF metadata:", allMetadata);
+          // Look for any location-related tags
+          const locationTags = Object.keys(allMetadata).filter(
+            (key) =>
+              key.toLowerCase().includes("gps") ||
+              key.toLowerCase().includes("lat") ||
+              key.toLowerCase().includes("lon") ||
+              key.toLowerCase().includes("location"),
+          );
+          if (locationTags.length > 0) {
+            console.log(
+              "Location-related tags found:",
+              locationTags.map((tag) => ({ tag, value: allMetadata[tag] })),
+            );
+          }
         }
 
         // Convert date to ISO string
@@ -201,8 +247,17 @@ async function resizeImageForWeb(file, maxWidth = 600, quality = 0.75) {
           `Processing HEIC file: ${file.name}. Converting to JPEG for resizing.`,
         );
         try {
+          // Dynamically import heic2any only when needed
+          const heic2anyModule = await import(
+            /* webpackChunkName: "heic2any" */ "heic2any"
+          );
+          const heic2anyFn =
+            heic2anyModule && heic2anyModule.default
+              ? heic2anyModule.default
+              : heic2anyModule;
+
           // Convert HEIC to JPEG using heic2any
-          const jpegBuffer = await heic2any({
+          const jpegBuffer = await heic2anyFn({
             blob: file,
             toType: "image/jpeg",
             quality: 0.75,
@@ -705,15 +760,19 @@ export async function uploadMultiplePhotos(
 async function addPhotoToHike(hikeId, photo) {
   try {
     const hikeRef = doc(db, "hikes", hikeId);
-    const hikeDoc = await getDoc(hikeRef);
 
-    if (hikeDoc.exists()) {
-      const hikeData = hikeDoc.data();
-      const currentPhotos = hikeData.photos || [];
-
+    try {
+      // Use arrayUnion to append without reading the full document
       await updateDoc(hikeRef, {
-        photos: [...currentPhotos, photo],
+        photos: arrayUnion(photo),
       });
+    } catch (err) {
+      // Fallback: if the doc doesn't exist yet, create it with the photo array
+      console.warn(
+        "updateDoc failed when adding photo to hike; attempting setDoc",
+        err,
+      );
+      await setDoc(hikeRef, { photos: [photo] }, { merge: true });
     }
   } catch (error) {
     console.error("Error adding photo to hike:", error);

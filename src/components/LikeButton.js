@@ -10,7 +10,14 @@ function LikeButton({ activityId }) {
   const handleToggle = async () => {
     if (!user || loading) return;
     try {
-      await toggleLike(activityId, user.uid);
+      const res = await toggleLike(activityId, user.uid);
+      if (res && typeof res.likesCount === "number") {
+        window.dispatchEvent(
+          new CustomEvent("likesUpdated", {
+            detail: { activityId, likesCount: res.likesCount },
+          }),
+        );
+      }
     } catch (error) {
       console.error("Error toggling like:", error);
     }

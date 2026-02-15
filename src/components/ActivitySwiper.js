@@ -1,11 +1,10 @@
-import React from "react";
-import { Swiper, SwiperSlide } from "swiper/react";
-import { Navigation, Pagination } from "swiper/modules";
+import React, { lazy, Suspense } from "react";
 
-// Import Swiper styles
-import "swiper/css";
-import "swiper/css/navigation";
-import "swiper/css/pagination";
+// Lazy-load the Swiper wrapper (includes Swiper, modules and CSS)
+const SwiperComponent = lazy(() => import("./SwiperComponent"));
+const SwiperSlide = lazy(() =>
+  import("./SwiperComponent").then((mod) => ({ default: mod.SwiperSlide })),
+);
 
 function ActivitySwiper({ hikes, selectedHikeId, onSelectHike }) {
   if (!hikes || hikes.length === 0) {
@@ -47,42 +46,34 @@ function ActivitySwiper({ hikes, selectedHikeId, onSelectHike }) {
 
       {/* ⬇️ pagination-bullets komen hier te staan */}
 
-      <Swiper
-        className="my-swiper"
-        modules={[Navigation, Pagination]}
-        spaceBetween={24}
-        slidesPerView={1}
-        navigation
-        pagination={{
-          clickable: true,
-          el: ".hike-swiper__pagination", // stuur bullets naar de div hierboven
-          renderBullet: (index, className) =>
-            `<span class="${className}"></span>`,
-        }}
-        breakpoints={{
-          640: {
-            slidesPerView: 2,
-            spaceBetween: 20,
-          },
-          768: {
-            slidesPerView: 3,
-            spaceBetween: 20,
-          },
-          1024: {
-            slidesPerView: 4,
-            spaceBetween: 24,
-          },
-        }}
-      >
-        {sortedHikes.map((hike) => (
-          <SwiperSlide key={hike.id}>
-            <div
-              onClick={() => onSelectHike(hike.id)}
-              className={`activity-card ${
-                selectedHikeId === hike.id ? "selected" : ""
-              }`}
-              style={{ maxHeight: "100px", margin: "0" }}
-            >
+      <Suspense fallback={<div style={{ minHeight: 120 }} />}> 
+        <SwiperComponent
+          className="my-swiper"
+          spaceBetween={24}
+          slidesPerView={1}
+          navigation
+          pagination={{
+            clickable: true,
+            el: ".hike-swiper__pagination",
+            renderBullet: (index, className) =>
+              `<span class="${className}"></span>`,
+          }}
+          breakpoints={{
+            640: { slidesPerView: 2, spaceBetween: 20 },
+            768: { slidesPerView: 3, spaceBetween: 20 },
+            1024: { slidesPerView: 4, spaceBetween: 24 },
+          }}
+        >
+          {sortedHikes.map((hike) => (
+            <Suspense key={hike.id} fallback={<div />}>
+              <SwiperSlide>
+                <div
+                  onClick={() => onSelectHike(hike.id)}
+                  className={`activity-card ${
+                    selectedHikeId === hike.id ? "selected" : ""
+                  }`}
+                  style={{ maxHeight: "100px", margin: "0" }}
+                >
               <div className="flex justify-between items-center ">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1">
@@ -132,9 +123,11 @@ function ActivitySwiper({ hikes, selectedHikeId, onSelectHike }) {
                 </div>
               </div>
             </div>
-          </SwiperSlide>
-        ))}
-      </Swiper>
+              </SwiperSlide>
+            </Suspense>
+          ))}
+        </SwiperComponent>
+      </Suspense>
       <div className="hike-swiper__pagination" />
     </div>
   );

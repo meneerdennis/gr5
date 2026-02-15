@@ -67,13 +67,13 @@ function ElevationProfile({
           : screenWidth * 0.95;
         setDimensions({
           width: Math.min(maxWidth, 800), // Reduced max width to prevent overflow
-          height: 80, // Consistent height across devices
+          height: 60, // Reduced height for overlay
         });
       } else {
         // Desktop dimensions
         setDimensions({
           width: 900,
-          height: 80,
+          height: 60, // Reduced height for overlay
         });
       }
     };
@@ -430,15 +430,6 @@ function ElevationProfile({
             </linearGradient>
           </defs>
 
-          {/* Sky background with gradient */}
-          <rect
-            x="0"
-            y="0"
-            width={width}
-            height={height}
-            fill="url(#skyGradient)"
-          />
-
           {/* Filled area under elevation line (mountain silhouette) */}
           <polygon
             points={`${padding},${height} ${points} ${
@@ -447,18 +438,6 @@ function ElevationProfile({
             fill="url(#elevationGradient)"
             stroke="none"
           />
-
-          {/* Green progress fill - shows completed portion */}
-          {markerX !== null && (
-            <rect
-              width={Math.max(0, markerX)}
-              height={height}
-              fill="#4caf50"
-              opacity="0.6"
-              style={{ transition: "width 0.2s ease" }}
-              z-index="19"
-            />
-          )}
 
           {/* Elevation line */}
           <polyline

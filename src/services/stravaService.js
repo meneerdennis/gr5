@@ -25,6 +25,7 @@ export async function getStravaHikes(options = {}) {
       time: hike.time || [],
       photos: hike.photos || [],
       note: hike.note || "",
+      songOfTheDay: hike.songOfTheDay || "",
       start: hike.start || "",
       end: hike.end || "",
     }));

@@ -1,7 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useViewedActivitiesContext } from "../contexts/ViewedActivitiesContext";
-import { useViewedCommentsContext } from "../contexts/ViewedCommentsContext";
-import { useAuth } from "../hooks/useAuth";
 
 // Add slideDown animation
 const slideDownKeyframes = `
@@ -17,12 +14,7 @@ const slideDownKeyframes = `
   }
 `;
 
-// Inject the keyframes into the document head
-if (typeof document !== "undefined") {
-  const style = document.createElement("style");
-  style.textContent = slideDownKeyframes;
-  document.head.appendChild(style);
-}
+// Keyframes are provided via CSS to avoid runtime head injection (faster first paint)
 
 function Dropdown({
   hikes,
@@ -34,20 +26,7 @@ function Dropdown({
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const {
-    markAsViewed,
-    getUnreadCount,
-    isViewed,
-    loading: activitiesLoading,
-  } = useViewedActivitiesContext();
-  const { user } = useAuth();
-  const {
-    hasNewComments,
-    markCommentsAsViewed,
-    loading: commentsLoading,
-    hasStoredData,
-  } = useViewedCommentsContext();
-  const [commentCountOverrides, setCommentCountOverrides] = useState({});
+  const [viewedActivities, setViewedActivities] = useState(new Set());
   const dropdownRef = useRef(null);
 
   // Mobile detection
@@ -58,6 +37,30 @@ function Dropdown({
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Load viewed activities from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("viewedActivities");
+    if (stored) {
+      try {
+        const viewedIds = JSON.parse(stored);
+        setViewedActivities(new Set(viewedIds));
+      } catch (e) {
+        console.error("Error parsing viewed activities:", e);
+      }
+    }
+  }, []);
+  // Listen for viewed activities updates from other components
+  useEffect(() => {
+    const handleViewedUpdate = (event) => {
+      if (event.detail?.viewedActivities) {
+        setViewedActivities(event.detail.viewedActivities);
+      }
+    };
+
+    window.addEventListener("viewedActivitiesUpdated", handleViewedUpdate);
+    return () =>
+      window.removeEventListener("viewedActivitiesUpdated", handleViewedUpdate);
+  }, []);
   // Sort hikes by date (most recent first)
   const sortedHikes = [...hikes].sort((a, b) => {
     const dateA = new Date(a.startDate);
@@ -66,56 +69,9 @@ function Dropdown({
   });
 
   // Get unread activities count for the notification badge
-  const unreadHikeCount = activitiesLoading ? 0 : getUnreadCount(sortedHikes);
-  const unreadCommentCount = commentsLoading
-    ? 0
-    : sortedHikes.filter((hike) => {
-        const currentCommentsCount =
-          (commentCountOverrides[hike.id] ?? hike.commentsCount) || 0;
-        return hasNewComments(hike.id, currentCommentsCount);
-      }).length;
-  const unreadCount = unreadHikeCount + unreadCommentCount;
-
-  useEffect(() => {
-    if (commentsLoading || hasStoredData || !hikes?.length) return;
-    hikes.forEach((hike) => {
-      markCommentsAsViewed(hike.id, hike.commentsCount || 0);
-    });
-  }, [commentsLoading, hasStoredData, hikes, markCommentsAsViewed]);
-
-  useEffect(() => {
-    if (!hikes?.length) return;
-    setCommentCountOverrides((prev) => {
-      const next = { ...prev };
-      hikes.forEach((hike) => {
-        const baseCount = hike.commentsCount || 0;
-        next[hike.id] = Math.max(next[hike.id] || 0, baseCount);
-      });
-      return next;
-    });
-  }, [hikes]);
-
-  useEffect(() => {
-    const handleCommentAdded = (event) => {
-      const activityId = event?.detail?.activityId;
-      const eventUid = event?.detail?.uid;
-      if (user?.uid && eventUid === user.uid) return;
-      if (!activityId) return;
-      setCommentCountOverrides((prev) => {
-        const currentBase =
-          prev[activityId] ||
-          hikes.find((hike) => hike.id === activityId)?.commentsCount ||
-          0;
-        return {
-          ...prev,
-          [activityId]: currentBase + 1,
-        };
-      });
-    };
-
-    window.addEventListener("commentAdded", handleCommentAdded);
-    return () => window.removeEventListener("commentAdded", handleCommentAdded);
-  }, [hikes, user?.uid]);
+  const unreadCount = sortedHikes.filter(
+    (hike) => !viewedActivities.has(hike.id),
+  ).length;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -147,14 +103,17 @@ function Dropdown({
   };
 
   // Handle activity selection and mark as viewed
-  const handleActivitySelect = async (hikeId) => {
-    // Mark activity as viewed (async, but we don't wait for it to keep UI responsive)
-    markAsViewed(hikeId);
-    const selectedHike = hikes.find((hike) => hike.id === hikeId);
-    const currentCommentsCount =
-      (commentCountOverrides[hikeId] ?? selectedHike?.commentsCount) || 0;
-    markCommentsAsViewed(hikeId, currentCommentsCount);
-
+  const handleActivitySelect = (hikeId) => {
+    // Mark activity as viewed
+    const newViewed = new Set(viewedActivities);
+    newViewed.add(hikeId);
+    setViewedActivities(newViewed);
+    localStorage.setItem("viewedActivities", JSON.stringify([...newViewed])); // Dispatch custom event to sync with other components
+    window.dispatchEvent(
+      new CustomEvent("viewedActivitiesUpdated", {
+        detail: { viewedActivities: newViewed },
+      }),
+    );
     // Call the original onSelectHike function
     onSelectHike(hikeId);
   };
@@ -260,85 +219,8 @@ function Dropdown({
               animation: "slideDown 0.3s ease-out",
             }}
           >
-            <div
-              style={{
-                padding: "6px 10px",
-                fontSize: isMobile ? "10px" : "11px",
-                color: "#5f6b7a",
-                borderBottom: "1px solid #f0f0f0",
-                backgroundColor: "#f9fbfd",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "10px",
-                position: "sticky",
-                top: 0,
-                zIndex: 2,
-              }}
-            >
-              <span
-                style={{ display: "flex", alignItems: "center", gap: "10px" }}
-              >
-                <span
-                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
-                >
-                  <span
-                    style={{
-                      width: "6px",
-                      height: "6px",
-                      borderRadius: "50%",
-                      backgroundColor: "#0066cc",
-                      display: "inline-block",
-                    }}
-                  />
-                  New hike
-                </span>
-                <span
-                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
-                >
-                  <span
-                    style={{
-                      width: "6px",
-                      height: "6px",
-                      borderRadius: "50%",
-                      backgroundColor: "#2ecc71",
-                      display: "inline-block",
-                    }}
-                  />
-                  New comment
-                </span>
-              </span>
-              {onRefresh && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!refreshInProgress) {
-                      onRefresh();
-                    }
-                  }}
-                  disabled={refreshInProgress}
-                  title="Refresh updates"
-                  style={{
-                    color: refreshInProgress ? "#10b981" : "#4a90e2",
-                    background: "transparent",
-                    border: "none",
-                    borderRadius: "8px",
-                    cursor: refreshInProgress ? "default" : "pointer",
-                    padding: isMobile ? "0.15rem 0.3rem" : "0.2rem 0.4rem",
-                    fontSize: isMobile ? "12px" : "13px",
-                    fontWeight: 600,
-                    opacity: refreshInProgress ? 0.7 : 1,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  🔄
-                </button>
-              )}
-            </div>
             {sortedHikes.map((hike) =>
               (() => {
-                const currentCommentsCount =
-                  (commentCountOverrides[hike.id] ?? hike.commentsCount) || 0;
                 return (
                   <div
                     key={hike.id}
@@ -382,7 +264,7 @@ function Dropdown({
                         marginLeft: "8px",
                       }}
                     >
-                      {!isViewed(hike.id) && (
+                      {!viewedActivities.has(hike.id) && (
                         <span
                           style={{
                             width: "8px",
@@ -391,19 +273,7 @@ function Dropdown({
                             backgroundColor: "#0066cc",
                             display: "inline-block",
                           }}
-                          title="New hike"
-                        />
-                      )}
-                      {hasNewComments(hike.id, currentCommentsCount) && (
-                        <span
-                          style={{
-                            width: "8px",
-                            height: "8px",
-                            borderRadius: "50%",
-                            backgroundColor: "#2ecc71",
-                            display: "inline-block",
-                          }}
-                          title="New comment"
+                          title="New activity"
                         />
                       )}
                     </span>

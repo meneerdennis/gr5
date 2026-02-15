@@ -16,18 +16,11 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 import {
   getHikesFromFirebase,
   calculateTotalWalkedDistance,
+  decodePolyline,
 } from "./firebaseService";
 
 export async function getRouteData(options = {}) {
   const { hikes: providedHikes = null } = options;
-  const polyline = [
-    [51.979, 4.133],
-    [50.85, 4.35],
-    [49.6, 6.1],
-    [46.5, 6.6],
-    [45.0, 6.0],
-    [43.7, 7.26],
-  ];
 
   const CACHE_KEY = "gr5_route_data";
   const CACHE_TIMESTAMP_KEY = "gr5_route_data_timestamp";
@@ -49,6 +42,7 @@ export async function getRouteData(options = {}) {
         const walkedDistanceKm = calculateTotalWalkedDistance(hikes);
         return {
           ...cachedData,
+          polyline: decodePolyline(cachedData.polyline),
           walkedDistanceKm,
         };
       }
@@ -57,63 +51,23 @@ export async function getRouteData(options = {}) {
     console.warn("Error reading from cache:", cacheError);
   }
 
-  // Fetch and parse GPX data
+  // Fetch pre-generated route data
   try {
-    const response = await fetch(process.env.PUBLIC_URL + "/gr5.gpx");
+    const [polylineResponse, routeResponse] = await Promise.all([
+      fetch(process.env.PUBLIC_URL + "/gr5-polyline.txt"),
+      fetch(process.env.PUBLIC_URL + "/gr5-route.json"),
+    ]);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const gpxText = await response.text();
-    const parser = new DOMParser();
-    const gpxDoc = parser.parseFromString(gpxText, "text/xml");
-
-    // Extract track points with downsampling for performance
-    const trkpts = gpxDoc.querySelectorAll("trkpt");
-    const elevationProfile = [];
-    let cumulativeDistance = 0;
-
-    trkpts.forEach((trkpt) => {
-      const lat = parseFloat(trkpt.getAttribute("lat"));
-      const lon = parseFloat(trkpt.getAttribute("lon"));
-      const eleElement = trkpt.querySelector("ele");
-      const elevation = eleElement ? parseFloat(eleElement.textContent) : 0;
-
-      // Calculate distance from previous point
-      if (elevationProfile.length > 0) {
-        const prevPoint = elevationProfile[elevationProfile.length - 1];
-        cumulativeDistance += calculateDistance(
-          prevPoint.lat,
-          prevPoint.lon,
-          lat,
-          lon,
-        );
-      }
-
-      elevationProfile.push({
-        distanceKm: cumulativeDistance,
-        elevationM: elevation,
-        lat,
-        lon,
-      });
-    });
-
-    // Debug: log parsed point counts so we can confirm full GPX is used
-    try {
-      console.info(
-        `GPX parsed: total trkpt=${trkpts.length}, elevationProfile=${elevationProfile.length}`,
+    if (!polylineResponse.ok || !routeResponse.ok) {
+      throw new Error(
+        `HTTP error! polyline: ${polylineResponse.status}, route: ${routeResponse.status}`,
       );
-    } catch (e) {
-      // ignore logging failures in non-browser environments
     }
 
-    if (elevationProfile.length === 0) {
-      throw new Error("No valid elevation data found in GPX");
-    }
+    const polylineText = await polylineResponse.text();
+    const routeData = await routeResponse.json();
 
-    const totalDistanceKm =
-      elevationProfile[elevationProfile.length - 1].distanceKm;
+    const { elevationProfile, totalDistanceKm } = routeData;
 
     // Calculate walked distance from Firebase hikes
     const hikes = Array.isArray(providedHikes)
@@ -121,8 +75,8 @@ export async function getRouteData(options = {}) {
       : await getHikesFromFirebase();
     const walkedDistanceKm = calculateTotalWalkedDistance(hikes);
 
-    const routeData = {
-      polyline,
+    const result = {
+      polyline: decodePolyline(polylineText),
       elevationProfile,
       totalDistanceKm,
       walkedDistanceKm,
@@ -131,7 +85,7 @@ export async function getRouteData(options = {}) {
     // Cache the result (without walkedDistanceKm as it changes)
     try {
       const cacheData = {
-        polyline,
+        polyline: polylineText, // Store encoded version
         elevationProfile,
         totalDistanceKm,
       };
@@ -141,9 +95,9 @@ export async function getRouteData(options = {}) {
       console.warn("Error caching route data:", cacheError);
     }
 
-    return routeData;
+    return result;
   } catch (error) {
-    console.error("Error loading GPX data:", error);
+    console.error("Error loading route data:", error);
 
     // Calculate walked distance from Firebase hikes even in error case
     let walkedDistanceKm = 0;
@@ -160,7 +114,7 @@ export async function getRouteData(options = {}) {
       walkedDistanceKm = 0;
     }
 
-    // Fallback to sample data if GPX loading fails
+    // Fallback to sample data if loading fails
     const elevationProfile = [
       { distanceKm: 0, elevationM: 0, lat: 51.979, lon: 4.133 },
       { distanceKm: 200, elevationM: 200, lat: 50.85, lon: 4.35 },
@@ -171,7 +125,7 @@ export async function getRouteData(options = {}) {
     ];
 
     return {
-      polyline,
+      polyline: "sample_polyline",
       elevationProfile,
       totalDistanceKm: 1000,
       walkedDistanceKm,

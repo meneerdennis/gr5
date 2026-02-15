@@ -23,6 +23,7 @@ import "leaflet-gpx";
 import PhotoMarkerPopup from "./PhotoMarkerPopup";
 import GpxTrack from "./Gpxtrack";
 import Dropdown from "./Dropdown";
+import ElevationProfile from "./ElevationProfile";
 import { useViewedActivities } from "../hooks/useViewedActivities";
 
 // Global function for photo modal (will be set by MapView)
@@ -98,11 +99,16 @@ function ZoomToHike({ bounds }) {
 
   useEffect(() => {
     if (bounds && map && map.getContainer()) {
-      try {
-        map.fitBounds(bounds, { padding: [50, 50] });
-      } catch (error) {
-        console.warn("Error fitting bounds:", error);
-      }
+      // Small delay to ensure map is fully ready
+      setTimeout(() => {
+        try {
+          if (map && map.getContainer()) {
+            map.fitBounds(bounds, { padding: [50, 50] });
+          }
+        } catch (error) {
+          console.warn("Error fitting bounds:", error);
+        }
+      }, 100);
     }
   }, [bounds, map]);
 
@@ -657,6 +663,7 @@ function MapInteraction({
     if (
       !map ||
       !map.getContainer() ||
+      !isMapReady.current ||
       !elevationProfile ||
       elevationProfile.length === 0
     )
@@ -938,6 +945,7 @@ function MapView({
   gpxUrl,
   elevationProfile = [],
   walkedDistanceKm = 0,
+  totalDistanceKm = 0,
   hoverPoint,
   onHover,
   zoomRange,
@@ -955,44 +963,71 @@ function MapView({
   const [currentPosition, setCurrentPosition] = useState(null);
   const [mapReady, setMapReady] = useState(false);
   const [suppressZoomUpdates, setSuppressZoomUpdates] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [buttonNudge, setButtonNudge] = useState(false);
   const suppressZoomUpdatesRef = useRef(false);
+
+  // Nudge animation for button discovery
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setButtonNudge(true);
+      setTimeout(() => setButtonNudge(false), 600);
+    }, 1000); // Start after 1 second
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Dynamic map height: apply larger heights for all screen sizes per request
   const [mapHeight, setMapHeight] = useState(null);
+  const [availableHeight, setAvailableHeight] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
   const mapRef = useRef(null);
   const invalidateTimerRef = useRef(null);
 
   useEffect(() => {
-    const computeMapHeight = () => {
-      // Use viewport width to choose a generous height for each size class
+    const computeHeights = () => {
       const width =
         window.innerWidth || document.documentElement.clientWidth || 360;
+      const height = window.innerHeight || 1000;
+      const mobile = width < 1024;
+      setIsMobile(mobile);
 
-      let baseVh;
-      if (width <= 360) {
-        baseVh = 50; // very small phones — much taller
-      } else if (width <= 412) {
-        baseVh = 54; // small phones
-      } else if (width <= 540) {
-        baseVh = 60; // medium phones
-      } else if (width <= 768) {
-        baseVh = 66; // large phones / small tablets
-      } else if (width <= 1024) {
-        baseVh = 72; // tablets and small laptops
+      if (mobile) {
+        // Use the existing mobile height calculation
+        let baseVh;
+        if (width <= 360) {
+          baseVh = 66;
+        } else if (width <= 412) {
+          baseVh = 70;
+        } else if (width <= 540) {
+          baseVh = 75;
+        } else if (width <= 768) {
+          baseVh = 76;
+        } else {
+          baseVh = 82;
+        }
+
+        const isPwa =
+          window.matchMedia?.("(display-mode: standalone)")?.matches ||
+          window.navigator?.standalone === true;
+        if (isPwa) baseVh += 6;
+
+        const newHeight = `${baseVh}vh`;
+        setMapHeight(newHeight);
+        setAvailableHeight(null);
       } else {
-        baseVh = 76; // desktops / large screens
+        // For desktop, calculate available height
+        const headerHeight = 180;
+        const footerHeight = 0;
+        const calculatedHeight = Math.max(
+          height - headerHeight - footerHeight,
+          350,
+        ); // minimum 350px
+        setAvailableHeight(`${calculatedHeight}px`);
+        setMapHeight(null);
       }
 
-      // Slightly increase height for PWA/standalone mode
-      const isPwa =
-        window.matchMedia?.("(display-mode: standalone)")?.matches ||
-        window.navigator?.standalone === true;
-      if (isPwa) baseVh += 6;
-
-      const newHeight = `${baseVh}vh`;
-      setMapHeight(newHeight);
-
-      // Debounced invalidateSize to avoid Leaflet errors during rapid viewport changes
+      // Invalidate map size
       if (mapRef.current) {
         if (invalidateTimerRef.current)
           clearTimeout(invalidateTimerRef.current);
@@ -1000,18 +1035,21 @@ function MapView({
           try {
             mapRef.current.invalidateSize({ animate: false });
           } catch (err) {
-            // Swallow errors to avoid uncaught exceptions during transitions
-            // (Leaflet can throw if internals aren't ready)
+            // ignore
           }
-        }, 120);
+        }, 200);
       }
     };
 
-    computeMapHeight();
+    computeHeights();
 
-    // Throttle frequent events by using the same compute function with debounce handled above
-    const onEvent = () => computeMapHeight();
-
+    let resizeTimeout;
+    const onEvent = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        computeHeights();
+      }, 100);
+    };
     window.addEventListener("resize", onEvent);
     window.addEventListener("orientationchange", onEvent);
     if (window.visualViewport) {
@@ -1192,6 +1230,16 @@ function MapView({
 
     useEffect(() => {
       if (map) {
+        // Enable scroll wheel zoom only after map is initialized to avoid
+        // internal Leaflet errors when the container is not yet ready.
+        try {
+          if (map.scrollWheelZoom && map.scrollWheelZoom.enable) {
+            map.scrollWheelZoom.enable();
+          }
+        } catch (err) {
+          // ignore
+        }
+
         const timer = setTimeout(() => {
           onReady();
         }, 100); // Small delay to ensure map is fully initialized
@@ -1222,23 +1270,38 @@ function MapView({
     return <div>Geen kaartgegevens beschikbaar</div>;
   }
 
-  // Apply the calculated (larger) mapHeight for all screen sizes; fallback to a generous default if not yet computed
-  const containerStyle = { height: mapHeight || "72vh" };
-  const viewStyle = { height: mapHeight || "72vh", aspectRatio: "auto" };
+  // Calculate available height for the map (viewport height minus header/footer)
+  // Set styles based on screen size
+  const containerStyle = {
+    height: isMobile ? mapHeight || "72vh" : availableHeight || "600px",
+    position: "relative",
+  };
+  const viewStyle = {
+    height: isMobile ? mapHeight || "72vh" : availableHeight || "600px",
+    aspectRatio: isMobile ? "unset" : "auto",
+  };
 
   return (
     <div className="map-container fade-in" style={containerStyle}>
       <div className="map-view-container" style={viewStyle}>
         <MapContainer
+          key={`map-${isMobile ? mapHeight : availableHeight}`}
           center={center}
           zoom={6}
           className="map-container-leaflet"
+          style={{
+            height: isMobile ? mapHeight || "72vh" : availableHeight || "600px",
+            width: "100%",
+          }}
           whenCreated={handleMapCreated}
           whenReady={handleMapReady}
+          scrollWheelZoom={false}
         >
           <TileLayer
             attribution="&copy; OpenStreetMap-bijdragers"
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            crossOrigin="anonymous"
+            updateWhenIdle={true}
           />
 
           {/* GPX-route (temporarily disabled due to plugin issues) */}
@@ -1395,6 +1458,86 @@ function MapView({
           refreshInProgress={refreshInProgress}
         />
       </div>
+
+      {/* Elevation Profile at the bottom */}
+      {!isMinimized && (
+        <div
+          className="elevation-profile-container"
+          style={{
+            position: "absolute",
+            bottom: 15,
+            left: 0,
+            right: 0,
+            padding: "8px",
+            zIndex: 1000,
+            maxHeight: "100px",
+            overflow: "hidden",
+          }}
+        >
+          <ElevationProfile
+            elevationProfile={elevationProfile}
+            walkedDistanceKm={walkedDistanceKm}
+            totalDistanceKm={totalDistanceKm}
+            hoverPoint={hoverPoint}
+            onHover={onHover}
+            zoomRange={zoomRange}
+            onZoomChange={onZoomChange}
+            hikes={hikes}
+          />
+        </div>
+      )}
+
+      {/* Minimize/Maximize Button */}
+      <button
+        onClick={() => setIsMinimized(!isMinimized)}
+        style={{
+          position: "absolute",
+          bottom: isMinimized ? 10 : 90,
+          right: 10,
+          zIndex: 1001,
+          background: "#fff",
+          border: "1px solid #ddd",
+          borderRadius: "18px",
+          width: 36,
+          height: 36,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+          transition: "all 0.2s ease",
+          fontSize: "12px",
+          transform: buttonNudge ? "translateY(-3px)" : "scale(1)",
+        }}
+        title={
+          isMinimized ? "Show Elevation Profile" : "Hide Elevation Profile"
+        }
+        onMouseEnter={(e) => {
+          e.target.style.transform = "scale(1.05)";
+          e.target.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.transform = buttonNudge
+            ? "translateY(-3px)"
+            : "scale(1)";
+          e.target.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.1)";
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "18px",
+            fontWeight: "bold",
+            color: "#666",
+            lineHeight: 1,
+          }}
+        >
+          {isMinimized ? "+" : "−"}
+        </div>
+      </button>
     </div>
   );
 }

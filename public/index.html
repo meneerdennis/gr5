@@ -26,7 +26,7 @@
     <link rel="dns-prefetch" href="//fonts.googleapis.com" />
     <link rel="dns-prefetch" href="//www.googletagmanager.com" />
 
-    <!-- Preconnect to Firebase services for faster connections -->
+    <!-- Keep only the most critical preconnects (max 4) -->
     <link
       rel="preconnect"
       href="https://gr-5-4df65.firebaseapp.com"
@@ -37,33 +37,49 @@
       href="https://identitytoolkit.googleapis.com"
       crossorigin
     />
-    <link rel="preconnect" href="https://www.googleapis.com" crossorigin />
-    <link rel="preconnect" href="https://apis.google.com" crossorigin />
-    <link
-      rel="preconnect"
-      href="https://firestore.googleapis.com"
-      crossorigin
-    />
-    <link
-      rel="preconnect"
-      href="https://firebasestorage.googleapis.com"
-      crossorigin
-    />
+    <!-- Demoted apis.google.com to dns-prefetch (used only for optional Google Sign-In) -->
+    <link rel="dns-prefetch" href="//apis.google.com" />
     <link
       rel="preconnect"
       href="https://a.tile.openstreetmap.org"
       crossorigin
     />
+
+    <!-- Preload the first OpenStreetMap tile to make the LCP tile discoverable (mobile) -->
     <link
-      rel="preconnect"
-      href="https://b.tile.openstreetmap.org"
+      rel="preload"
+      as="image"
+      href="https://a.tile.openstreetmap.org/5/16/11.png"
       crossorigin
+      fetchpriority="high"
     />
-    <link
-      rel="preconnect"
-      href="https://c.tile.openstreetmap.org"
-      crossorigin
-    />
+    <script>
+      // Create a high-priority image fetch for the LCP tile so browsers start it early.
+      (function () {
+        try {
+          const img = new Image();
+          img.decoding = "async";
+          // Ensure preload / programmatic fetch use same CORS semantics so the preload can be reused.
+          if ("crossOrigin" in img) img.crossOrigin = "anonymous";
+          // Hint the browser to prioritize this fetch when supported.
+          if (typeof img.setAttribute === "function") {
+            try {
+              img.setAttribute("fetchpriority", "high");
+            } catch (e) {}
+          }
+          img.src = "https://a.tile.openstreetmap.org/5/16/11.png";
+        } catch (e) {
+          // swallow errors in old browsers
+        }
+      })();
+    </script>
+
+    <!-- Keep www.googleapis.com as preconnect because Firebase may call it early -->
+    <link rel="preconnect" href="https://www.googleapis.com" crossorigin />
+    <link rel="dns-prefetch" href="//firestore.googleapis.com" />
+    <link rel="dns-prefetch" href="//firebasestorage.googleapis.com" />
+    <link rel="dns-prefetch" href="//b.tile.openstreetmap.org" />
+    <link rel="dns-prefetch" href="//c.tile.openstreetmap.org" />
     <!-- Google tag (gtag.js) -->
     <script
       async
@@ -77,8 +93,55 @@
       gtag("js", new Date());
       gtag("config", "G-WQW6GWLS5Q");
     </script>
-    <script src="%PUBLIC_URL%/firebase-config.js"></script>
-    <style></style>
+    <!-- Inline small Firebase runtime config to avoid an extra head fetch -->
+    <script>
+      window.__FIREBASE_CONFIG__ = {
+        apiKey: "AIzaSyC6nE2hjCvcGTz-VeCbrpycDwIzqzIvIV8",
+        authDomain: "gr-5-4df65.firebaseapp.com",
+        projectId: "gr-5-4df65",
+        storageBucket: "gr-5-4df65.firebasestorage.app",
+        messagingSenderId: "843113923788",
+        appId: "1:843113923788:web:4d4e87dfff681460bd6e69",
+      };
+    </script>
+
+    <!-- Preload compiled main CSS early (points to current build filename) -->
+    <link
+      rel="preload"
+      href="%PUBLIC_URL%/static/css/main.9fda6d1c.css"
+      as="style"
+      onload="this.rel = 'stylesheet'"
+    />
+    <noscript>
+      <link rel="stylesheet" href="%PUBLIC_URL%/static/css/main.9fda6d1c.css" />
+    </noscript>
+
+    <!-- Critical mobile CSS inlined to speed up first render -->
+    <style>
+      /* Mobile Travel Journal Button - critical subset inlined for faster paint */
+      @media (max-width: 768px) {
+        .unified-journal-button .travel-journal-text {
+          display: none !important;
+        }
+        .unified-journal-button {
+          gap: 0 !important;
+          padding: 6px !important;
+        }
+        .journal-icon-image {
+          width: 44px !important;
+          height: 44px !important;
+        }
+      }
+      @media (max-width: 640px) {
+        .unified-journal-button {
+          padding: 4px !important;
+        }
+        .journal-icon-image {
+          width: 40px !important;
+          height: 40px !important;
+        }
+      }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

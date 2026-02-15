@@ -4,11 +4,12 @@ import { useNoteModal } from "../contexts/NoteModalContext";
 import { useLikes } from "../hooks/useLikes";
 import { useComments } from "../hooks/useComments";
 import { useViewedCommentsContext } from "../contexts/ViewedCommentsContext";
-import SwiperComponent from "./SwiperComponent";
-import { SwiperSlide } from "swiper/react";
+import SwiperComponent, { SwiperSlide } from "./SwiperComponent";
 import LikeButton from "./LikeButton";
 import CommentsSection from "./CommentsSection";
 import { translateText, getUserLanguage } from "../services/translationService";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { app as firebaseApp } from "../services/firebase";
 
 const buttonTexts = {
   en: {
@@ -35,15 +36,15 @@ const buttonTexts = {
     same: "Der Text ist bereits in Ihrer Sprache.",
     error: "Übersetzung fehlgeschlagen. Bitte versuchen Sie es erneut.",
   },
-  lt: {
-    see: "Žiūrėti vertimą",
-    show: "Rodyti originalą",
-    same: "Tekstas jau yra jūsų kalba.",
-    error: "Vertimas nepavyko. Bandykite dar kartą.",
-  },
 };
-
-function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
+function NoteModal({
+  hikes,
+  photos,
+  user,
+  markAsViewed,
+  hikesWithNotes,
+  loadPhotosForHike,
+}) {
   const {
     selectedHikeId,
     selectedPhotoUrl,
@@ -65,6 +66,7 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
   const [isMobile, setIsMobile] = useState(false);
   const isInitialSlideRef = useRef(true);
   const [loadedPhotos, setLoadedPhotos] = useState({});
+  const [isPWA, setIsPWA] = useState(false);
 
   const [swipeStart, setSwipeStart] = useState(null);
   const [swipeDistance, setSwipeDistance] = useState(0);
@@ -73,14 +75,23 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
   const canSwipeToCloseRef = useRef(false);
   const SWIPE_THRESHOLD = 100; // pixels
 
+  const [oembedTitle, setOembedTitle] = useState(null);
+  const [songArtist, setSongArtist] = useState(null);
+  const [songTitle, setSongTitle] = useState(null);
+  const [showPlayer, setShowPlayer] = useState(false);
+
   // Get selected hike early (before useEffects that need it)
   const selectedHike = hikes.find((hike) => hike.id === selectedHikeId);
+  const songOfTheDay = selectedHike?.songOfTheDay;
+
+  useEffect(() => {
+    console.log("NoteModal open - selectedHikeId:", selectedHikeId);
+    console.log("selectedHike object:", selectedHike);
+    console.log("Song of the Day:", songOfTheDay);
+  }, [songOfTheDay]);
 
   // Handle touch events for swipe-down-to-close
   const isScrollAtTop = () => {
-    if (isMobile) {
-      return (backdropRef.current?.scrollTop || 0) <= 0;
-    }
     return (modalRef.current?.scrollTop || 0) <= 0;
   };
 
@@ -127,15 +138,159 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
       return () => mediaQuery.removeEventListener("change", handleChange);
     };
 
+    const checkPWA = () => {
+      const isStandalone =
+        window.matchMedia?.("(display-mode: standalone)")?.matches ||
+        window.navigator?.standalone === true;
+      setIsPWA(isStandalone);
+    };
+
     checkMobile();
+    checkPWA();
   }, []);
 
-  // Reset translation when hike changes
+  // Reset translation when hike changes and load photos if needed
   useEffect(() => {
     resetTranslation();
     isInitialSlideRef.current = true;
     setLoadedPhotos({});
-  }, [selectedHikeId, resetTranslation]);
+
+    // Load photos for this hike if not already loaded
+    if (selectedHikeId && loadPhotosForHike) {
+      loadPhotosForHike(selectedHikeId);
+    }
+    // Reset Spotify player state when hike changes
+    setOembedTitle(null);
+    setSongArtist(null);
+    setSongTitle(null);
+    setShowPlayer(false);
+  }, [selectedHikeId, resetTranslation, loadPhotosForHike]);
+
+  // Fetch Spotify oEmbed info to extract artist and song title
+  useEffect(() => {
+    if (!songOfTheDay) return;
+    let cancelled = false;
+    setOembedTitle(null);
+    setSongArtist(null);
+    setSongTitle(null);
+    setShowPlayer(false);
+
+    // Normalize songOfTheDay into a Spotify track URL (support full URLs, spotify:track:<id>, or raw id)
+    const getSpotifyTrackUrl = (val) => {
+      if (!val) return null;
+      // spotify URI: spotify:track:<id>
+      const uriMatch = val.match(/^spotify:track:([a-zA-Z0-9]+)$/);
+      if (uriMatch) return `https://open.spotify.com/track/${uriMatch[1]}`;
+      // raw Spotify id (typically 22 chars)
+      const idMatch = val.match(/^([A-Za-z0-9]{22})$/);
+      if (idMatch) return `https://open.spotify.com/track/${idMatch[1]}`;
+      // already a URL
+      if (/^https?:\/\//i.test(val)) return val;
+      // fallback: treat value as an id
+      return `https://open.spotify.com/track/${val}`;
+    };
+
+    const trackUrl = getSpotifyTrackUrl(songOfTheDay);
+    const oembedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(
+      trackUrl,
+    )}`;
+
+    fetch(oembedUrl)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        const title = (data.title || "").trim();
+        const author = (data.author_name || "").trim() || null;
+        setOembedTitle(title || null);
+
+        // Track whether we successfully determined an artist from oEmbed/title parsing
+        let foundArtist = false;
+
+        if (author) {
+          // oEmbed `author_name` is usually the artist
+          setSongArtist(author);
+          foundArtist = true;
+
+          // Try to derive a cleaner song title from the returned title
+          const splitBySep = title.split(/ - | – | — /);
+          if (splitBySep.length >= 2) {
+            // If the title starts with the artist, take the remainder as song title;
+            // otherwise assume the last segment is the artist and take the rest.
+            if (splitBySep[0].toLowerCase() === author.toLowerCase()) {
+              setSongTitle(splitBySep.slice(1).join(" - ").trim());
+            } else {
+              setSongTitle(splitBySep.slice(0, -1).join(" - ").trim() || title);
+            }
+          } else {
+            setSongTitle(title);
+          }
+        } else if (title) {
+          // Parse "Artist - Title" first (most common), fall back to "Title - Artist"
+          const seps = [" - ", " – ", " — "];
+          let parsed = false;
+          for (const sep of seps) {
+            if (title.includes(sep)) {
+              const parts = title.split(sep).map((p) => p.trim());
+              if (parts.length >= 2) {
+                // Prefer artist-first (Artist - Title)
+                const artistFirst = {
+                  artist: parts[0],
+                  song: parts.slice(1).join(sep).trim(),
+                };
+                setSongArtist(artistFirst.artist);
+                setSongTitle(artistFirst.song);
+                parsed = true;
+                foundArtist = true;
+                break;
+              }
+            }
+          }
+          if (!parsed) {
+            setSongTitle(title);
+          }
+        }
+
+        // If we couldn't determine an artist from oEmbed/title, try server-side Spotify API (callable function)
+        if (!foundArtist) {
+          (async () => {
+            try {
+              const functions = getFunctions(firebaseApp);
+              const callable = httpsCallable(functions, "getSpotifyTrack");
+              const resp = await callable({ track: songOfTheDay });
+              const payload = resp.data || {};
+              if (
+                Array.isArray(payload.artists) &&
+                payload.artists.length > 0
+              ) {
+                setSongArtist(payload.artists.join(", "));
+                if (!songTitle && payload.name) setSongTitle(payload.name);
+              }
+            } catch (err) {
+              // don't spam console on predictable failures
+              // (missing server creds or callable not deployed)
+              console.debug("Spotify callable failed:", err?.message || err);
+            }
+          })();
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch Spotify oEmbed:", err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [songOfTheDay]);
+
+  // Build a safe label for the Spotify button to avoid showing 'undefined'
+  const spotifyLabel = (() => {
+    const artist = songArtist || null;
+    const title = songTitle || oembedTitle || null;
+    if (artist && title) return `${artist} - ${title}`;
+    if (title && !artist) return title;
+    if (artist && !title) return artist;
+    return null;
+  })();
 
   // Set map bounds to show entire hike when modal opens
   useEffect(() => {
@@ -161,6 +316,22 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
   useEffect(() => {
     if (selectedHikeId) {
       markAsViewed(selectedHikeId);
+      // Also update localStorage for Dropdown synchronization
+      const stored = localStorage.getItem("viewedActivities");
+      let viewed = new Set();
+      if (stored) {
+        try {
+          viewed = new Set(JSON.parse(stored));
+        } catch (e) {}
+      }
+      viewed.add(selectedHikeId);
+      localStorage.setItem("viewedActivities", JSON.stringify([...viewed]));
+      // Dispatch custom event to update Dropdown
+      window.dispatchEvent(
+        new CustomEvent("viewedActivitiesUpdated", {
+          detail: { viewedActivities: viewed },
+        }),
+      );
     }
   }, [selectedHikeId, markAsViewed]);
 
@@ -200,8 +371,8 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
     });
   }, [photos, selectedHikeId]);
 
-  const selectedPhotoIndex =
-    hikePhotos.findIndex((p) => p.url === selectedPhotoUrl) || 0;
+  const foundIndex = hikePhotos.findIndex((p) => p.url === selectedPhotoUrl);
+  const selectedPhotoIndex = foundIndex >= 0 ? foundIndex : 0;
 
   // Navigation helpers
   const currentNoteIndex = useMemo(() => {
@@ -214,14 +385,8 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
   // Navigation functions
   const scrollModalToTop = () => {
     setTimeout(() => {
-      if (isMobile) {
-        // On mobile, scroll the backdrop since modal has overflow: visible
-        const backdrop = document.querySelector(".note-modal-backdrop");
-        if (backdrop) backdrop.scrollTo(0, 0);
-      } else {
-        // On desktop, scroll the modal itself
-        const modal = document.querySelector(".instagram-post-modal");
-        if (modal) modal.scrollTo(0, 0);
+      if (modalRef.current) {
+        modalRef.current.scrollTo(0, 0);
       }
     }, 0);
   };
@@ -311,10 +476,8 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
         alignItems: isMobile ? "flex-start" : "center",
         justifyContent: "center",
         zIndex: 2000,
-        padding: isMobile
-          ? "calc(10px + env(safe-area-inset-top)) 10px 10px 10px"
-          : "20px",
-        overflowY: "auto",
+        padding: isMobile ? "10px" : "20px",
+        overflow: isMobile ? "hidden" : "auto",
         transition: swipeStart === null ? "background-color 0.2s ease" : "none",
       }}
     >
@@ -324,18 +487,19 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
         style={{
           maxWidth: "500px",
           width: "100%",
-          maxHeight: isMobile ? "none" : "90vh",
+          maxHeight: isMobile ? (isPWA ? "100vh" : "85vh") : "90vh",
           height: isMobile ? "auto" : "auto",
           backgroundColor: "white",
           borderRadius: "12px",
           boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
           border: "1px solid #e1e5e9",
-          overflow: isMobile ? "visible" : "auto",
+          overflow: isMobile ? "auto" : "auto",
           display: "flex",
           flexDirection: "column",
           transform: `translateY(${Math.max(0, swipeDistance)}px)`,
           transition: swipeStart === null ? "transform 0.3s ease" : "none",
           opacity: Math.max(0.3, 1 - swipeDistance / 300),
+          position: "relative",
         }}
       >
         {/* Instagram Header */}
@@ -349,8 +513,8 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
             borderBottom: "1px solid #e1e5e9",
             flexShrink: 0,
             position: "sticky",
-            top: 0,
-            backgroundColor: "white",
+            top: 10,
+            backgroundColor: "#f5f5f5",
             zIndex: 10,
             color: "#3b3b3b",
           }}
@@ -406,203 +570,272 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
         {hikePhotos && hikePhotos.length > 0 && (
           <div
             className="instagram-photos"
-            style={{ position: "relative", flexShrink: 0, aspectRatio: "4/5" }}
+            style={{
+              position: "relative",
+              flexShrink: 0,
+              width: "100%",
+              paddingBottom: "125%", // 5/4 = 1.25 = 125% for aspect ratio 4:5
+            }}
           >
-            <SwiperComponent
-              key={selectedHikeId}
-              initialSlide={selectedPhotoIndex}
-              style={{ height: "100%" }}
-              onSlideChange={(swiper) => {
-                const activePhoto = hikePhotos[swiper.activeIndex];
-                if (activePhoto) {
-                  setPhotoUrl(activePhoto.url);
-                  // Only pan to photo if not the initial slide - let zoom-to-hike-bounds handle initial view
-                  if (
-                    !isInitialSlideRef.current &&
-                    activePhoto.lat &&
-                    activePhoto.lng
-                  ) {
-                    setPhotoLocation({
-                      lat: activePhoto.lat,
-                      lng: activePhoto.lng,
-                    });
-                  }
-                }
-                // Mark that we've shown the initial slide
-                isInitialSlideRef.current = false;
-
-                // Handle video autoplay when slide becomes active
-                const activeSlide = swiper.slides[swiper.activeIndex];
-                if (activeSlide) {
-                  const videoPlaceholder = activeSlide.querySelector(
-                    "[data-video-placeholder]",
-                  );
-                  if (videoPlaceholder) {
-                    const playButton = videoPlaceholder.querySelector(
-                      'div[style*="cursor: pointer"]',
-                    );
-                    if (playButton) {
-                      playButton.click();
-                    }
-                  }
-                }
-
-                // Pause videos in inactive slides
-                swiper.slides.forEach((slide, index) => {
-                  if (index !== swiper.activeIndex) {
-                    const video = slide.querySelector("video");
-                    if (video && !video.paused) {
-                      video.pause();
-                    }
-                  }
-                });
-              }}
-              lazy={{
-                loadPrevNext: true,
-                loadPrevNextAmount: 1,
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
               }}
             >
-              {hikePhotos.map((photo, index) => (
-                <SwiperSlide key={photo.id || `${photo.url}-${index}`}>
-                  {(photo.type && photo.type.startsWith("video/")) ||
-                  photo.url?.includes(".mov") ||
-                  photo.url?.includes(".mp4") ||
-                  photo.url?.includes(".avi") ||
-                  photo.url?.includes(".webm") ? (
-                    <div
-                      data-video-placeholder
-                      style={{
-                        position: "relative",
-                        width: "100%",
-                        height: "100%",
-                        backgroundColor: "#000",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
+              <SwiperComponent
+                key={selectedHikeId}
+                initialSlide={selectedPhotoIndex}
+                style={{ height: "100%" }}
+                onSlideChange={(swiper) => {
+                  const activePhoto = hikePhotos[swiper.activeIndex];
+                  if (activePhoto) {
+                    setPhotoUrl(activePhoto.url);
+                    // Only pan to photo if not the initial slide - let zoom-to-hike-bounds handle initial view
+                    if (
+                      !isInitialSlideRef.current &&
+                      activePhoto.lat &&
+                      activePhoto.lng
+                    ) {
+                      setPhotoLocation({
+                        lat: activePhoto.lat,
+                        lng: activePhoto.lng,
+                      });
+                    }
+                  }
+                  // Mark that we've shown the initial slide
+                  isInitialSlideRef.current = false;
+
+                  // Handle video autoplay when slide becomes active
+                  const activeSlide = swiper.slides[swiper.activeIndex];
+                  if (activeSlide) {
+                    const videoPlaceholder = activeSlide.querySelector(
+                      "[data-video-placeholder]",
+                    );
+                    if (videoPlaceholder) {
+                      const playButton = videoPlaceholder.querySelector(
+                        'div[style*="cursor: pointer"]',
+                      );
+                      if (playButton) {
+                        playButton.click();
+                      }
+                    }
+                  }
+
+                  // Pause videos in inactive slides
+                  swiper.slides.forEach((slide, index) => {
+                    if (index !== swiper.activeIndex) {
+                      const video = slide.querySelector("video");
+                      if (video && !video.paused) {
+                        video.pause();
+                      }
+                    }
+                  });
+                }}
+                lazy={{
+                  loadPrevNext: true,
+                  loadPrevNextAmount: 1,
+                }}
+              >
+                {hikePhotos.map((photo, index) => (
+                  <SwiperSlide key={photo.id || `${photo.url}-${index}`}>
+                    {(photo.type && photo.type.startsWith("video/")) ||
+                    photo.url?.includes(".mov") ||
+                    photo.url?.includes(".mp4") ||
+                    photo.url?.includes(".avi") ||
+                    photo.url?.includes(".webm") ? (
                       <div
+                        data-video-placeholder
                         style={{
-                          fontSize: "48px",
-                          color: "white",
-                          background: "rgba(0,0,0,0.7)",
-                          borderRadius: "50%",
-                          width: "80px",
-                          height: "80px",
+                          position: "relative",
+                          width: "100%",
+                          height: "100%",
+                          backgroundColor: "#000",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          cursor: "pointer",
-                          zIndex: 2,
                         }}
-                        onClick={(e) => {
-                          const container = e.target.closest(".swiper-slide");
-                          if (container) {
-                            container.innerHTML = "";
-                            const video = document.createElement("video");
-                            video.src = photo.url;
-                            video.controls = true;
-                            video.muted = true;
-                            video.playsInline = true;
-                            video.loop = true;
-                            video.preload = "metadata";
-                            video.style.cssText =
-                              "width: 100%; height: 100%; object-fit: cover; background-color: #000;";
+                      >
+                        <div
+                          style={{
+                            fontSize: "48px",
+                            color: "white",
+                            background: "rgba(0,0,0,0.7)",
+                            borderRadius: "50%",
+                            width: "80px",
+                            height: "80px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            zIndex: 2,
+                          }}
+                          onClick={(e) => {
+                            const container = e.target.closest(".swiper-slide");
+                            if (container) {
+                              container.innerHTML = "";
+                              const video = document.createElement("video");
+                              video.src = photo.url;
+                              video.controls = true;
+                              video.muted = true;
+                              video.playsInline = true;
+                              video.loop = true;
+                              video.preload = "metadata";
+                              video.style.cssText =
+                                "width: 100%; height: 100%; object-fit: cover; background-color: #000;";
 
-                            video.oncanplay = () => {
-                              video.play().catch((err) => {
-                                console.log("Autoplay failed:", err);
-                              });
-                            };
+                              video.oncanplay = () => {
+                                video.play().catch((err) => {
+                                  console.log("Autoplay failed:", err);
+                                });
+                              };
 
-                            video.onloadeddata = () => {
-                              video.play().catch((err) => {
-                                console.log("Fallback autoplay failed:", err);
-                              });
-                            };
+                              video.onloadeddata = () => {
+                                video.play().catch((err) => {
+                                  console.log("Fallback autoplay failed:", err);
+                                });
+                              };
 
-                            video.onError = () => {
-                              console.error("Video failed to load:", photo.url);
-                              container.innerHTML =
-                                '<div style="width: 100%; height: 400px; display: flex; align-items: center; justify-content: center; background: #000; color: white; font-size: 24px;">🎥<br/>Video unavailable</div>';
-                            };
+                              video.onError = () => {
+                                console.error(
+                                  "Video failed to load:",
+                                  photo.url,
+                                );
+                                container.innerHTML =
+                                  '<div style="width: 100%; height: 400px; display: flex; align-items: center; justify-content: center; background: #000; color: white; font-size: 24px;">🎥<br/>Video unavailable</div>';
+                              };
 
-                            container.appendChild(video);
+                              container.appendChild(video);
+                            }
+                          }}
+                        >
+                          ▶️
+                        </div>
+                        <div
+                          style={{
+                            position: "absolute",
+                            bottom: "10px",
+                            right: "10px",
+                            color: "white",
+                            fontSize: "12px",
+                            background: "rgba(0,0,0,0.5)",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                          }}
+                        >
+                          Video
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="photo-loading-wrapper"
+                        style={{ height: "100%" }}
+                      >
+                        <div
+                          className={`photo-loading-skeleton${
+                            loadedPhotos[photo.id || photo.url || index]
+                              ? " is-loaded"
+                              : ""
+                          }`}
+                        >
+                          <div className="photo-loading-shimmer" />
+                          <div className="photo-loading-spinner" />
+                        </div>
+                        <img
+                          src={photo.url}
+                          alt={photo.caption || `Photo ${index + 1}`}
+                          className={`photo-image${
+                            loadedPhotos[photo.id || photo.url || index]
+                              ? " is-loaded"
+                              : ""
+                          }`}
+                          loading={
+                            index === selectedPhotoIndex ||
+                            index === selectedPhotoIndex - 1 ||
+                            index === selectedPhotoIndex + 1
+                              ? "eager"
+                              : "lazy"
                           }
-                        }}
-                      >
-                        ▶️
+                          decoding={
+                            index === selectedPhotoIndex ||
+                            index === selectedPhotoIndex - 1 ||
+                            index === selectedPhotoIndex + 1
+                              ? "sync"
+                              : "async"
+                          }
+                          fetchpriority={
+                            index === selectedPhotoIndex
+                              ? "high"
+                              : index === selectedPhotoIndex - 1 ||
+                                  index === selectedPhotoIndex + 1
+                                ? "auto"
+                                : "low"
+                          }
+                          onLoad={() => {
+                            const key = photo.id || photo.url || index;
+                            setLoadedPhotos((prev) => ({
+                              ...prev,
+                              [key]: true,
+                            }));
+                          }}
+                          onError={() => {
+                            const key = photo.id || photo.url || index;
+                            setLoadedPhotos((prev) => ({
+                              ...prev,
+                              [key]: true,
+                            }));
+                          }}
+                        />
                       </div>
-                      <div
-                        style={{
-                          position: "absolute",
-                          bottom: "10px",
-                          right: "10px",
-                          color: "white",
-                          fontSize: "12px",
-                          background: "rgba(0,0,0,0.5)",
-                          padding: "2px 6px",
-                          borderRadius: "4px",
-                        }}
-                      >
-                        Video
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      className="photo-loading-wrapper"
-                      style={{ height: "100%" }}
-                    >
-                      <div
-                        className={`photo-loading-skeleton${
-                          loadedPhotos[photo.id || photo.url || index]
-                            ? " is-loaded"
-                            : ""
-                        }`}
-                      >
-                        <div className="photo-loading-shimmer" />
-                        <div className="photo-loading-spinner" />
-                      </div>
-                      <img
-                        src={photo.url}
-                        alt={photo.caption || `Photo ${index + 1}`}
-                        className={`photo-image${
-                          loadedPhotos[photo.id || photo.url || index]
-                            ? " is-loaded"
-                            : ""
-                        }`}
-                        loading={
-                          index <= selectedPhotoIndex + 1 ? "eager" : "lazy"
-                        }
-                        decoding={
-                          index === selectedPhotoIndex ? "sync" : "async"
-                        }
-                        fetchpriority={
-                          index === selectedPhotoIndex ? "high" : "auto"
-                        }
-                        onLoad={() => {
-                          const key = photo.id || photo.url || index;
-                          setLoadedPhotos((prev) => ({
-                            ...prev,
-                            [key]: true,
-                          }));
-                        }}
-                        onError={() => {
-                          const key = photo.id || photo.url || index;
-                          setLoadedPhotos((prev) => ({
-                            ...prev,
-                            [key]: true,
-                          }));
-                        }}
-                      />
-                    </div>
-                  )}
-                </SwiperSlide>
-              ))}
-            </SwiperComponent>
+                    )}
+                  </SwiperSlide>
+                ))}
+              </SwiperComponent>
+            </div>
           </div>
         )}
-
+        {/* Spotify Widget */}
+        {songOfTheDay && (
+          <>
+            <div style={{ padding: "0 10px", marginTop: "8px" }}>
+              <button
+                className="spotify-toggle-button"
+                onClick={() => setShowPlayer((s) => !s)}
+                aria-expanded={showPlayer}
+                title={showPlayer ? "Hide player" : "Show player"}
+              >
+                <span className="spotify-toggle-label">
+                  ▶️ Song of the Day: {spotifyLabel || "Play"}
+                </span>
+                <span className="spotify-toggle-caret" aria-hidden="true">
+                  ⌄
+                </span>
+              </button>
+            </div>
+            {showPlayer && (
+              <div
+                style={{
+                  margin: "4px 0", // Minimal margin
+                  padding: "0 10px",
+                }}
+              >
+                <iframe
+                  src={`https://open.spotify.com/embed/track/${songOfTheDay.split("/").pop().split("?")[0]}`}
+                  width="100%"
+                  height="80"
+                  frameBorder="0"
+                  allow="encrypted-media"
+                  title="Spotify Song of the Day"
+                  scrolling="no"
+                  style={{ borderRadius: "4px", overflow: "hidden" }}
+                ></iframe>
+              </div>
+            )}
+          </>
+        )}
         {/* Post Content */}
         <div
           className="instagram-content"
@@ -753,8 +986,8 @@ function NoteModal({ hikes, photos, user, markAsViewed, hikesWithNotes }) {
             style={{
               display: "flex",
               justifyContent: "space-between",
-              padding: "8px 16px",
-              backgroundColor: "#fafafa",
+              padding: "20px 16px",
+              backgroundColor: "#f0f0f0",
               borderTop: "1px solid #e1e5e9",
               flexShrink: 0,
               position: "sticky",

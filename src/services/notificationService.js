@@ -58,50 +58,41 @@ export const registerServiceWorkerAndGetToken = async () => {
   const publicUrl = process.env.PUBLIC_URL || "";
   const swUrl = `${publicUrl}/firebase-messaging-sw.js`;
 
+  console.log("Registering firebase-messaging-sw.js service worker...");
+  console.log("Service worker URL:", swUrl);
+
   const registrations = await navigator.serviceWorker.getRegistrations();
+  console.log("Existing service worker registrations:", registrations);
+
   const messagingRegistrations = registrations.filter((registration) => {
     const scriptUrl =
       registration?.active?.scriptURL ||
       registration?.waiting?.scriptURL ||
       registration?.installing?.scriptURL ||
       "";
+    console.log("Checking service worker script URL:", scriptUrl);
     return scriptUrl.includes("firebase-messaging-sw.js");
   });
 
-  if (messagingRegistrations.length > 1) {
-    const [keep, ...remove] = messagingRegistrations;
-    await Promise.all(remove.map((registration) => registration.unregister()));
-    console.warn(
-      "Removed duplicate firebase-messaging service workers:",
-      remove.length,
+  let registration;
+  if (messagingRegistrations.length > 0) {
+    registration = messagingRegistrations[0];
+    console.log(
+      "Using existing firebase-messaging service worker registration",
     );
-    if (keep?.update) {
-      await keep.update();
-    }
-  }
-
-  let registration = await navigator.serviceWorker.getRegistration(
-    publicUrl || "/",
-  );
-  const registrationScript =
-    registration?.active?.scriptURL ||
-    registration?.waiting?.scriptURL ||
-    registration?.installing?.scriptURL ||
-    "";
-  if (
-    !registration ||
-    !registrationScript.includes("firebase-messaging-sw.js")
-  ) {
+  } else {
+    console.log("Registering new firebase-messaging service worker...");
     registration = await navigator.serviceWorker.register(swUrl);
+    console.log("Firebase messaging service worker registered:", registration);
   }
 
-  if (!registration) {
-    throw new Error("Failed to register the messaging service worker.");
+  if (!registration || !registration.pushManager) {
+    throw new Error(
+      "PushManager is not available. Ensure the service worker is registered and active.",
+    );
   }
 
-  if (!registration.pushManager) {
-    throw new Error("PushManager is not available for this service worker.");
-  }
+  console.log("Service worker is ready and PushManager is available.");
 
   const messaging = await initializeMessaging();
   const vapidKey = process.env.REACT_APP_FIREBASE_VAPID_KEY;
