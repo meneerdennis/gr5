@@ -974,6 +974,7 @@ let hikesListener = null;
 let photosListener = null;
 let hikesChangeListener = null;
 let photosChangeListener = null;
+let commentsChangeListener = null;
 let hikesDebounceTimeout = null;
 let photosDebounceTimeout = null;
 let photosLastSeenUploadedAt = null;
@@ -1330,6 +1331,59 @@ export function setupPhotosChangeListener(onChange) {
         );
       }
       photosChangeListener = null;
+    }
+  };
+}
+
+// Listen for comment change meta doc (small trigger written by Cloud Function)
+export function setupCommentsChangeListener(onChange) {
+  if (typeof commentsChangeListener !== "undefined" && commentsChangeListener) {
+    try {
+      commentsChangeListener();
+    } catch (err) {
+      console.warn("Error unsubscribing previous commentsChangeListener:", err);
+    }
+    commentsChangeListener = null;
+  }
+
+  try {
+    const metaRef = doc(db, "meta", "commentsLatestChange");
+    commentsChangeListener = onSnapshot(
+      metaRef,
+      (snap) => {
+        try {
+          if (!snap.exists()) return;
+          if (document?.visibilityState !== "visible") return;
+          const data = snap.data() || {};
+          const id = data.id;
+          const type = data.type || "modified";
+          if (onChange) onChange({ id, type, timestamp: data.timestamp });
+        } catch (innerErr) {
+          console.error("Error in commentsChangeListener callback:", innerErr);
+        }
+      },
+      (err) => console.error("Comments change listener error:", err),
+    );
+  } catch (err) {
+    console.error("Failed to setup commentsChangeListener:", err);
+    commentsChangeListener = null;
+    return () => {};
+  }
+
+  return () => {
+    if (
+      typeof commentsChangeListener !== "undefined" &&
+      commentsChangeListener
+    ) {
+      try {
+        commentsChangeListener();
+      } catch (err) {
+        console.warn(
+          "Error unsubscribing commentsChangeListener during cleanup:",
+          err,
+        );
+      }
+      commentsChangeListener = null;
     }
   };
 }

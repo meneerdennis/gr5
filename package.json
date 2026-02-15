@@ -43,6 +43,7 @@
     "build": "react-scripts build",
     "postbuild": "node scripts/sync-preload-css.js",
     "test": "react-scripts test",
+    "test:emulator-reads": "node scripts/emulator-read-test.js",
     "eject": "react-scripts eject",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build -b gh-pages --repo https://github.com/meneerdennis/gr5.git"

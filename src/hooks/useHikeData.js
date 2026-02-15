@@ -17,6 +17,7 @@ import {
   setupPhotosRealtimeListener,
   setupPhotosChangeListener,
   setupHikesChangeListener,
+  setupCommentsChangeListener,
   getHikesFromFirebase,
   getHikeById,
   setLastSeenFromData,
@@ -54,6 +55,12 @@ export function useHikeData() {
   const PHOTO_CACHE_TTL_MS = 10 * 60 * 1000; // Reduced to 10 minutes (Firestore handles most caching now)
   const COMMENT_POLL_INTERVAL_MS = 10 * 60 * 1000;
 
+  // Visibility / freshness controls to avoid repeated reads on tab-switch
+  const lastCommentCountsFetchAtRef = useRef(0);
+  const lastVisibilityChangeAtRef = useRef(0);
+  const VISIBILITY_COOLDOWN_MS = 30 * 1000; // ignore very short tab flips (30s)
+  const COMMENT_VISIBILITY_TTL_MS = 90 * 1000; // skip visibility-triggered comment fetches if recent (90s)
+
   const { user, loading: authLoading } = useAuth();
 
   const loadCommentCounts = useCallback(async () => {
@@ -78,6 +85,8 @@ export function useHikeData() {
         hikesRef.current = next;
         return next;
       });
+      // Record time of successful comment-count fetch so visibility-triggered fetches can be throttled
+      lastCommentCountsFetchAtRef.current = Date.now();
     } catch (error) {
       console.error("Error loading comment counts:", error);
     }
@@ -501,6 +510,7 @@ export function useHikeData() {
     let unsubscribeHikes = null;
     let unsubscribePhotos = null;
     let unsubscribeHikeChange = null;
+    let unsubscribeComments = null;
     let hiddenDetachTimer = null;
 
     const attachListeners = () => {
@@ -603,6 +613,37 @@ export function useHikeData() {
           }
         });
       }
+
+      // Setup comments meta change listener (replaces periodic comment polling)
+      if (!unsubscribeComments) {
+        try {
+          unsubscribeComments = setupCommentsChangeListener(async (change) => {
+            try {
+              if (!change || !change.id) return;
+              const ccSnap = await getDoc(
+                doc(db, "hikeCommentCounts", change.id),
+              );
+              const newCount = ccSnap.exists()
+                ? Number(ccSnap.data().count || 0)
+                : 0;
+              commentCountsRef.current.set(change.id, newCount);
+
+              // Update hikes array with new comment count if present
+              setHikes((prev) => {
+                const next = prev.map((h) =>
+                  h.id === change.id ? { ...h, commentsCount: newCount } : h,
+                );
+                hikesRef.current = next;
+                return next;
+              });
+            } catch (err) {
+              console.error("Error handling comments meta change:", err);
+            }
+          });
+        } catch (err) {
+          console.error("Failed to set up comments change listener:", err);
+        }
+      }
     };
 
     const detachListeners = () => {
@@ -624,9 +665,26 @@ export function useHikeData() {
         } catch (e) {}
         unsubscribeHikeChange = null;
       }
+      if (unsubscribeComments) {
+        try {
+          unsubscribeComments();
+        } catch (e) {}
+        unsubscribeComments = null;
+      }
     };
 
     const handleVisibility = () => {
+      const now = Date.now();
+      // Ignore very short visibility flips to avoid churn
+      if (now - lastVisibilityChangeAtRef.current < VISIBILITY_COOLDOWN_MS) {
+        lastVisibilityChangeAtRef.current = now;
+        if (process.env.NODE_ENV !== "production") {
+          console.debug("Visibility change ignored (cooldown)");
+        }
+        return;
+      }
+      lastVisibilityChangeAtRef.current = now;
+
       if (document?.visibilityState === "visible") {
         // Clear any pending detach timer and attach listeners
         if (hiddenDetachTimer) {
@@ -635,12 +693,15 @@ export function useHikeData() {
         }
         attachListeners();
       } else {
-        // If hidden, detach listeners after short delay to avoid churn (1 minute)
+        // If hidden, detach listeners after longer delay to avoid frequent reattach on quick tab switches (2 minutes)
         if (hiddenDetachTimer) clearTimeout(hiddenDetachTimer);
-        hiddenDetachTimer = setTimeout(() => {
-          detachListeners();
-          hiddenDetachTimer = null;
-        }, 60 * 1000);
+        hiddenDetachTimer = setTimeout(
+          () => {
+            detachListeners();
+            hiddenDetachTimer = null;
+          },
+          2 * 60 * 1000,
+        );
       }
     };
 
@@ -691,27 +752,9 @@ export function useHikeData() {
 
   // Visibility cleanup handled in the main listener effect (attach/detach with a short delay)
 
-  useEffect(() => {
-    const pollComments = () => {
-      if (document?.visibilityState !== "visible") return;
-      loadCommentCounts();
-    };
-
-    const intervalId = setInterval(pollComments, COMMENT_POLL_INTERVAL_MS);
-
-    const handleVisibilityChange = () => {
-      if (document?.visibilityState === "visible") {
-        pollComments();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [COMMENT_POLL_INTERVAL_MS, loadCommentCounts]);
+  // Comment counts are updated via a lightweight meta-doc listener (see setupCommentsChangeListener)
+  // — periodic polling removed to reduce Firestore read costs.
+  // The initial comment counts are still loaded once during startup via `loadCommentCounts()`.
 
   const refreshUpdates = useCallback(async () => {
     if (refreshing) return;

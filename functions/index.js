@@ -311,6 +311,24 @@ exports.notifyNewComment = functions.firestore
     } catch (error) {
       console.error("Error sending comment push notifications:", error);
     }
+
+    // Also record a tiny meta doc so clients can react to comment changes without polling
+    try {
+      await admin
+        .firestore()
+        .doc("meta/commentsLatestChange")
+        .set(
+          {
+            id: String(hikeId),
+            type: "added",
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      console.log(`Recorded comments change meta for hike ${hikeId}`);
+    } catch (err) {
+      console.error("Error writing commentsLatestChange meta doc:", err);
+    }
   });
 
 // Record a tiny meta doc when hikes change so clients can react to edits/deletes cheaply
