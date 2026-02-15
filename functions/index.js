@@ -17,7 +17,76 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Push notification function removed; leaving file for other functions only.
+// Push notification function
+exports.sendHikeNotification = functions.https.onCall(async (data, context) => {
+  const { hikeId, hikeName, message, force = false } = data;
+
+  // Only allow authenticated users or admin
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "User must be authenticated to send notifications.",
+    );
+  }
+
+  try {
+    // Get all user tokens
+    const userTokensSnapshot = await db.collection("userTokens").get();
+    const tokens = [];
+
+    userTokensSnapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.tokens && Array.isArray(data.tokens)) {
+        tokens.push(...data.tokens);
+      }
+    });
+
+    if (tokens.length === 0) {
+      return {
+        success: true,
+        message: "No tokens found to send notifications.",
+      };
+    }
+
+    // Prepare the message
+    const payload = {
+      notification: {
+        title: `New GR5 update: ${hikeName}`,
+        body: message,
+        icon: "/hiker.png",
+      },
+      data: {
+        hikeId,
+        hikeName,
+        message,
+        click_action: "/",
+      },
+    };
+
+    // Send to all tokens
+    const messaging = admin.messaging();
+    const response = await messaging.sendMulticast({
+      tokens,
+      ...payload,
+    });
+
+    console.log(
+      `Sent notification to ${response.successCount} devices, ${response.failureCount} failures`,
+    );
+
+    return {
+      success: true,
+      sent: response.successCount,
+      failed: response.failureCount,
+    };
+  } catch (error) {
+    console.error("Error sending notification:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Failed to send notification",
+    );
+  }
+});
 
 // Strava webhook helpers
 const STRAVA_CLIENT_ID = process.env.STRAVA_CLIENT_ID;
