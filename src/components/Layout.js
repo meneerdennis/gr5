@@ -6,6 +6,7 @@ const GR5Info = lazy(() => import("./GR5Info"));
 import { useNotifications } from "../hooks/useNotifications";
 // Lazy load components that are only shown conditionally
 const NotificationPrompt = lazy(() => import("./NotificationPrompt"));
+import { useLocation } from "react-router-dom";
 
 function Layout({
   children,
@@ -13,6 +14,8 @@ function Layout({
   onRefresh = null,
   refreshInProgress = false,
 }) {
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith("/admin");
   const [quotes] = useState(quotesData);
   const [randomQuote, setRandomQuote] = useState({});
   const [quoteOpacity, setQuoteOpacity] = useState(1);
@@ -103,192 +106,194 @@ function Layout({
       className="flex-1 flex-col min-h-screen"
       style={{ fontFamily: "var(--font-sans)" }}
     >
-      {/* Modern Header */}
-      <div
-        className="container mx-auto"
-        style={{ marginBottom: "7px", marginTop: "5px" }}
-      >
-        <header className="glass-card">
-          <div className="container slide-up justify-between">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 " style={{ width: "100%" }}>
-                <div
-                  className="flex  items-center gap-4"
-                  style={{ width: "100%" }}
-                >
-                  <img
-                    src="/hiker.png"
-                    alt="Hiker"
-                    style={{
-                      height: "110px",
-                      width: "110px",
-                      marginRight: "10px",
-                    }}
-                  />
-                  <div style={{ width: "100%" }}>
-                    <div
+      {/* Modern Header - Only show for non-admin routes */}
+      {!isAdminRoute && (
+        <div
+          className="container mx-auto"
+          style={{ marginBottom: "7px", marginTop: "5px" }}
+        >
+          <header className="glass-card">
+            <div className="container slide-up justify-between">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 " style={{ width: "100%" }}>
+                  <div
+                    className="flex  items-center gap-4"
+                    style={{ width: "100%" }}
+                  >
+                    <img
+                      src="/hiker.png"
+                      alt="Hiker"
                       style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: "0.5rem",
+                        height: "110px",
+                        width: "110px",
+                        marginRight: "10px",
                       }}
-                    >
-                      <h1
-                        className="text-lg md:text-3xl font-bold text-gray-900"
-                        style={{ marginTop: "10px" }}
-                      >
-                        Mijn GR5
-                      </h1>
-                      <button
-                        onClick={() => {
-                          setInitialTab("gr5");
-                          setIsGR5InfoOpen(true);
-                        }}
+                    />
+                    <div style={{ width: "100%" }}>
+                      <div
                         style={{
-                          width: "18px",
-                          height: "18px",
-                          borderRadius: "50%",
-                          backgroundColor: "#3b82f6",
-                          color: "white",
-                          border: "none",
-                          cursor: "pointer",
                           display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "12px",
-                          fontWeight: "bold",
-                          marginTop: "15px",
+                          alignItems: "flex-start",
+                          gap: "0.5rem",
                         }}
-                        title="Meer informatie over GR5"
                       >
-                        i
-                      </button>
-                      {isMobile && (
+                        <h1
+                          className="text-lg md:text-3xl font-bold text-gray-900"
+                          style={{ marginTop: "10px" }}
+                        >
+                          Mijn GR5
+                        </h1>
                         <button
-                          onClick={() => setNotifyOpen(true)}
+                          onClick={() => {
+                            setInitialTab("gr5");
+                            setIsGR5InfoOpen(true);
+                          }}
                           style={{
-                            width: "20px",
-                            height: "20px",
+                            width: "18px",
+                            height: "18px",
                             borderRadius: "50%",
-                            background: "transparent",
-                            color: canReceiveNotifications
-                              ? "#10b981"
-                              : "#3b82f6",
+                            backgroundColor: "#3b82f6",
+                            color: "white",
                             border: "none",
                             cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            fontSize: "14px",
+                            fontSize: "12px",
+                            fontWeight: "bold",
                             marginTop: "15px",
-                            opacity:
-                              canReceiveNotifications ||
-                              notificationPermission === "denied" ||
-                              !messagingSupported
-                                ? 0.7
-                                : 1,
                           }}
-                          title={
-                            canReceiveNotifications
-                              ? tokenReady
-                                ? "Notifications enabled"
-                                : "Enabling notifications..."
-                              : notificationPermission === "denied"
-                                ? "Notifications blocked"
-                                : !messagingSupported
-                                  ? supportReason ||
-                                    "Notifications not supported"
-                                  : notificationError
-                                    ? `Enable push notifications (${notificationError})`
-                                    : "Enable push notifications"
-                          }
-                          aria-label="Open notifications prompt"
+                          title="Meer informatie over GR5"
                         >
-                          {canReceiveNotifications ? "🔔" : "🔕"}
+                          i
                         </button>
-                      )}
+                        {isMobile && (
+                          <button
+                            onClick={() => setNotifyOpen(true)}
+                            style={{
+                              width: "20px",
+                              height: "20px",
+                              borderRadius: "50%",
+                              background: "transparent",
+                              color: canReceiveNotifications
+                                ? "#10b981"
+                                : "#3b82f6",
+                              border: "none",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "14px",
+                              marginTop: "15px",
+                              opacity:
+                                canReceiveNotifications ||
+                                notificationPermission === "denied" ||
+                                !messagingSupported
+                                  ? 0.7
+                                  : 1,
+                            }}
+                            title={
+                              canReceiveNotifications
+                                ? tokenReady
+                                  ? "Notifications enabled"
+                                  : "Enabling notifications..."
+                                : notificationPermission === "denied"
+                                  ? "Notifications blocked"
+                                  : !messagingSupported
+                                    ? supportReason ||
+                                      "Notifications not supported"
+                                    : notificationError
+                                      ? `Enable push notifications (${notificationError})`
+                                      : "Enable push notifications"
+                            }
+                            aria-label="Open notifications prompt"
+                          >
+                            {canReceiveNotifications ? "🔔" : "🔕"}
+                          </button>
+                        )}
+                      </div>
+                      <div
+                        className="text-gray-600 text-xs md:text-sm"
+                        style={{
+                          marginBottom: "5px",
+                          fontStyle: "italic",
+                          opacity: quoteOpacity,
+                          transform: `translateY(${quoteTransform}px)`,
+                          transition:
+                            "opacity 0.5s ease-in-out, transform 0.5s ease-in-out",
+                        }}
+                      >
+                        "{randomQuote.quote}"
+                        <br />
+                        <span className="block text-xs md:text-sm mt-0.5">
+                          — {randomQuote.author}
+                        </span>
+                      </div>
                     </div>
-                    <div
-                      className="text-gray-600 text-xs md:text-sm"
-                      style={{
-                        marginBottom: "5px",
-                        fontStyle: "italic",
-                        opacity: quoteOpacity,
-                        transform: `translateY(${quoteTransform}px)`,
-                        transition:
-                          "opacity 0.5s ease-in-out, transform 0.5s ease-in-out",
-                      }}
-                    >
-                      "{randomQuote.quote}"
-                      <br />
-                      <span className="block text-xs md:text-sm mt-0.5">
-                        — {randomQuote.author}
-                      </span>
-                    </div>
+                    {!isMobile && (
+                      <ProgressBar
+                        progress={progress}
+                        compact={false}
+                        position="top-right"
+                        headerRight={
+                          <button
+                            onClick={() => setNotifyOpen(true)}
+                            style={{
+                              width: "26px",
+                              height: "26px",
+                              borderRadius: "50%",
+                              background: "transparent",
+                              color: canReceiveNotifications
+                                ? "#10b981"
+                                : "#3b82f6",
+                              border: "none",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "16px",
+                              opacity:
+                                canReceiveNotifications ||
+                                notificationPermission === "denied" ||
+                                !messagingSupported
+                                  ? 0.7
+                                  : 1,
+                            }}
+                            title={
+                              canReceiveNotifications
+                                ? tokenReady
+                                  ? "Notifications enabled"
+                                  : "Enabling notifications..."
+                                : notificationPermission === "denied"
+                                  ? "Notifications blocked"
+                                  : !messagingSupported
+                                    ? supportReason ||
+                                      "Notifications not supported"
+                                    : notificationError
+                                      ? `Enable push notifications (${notificationError})`
+                                      : "Enable push notifications"
+                            }
+                            aria-label="Open notifications prompt"
+                          >
+                            {canReceiveNotifications ? "🔔" : "🔕"}
+                          </button>
+                        }
+                      />
+                    )}
+                    {isMobile && (
+                      <ProgressBar
+                        progress={progress}
+                        compact={true}
+                        position="top-right"
+                      />
+                    )}
                   </div>
-                  {!isMobile && (
-                    <ProgressBar
-                      progress={progress}
-                      compact={false}
-                      position="top-right"
-                      headerRight={
-                        <button
-                          onClick={() => setNotifyOpen(true)}
-                          style={{
-                            width: "26px",
-                            height: "26px",
-                            borderRadius: "50%",
-                            background: "transparent",
-                            color: canReceiveNotifications
-                              ? "#10b981"
-                              : "#3b82f6",
-                            border: "none",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "16px",
-                            opacity:
-                              canReceiveNotifications ||
-                              notificationPermission === "denied" ||
-                              !messagingSupported
-                                ? 0.7
-                                : 1,
-                          }}
-                          title={
-                            canReceiveNotifications
-                              ? tokenReady
-                                ? "Notifications enabled"
-                                : "Enabling notifications..."
-                              : notificationPermission === "denied"
-                                ? "Notifications blocked"
-                                : !messagingSupported
-                                  ? supportReason ||
-                                    "Notifications not supported"
-                                  : notificationError
-                                    ? `Enable push notifications (${notificationError})`
-                                    : "Enable push notifications"
-                          }
-                          aria-label="Open notifications prompt"
-                        >
-                          {canReceiveNotifications ? "🔔" : "🔕"}
-                        </button>
-                      }
-                    />
-                  )}
-                  {isMobile && (
-                    <ProgressBar
-                      progress={progress}
-                      compact={true}
-                      position="top-right"
-                    />
-                  )}
                 </div>
               </div>
             </div>
-          </div>
-        </header>
-      </div>
+          </header>
+        </div>
+      )}
 
       {/* Compact Progress Bar positioned at top-right of header */}
 
