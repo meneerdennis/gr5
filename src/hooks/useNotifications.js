@@ -100,6 +100,33 @@ export function useNotifications() {
     }
   }, [subscribeForNotifications]);
 
+  // Periodically check for permission changes to update state when permission is granted externally
+  useEffect(() => {
+    const checkPermission = () => {
+      if (typeof Notification !== "undefined") {
+        const currentPermission = Notification.permission;
+        setNotificationPermission((prev) => {
+          if (prev !== currentPermission) {
+            // If permission changed to granted and we haven't subscribed yet, do it
+            if (currentPermission === "granted" && !tokenReady) {
+              subscribeForNotifications();
+            }
+            return currentPermission;
+          }
+          return prev;
+        });
+      }
+    };
+
+    // Check immediately
+    checkPermission();
+
+    // Check every second for permission changes
+    const interval = setInterval(checkPermission, 1000);
+
+    return () => clearInterval(interval);
+  }, [subscribeForNotifications, tokenReady]);
+
   return {
     tokenReady,
     notificationPermission,
