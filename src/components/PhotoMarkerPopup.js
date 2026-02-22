@@ -2,7 +2,7 @@ import React from "react";
 
 function PhotoMarkerPopup({ photo }) {
   return (
-    <div style={{ maxWidth: "200px" }}>
+    <div style={{ width: "200px" }}>
       {(photo.type && photo.type.startsWith("video/")) ||
       photo.url?.includes(".mov") ||
       photo.url?.includes(".mp4") ||
@@ -36,12 +36,6 @@ function PhotoMarkerPopup({ photo }) {
           alt={photo.caption || "Foto"}
           style={{ width: "100%", borderRadius: "4px", marginBottom: "0.5rem" }}
         />
-      )}
-      {photo.caption && (
-        <div style={{ fontWeight: "bold" }}>{photo.caption}</div>
-      )}
-      {photo.date && (
-        <div style={{ fontSize: "0.8rem", color: "#555" }}>{photo.date}</div>
       )}
     </div>
   );

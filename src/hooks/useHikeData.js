@@ -457,17 +457,8 @@ export function useHikeData() {
       return;
     }
 
-    // Ensure initial load only runs once. In React strict mode effects may run twice
-    // during development which can cause duplicate fetches/logs (the gray "2" in console).
-    if (!initialLoadRef.current) {
-      initialLoadRef.current = true;
-      loadData(true); // Load full data directly
-    }
-
-    // Load comment counts after initial data is loaded
-    const commentTimer = setTimeout(() => {
-      loadCommentCounts();
-    }, 1000); // Load comments after 1 second
+    let cancelled = false;
+    let commentTimer = null;
 
     // Listen for photo upload events with debouncing to prevent multiple rapid reloads
     const handlePhotoUpload = () => {
@@ -705,13 +696,36 @@ export function useHikeData() {
       }
     };
 
-    // Attach immediately if visible
-    if (document?.visibilityState === "visible") {
-      attachListeners();
-    }
-    document.addEventListener("visibilitychange", handleVisibility);
+    const start = async () => {
+      // Ensure initial load only runs once. In React strict mode effects may run twice
+      // during development which can cause duplicate fetches/logs (the gray "2" in console).
+      if (!initialLoadRef.current) {
+        initialLoadRef.current = true;
+        try {
+          await loadData(true); // Load full data directly before wiring listeners
+        } catch (err) {
+          console.error("Initial data load failed:", err);
+        }
+      }
+
+      if (cancelled) return;
+
+      // Load comment counts after initial data is loaded
+      commentTimer = setTimeout(() => {
+        loadCommentCounts();
+      }, 1000); // Load comments after 1 second
+
+      // Attach immediately if visible
+      if (document?.visibilityState === "visible") {
+        attachListeners();
+      }
+      document.addEventListener("visibilitychange", handleVisibility);
+    };
+
+    start();
 
     return () => {
+      cancelled = true;
       clearTimeout(commentTimer);
       window.removeEventListener("photoUploaded", handlePhotoUpload);
       window.removeEventListener("photoDeleted", handlePhotoDeleted);

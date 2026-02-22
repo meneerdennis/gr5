@@ -23,6 +23,19 @@ const HIKE_CACHE_KEY = "gr5_hikes_cache";
 const PHOTO_CACHE_KEY = "gr5_all_photos_cache";
 const cacheStore = new Map();
 
+// Normalize various date/timestamp shapes into millis for reliable comparisons
+function toMillis(value) {
+  if (!value) return null;
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const ts = Date.parse(value);
+    return Number.isNaN(ts) ? null : ts;
+  }
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value.seconds === "number") return value.seconds * 1000;
+  return null;
+}
+
 function getCacheKey(baseKey, limitCount) {
   return `${baseKey}_${limitCount ?? "all"}`;
 }
@@ -87,6 +100,36 @@ export function clearHikeCache() {
   cacheStore.clear();
 }
 
+function normalizePolyline(polyline, fallbackLatLng = []) {
+  if (!polyline) return fallbackLatLng || [];
+
+  if (Array.isArray(polyline)) {
+    if (polyline.length === 0) return fallbackLatLng || [];
+    const first = polyline[0];
+    if (Array.isArray(first) && typeof first[0] === "number") {
+      return polyline;
+    }
+    if (first && typeof first === "object") {
+      if (typeof first.lat === "number" && typeof first.lng === "number") {
+        return polyline.map((point) => [point.lat, point.lng]);
+      }
+      if (
+        Array.isArray(first.coordinates) &&
+        typeof first.coordinates[0] === "number"
+      ) {
+        return polyline.map((point) => point.coordinates);
+      }
+    }
+  }
+
+  if (typeof polyline === "string") {
+    const decoded = decodePolyline(polyline);
+    return decoded.length ? decoded : fallbackLatLng || [];
+  }
+
+  return fallbackLatLng || [];
+}
+
 export async function getHikesFromFirebase(limitCount = null, options = {}) {
   try {
     const { useCache = true, cacheTtlMs = 30 * 60 * 1000 } = options; // Reduced to 30 minutes
@@ -95,7 +138,11 @@ export async function getHikesFromFirebase(limitCount = null, options = {}) {
     if (useCache) {
       const cached = readCachedValue(cacheKey, cacheTtlMs);
       if (cached) {
-        return cached;
+        return cached.map((hike) => ({
+          ...hike,
+          latlng: hike.latlng || [],
+          polyline: normalizePolyline(hike.polyline, hike.latlng || []),
+        }));
       }
     }
 
@@ -120,6 +167,8 @@ export async function getHikesFromFirebase(limitCount = null, options = {}) {
           latlng.push([data.lat[i], data.lng[i]]);
         }
       }
+      const polyline = normalizePolyline(data.polyline, latlng);
+      const latlngFinal = latlng.length ? latlng : polyline;
       hikes.push({
         id: doc.id,
         stravaId: data.stravaId,
@@ -131,9 +180,9 @@ export async function getHikesFromFirebase(limitCount = null, options = {}) {
         startDate: data.startDate,
         type: data.type,
         commentsCount: data.commentsCount || 0,
-        polyline: data.polyline,
+        polyline,
         photos: data.photos || [],
-        latlng,
+        latlng: latlngFinal,
         altitude: data.altitude || [],
         time: data.time || [],
         note: data.note || "",
@@ -183,6 +232,8 @@ export async function getHikesSince(startDate, limitCount = null) {
           latlng.push([data.lat[i], data.lng[i]]);
         }
       }
+      const polyline = normalizePolyline(data.polyline, latlng);
+      const latlngFinal = latlng.length ? latlng : polyline;
       hikes.push({
         id: doc.id,
         stravaId: data.stravaId,
@@ -194,9 +245,9 @@ export async function getHikesSince(startDate, limitCount = null) {
         startDate: data.startDate,
         type: data.type,
         commentsCount: data.commentsCount || 0,
-        polyline: data.polyline,
+        polyline,
         photos: data.photos || [],
-        latlng,
+        latlng: latlngFinal,
         altitude: data.altitude || [],
         time: data.time || [],
         note: data.note || "",
@@ -243,6 +294,8 @@ export function subscribeToHikes(onUpdate, onError, limitCount = null) {
                   latlng.push([data.lat[i], data.lng[i]]);
                 }
               }
+              const polyline = normalizePolyline(data.polyline, latlng);
+              const latlngFinal = latlng.length ? latlng : polyline;
               hikes.push({
                 id: doc.id,
                 stravaId: data.stravaId,
@@ -254,9 +307,9 @@ export function subscribeToHikes(onUpdate, onError, limitCount = null) {
                 startDate: data.startDate,
                 type: data.type,
                 commentsCount: data.commentsCount || 0,
-                polyline: data.polyline,
+                polyline,
                 photos: data.photos || [],
-                latlng,
+                latlng: latlngFinal,
                 altitude: data.altitude || [],
                 time: data.time || [],
                 note: data.note || "",
@@ -979,6 +1032,12 @@ let hikesDebounceTimeout = null;
 let photosDebounceTimeout = null;
 let photosLastSeenUploadedAt = null;
 let hikesLastSeenStartDate = null;
+let hikesListenerPrimed = false;
+let photosListenerPrimed = false;
+let hikesChangePrimed = false;
+let photosChangePrimed = false;
+let commentsChangePrimed = false;
+let listenersArmAt = 0;
 
 /**
  * Set the last-seen timestamps from initial data to avoid immediate duplicate listener triggers
@@ -986,12 +1045,21 @@ let hikesLastSeenStartDate = null;
  */
 export function setLastSeenFromData(data = {}) {
   try {
+    // Reset priming flags so listeners treat next snapshot as the seed and not as a change
+    hikesListenerPrimed = false;
+    photosListenerPrimed = false;
+    hikesChangePrimed = false;
+    photosChangePrimed = false;
+    commentsChangePrimed = false;
+    // Arm listeners only after a short delay to avoid boot-time churn
+    listenersArmAt = Date.now() + 5000;
+
     if (Array.isArray(data.photos) && data.photos.length > 0) {
       const parsed = data.photos
         .map((p) => {
           const v = p && (p.uploadedAt ?? p.date);
-          const ts = typeof v === "number" ? v : Date.parse(String(v || ""));
-          return Number.isNaN(ts) ? null : ts;
+          const ts = toMillis(v);
+          return ts ?? null;
         })
         .filter(Boolean);
       if (parsed.length > 0) {
@@ -1003,8 +1071,8 @@ export function setLastSeenFromData(data = {}) {
       const parsed = data.hikes
         .map((h) => {
           const v = h && h.startDate;
-          const ts = typeof v === "number" ? v : Date.parse(String(v || ""));
-          return Number.isNaN(ts) ? null : ts;
+          const ts = toMillis(v);
+          return ts ?? null;
         })
         .filter(Boolean);
       if (parsed.length > 0) {
@@ -1036,14 +1104,21 @@ export function setupHikesRealtimeListener(onHikesChange) {
         return;
       }
 
+      // Ignore events during the initial arm delay window
+      if (Date.now() < listenersArmAt) {
+        return;
+      }
+
       if (!querySnapshot || querySnapshot.empty) return;
 
       const topDoc = querySnapshot.docs[0];
-      const topStartDate = topDoc?.data()?.startDate || null;
+      const topStartDateRaw = topDoc?.data()?.startDate || null;
+      const topStartDate = toMillis(topStartDateRaw);
 
-      // If we haven't seen any hikes yet, initialize last seen and don't trigger updates
-      if (!hikesLastSeenStartDate) {
+      // Skip the initial snapshot entirely; just seed last-seen once
+      if (!hikesListenerPrimed) {
         hikesLastSeenStartDate = topStartDate;
+        hikesListenerPrimed = true;
         return;
       }
 
@@ -1053,7 +1128,9 @@ export function setupHikesRealtimeListener(onHikesChange) {
       // Fetch all hikes added since last seen (small incremental query)
       let changes = [];
       try {
-        const newHikes = await getHikesSince(hikesLastSeenStartDate);
+        const newHikes = await getHikesSince(
+          new Date(hikesLastSeenStartDate).toISOString(),
+        );
         if (Array.isArray(newHikes) && newHikes.length > 0) {
           changes = newHikes.map((hike) => ({
             type: "added",
@@ -1062,10 +1139,10 @@ export function setupHikesRealtimeListener(onHikesChange) {
             newIndex: 0,
           }));
           // Update last seen to newest startDate
-          hikesLastSeenStartDate = newHikes.reduce(
-            (max, h) => (h.startDate > max ? h.startDate : max),
-            hikesLastSeenStartDate,
-          );
+          hikesLastSeenStartDate = newHikes.reduce((max, h) => {
+            const ts = toMillis(h.startDate);
+            return ts && ts > max ? ts : max;
+          }, hikesLastSeenStartDate);
         }
       } catch (err) {
         console.error("Error fetching new hikes since last seen:", err);
@@ -1121,14 +1198,21 @@ export function setupPhotosRealtimeListener(onPhotosChange) {
         return;
       }
 
+      // Ignore events during the initial arm delay window
+      if (Date.now() < listenersArmAt) {
+        return;
+      }
+
       if (!querySnapshot || querySnapshot.empty) return;
 
       const topDoc = querySnapshot.docs[0];
-      const topUploadedAt = topDoc?.data()?.uploadedAt || null;
+      const topUploadedAtRaw = topDoc?.data()?.uploadedAt || null;
+      const topUploadedAt = toMillis(topUploadedAtRaw);
 
-      // If we haven't seen any photos yet, initialize last seen and don't trigger updates
-      if (!photosLastSeenUploadedAt) {
+      // Skip the initial snapshot entirely; just seed last-seen once
+      if (!photosListenerPrimed) {
         photosLastSeenUploadedAt = topUploadedAt;
+        photosListenerPrimed = true;
         return;
       }
 
@@ -1147,10 +1231,10 @@ export function setupPhotosRealtimeListener(onPhotosChange) {
             newIndex: 0,
           }));
           // Update last seen to newest uploadedAt
-          photosLastSeenUploadedAt = newPhotos.reduce(
-            (max, p) => (p.uploadedAt > max ? p.uploadedAt : max),
-            photosLastSeenUploadedAt,
-          );
+          photosLastSeenUploadedAt = newPhotos.reduce((max, p) => {
+            const ts = toMillis(p.uploadedAt ?? p.date);
+            return ts && ts > max ? ts : max;
+          }, photosLastSeenUploadedAt);
         } else {
           // Fallback to single topDoc
           const photoData = { id: topDoc.id, ...topDoc.data() };
@@ -1209,6 +1293,8 @@ export async function getHikeById(hikeId) {
         latlng.push([data.lat[i], data.lng[i]]);
       }
     }
+    const polyline = normalizePolyline(data.polyline, latlng);
+    const latlngFinal = latlng.length ? latlng : polyline;
     return {
       id: snap.id,
       stravaId: data.stravaId,
@@ -1220,9 +1306,9 @@ export async function getHikeById(hikeId) {
       startDate: data.startDate,
       type: data.type,
       commentsCount: data.commentsCount || 0,
-      polyline: data.polyline,
+      polyline,
       photos: data.photos || [],
-      latlng,
+      latlng: latlngFinal,
       altitude: data.altitude || [],
       time: data.time || [],
       note: data.note || "",
@@ -1257,6 +1343,11 @@ export function setupHikesChangeListener(onChange) {
     (snap) => {
       if (!snap.exists()) return;
       if (document?.visibilityState !== "visible") return;
+      if (Date.now() < listenersArmAt) return;
+      if (!hikesChangePrimed) {
+        hikesChangePrimed = true; // seed and skip first snapshot
+        return;
+      }
       const data = snap.data() || {};
       const id = data.id;
       const type = data.type || "modified";
@@ -1302,6 +1393,11 @@ export function setupPhotosChangeListener(onChange) {
         try {
           if (!snap.exists()) return;
           if (document?.visibilityState !== "visible") return;
+          if (Date.now() < listenersArmAt) return;
+          if (!photosChangePrimed) {
+            photosChangePrimed = true; // seed and skip first snapshot
+            return;
+          }
           const data = snap.data() || {};
           const id = data.id;
           const type = data.type || "modified";
@@ -1354,6 +1450,11 @@ export function setupCommentsChangeListener(onChange) {
         try {
           if (!snap.exists()) return;
           if (document?.visibilityState !== "visible") return;
+          if (Date.now() < listenersArmAt) return;
+          if (!commentsChangePrimed) {
+            commentsChangePrimed = true; // seed and skip first snapshot
+            return;
+          }
           const data = snap.data() || {};
           const id = data.id;
           const type = data.type || "modified";
