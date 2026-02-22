@@ -53,10 +53,17 @@ function AdminActivityManager() {
     try {
       // Always fetch fresh data (no cache) to ensure new activities show up immediately
       const hikesData = await getHikesFromFirebase(null, { useCache: false });
-      setHikes(hikesData);
+      // Sort newest → oldest by startDate so admin sees recent activities first
+      const sortedHikes = (hikesData || []).slice().sort((a, b) => {
+        const da = new Date(a?.startDate || a?.createdAt || 0).getTime();
+        const db = new Date(b?.startDate || b?.createdAt || 0).getTime();
+        return db - da;
+      });
+
+      setHikes(sortedHikes);
       // Update local cache so other parts of the app (and clients using cached data) pick up the deletion immediately
       try {
-        updateHikeCache(null, hikesData);
+        updateHikeCache(null, sortedHikes);
       } catch (e) {
         console.warn("Failed to update hike cache:", e);
       }
@@ -284,7 +291,7 @@ function AdminActivityManager() {
 
   if (loading) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="p-4 sm:p-6 text-sm">
         <div className="glass-card p-6 text-center">
           <div className="animate-spin rounded-full mx-auto mb-4 border-b-2 border-blue-400 h-10 w-10 sm:h-12 sm:w-12"></div>
           <p className="text-gray-200">Loading activities...</p>
@@ -294,40 +301,16 @@ function AdminActivityManager() {
   }
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="p-4 sm:p-6 text-sm">
       <div className="max-w-7xl mx-auto">
         <div className="glass-card p-4 sm:p-6 mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-100 mb-4">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-100 mb-4">
             🗑️ Activity Manager
           </h1>
           <p className="text-gray-300 mb-6">
             View and manage all your activities. Delete unwanted
             activities/hikes from your collection.
           </p>
-
-          {/* Upload Section */}
-          <div className="mb-6 p-4 bg-gray-800 bg-opacity-50 border border-gray-600 rounded-lg">
-            <h3 className="text-lg font-medium text-gray-100 mb-3">
-              📤 Upload Activity
-            </h3>
-            <p className="text-gray-300 text-sm mb-4">
-              Import activities from GPX or FIT files (e.g., from Strava).
-              Supported formats: .gpx, .fit
-            </p>
-            <input
-              type="file"
-              accept=".gpx,.fit"
-              onChange={handleFileUpload}
-              disabled={uploading}
-              className="block w-full text-sm text-gray-300 bg-gray-700 border border-gray-600 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {uploading && (
-              <div className="mt-3 flex items-center text-blue-300">
-                <div className="animate-spin rounded-full border-b-2 border-blue-400 h-4 w-4 mr-2"></div>
-                Processing file...
-              </div>
-            )}
-          </div>
 
           {deleteStatus && (
             <div
@@ -381,25 +364,22 @@ function AdminActivityManager() {
             <table className="w-full min-w-full">
               <thead>
                 <tr className="border-b border-gray-600">
-                  <th className="text-left p-3 font-medium text-gray-200">
+                  <th className="text-left p-2 text-xs font-medium text-gray-200 w-2/5 md:w-1/3 lg:w-1/4">
                     Name
                   </th>
-                  <th className="text-left p-3 font-medium text-gray-200">
+                  <th className="text-left p-2 text-xs font-medium text-gray-200">
                     Date
                   </th>
-                  <th className="text-left p-3 font-medium text-gray-200">
+                  <th className="text-left p-2 text-xs font-medium text-gray-200">
                     Distance
                   </th>
-                  <th className="text-left p-3 font-medium text-gray-200">
-                    Type
+
+                  {/* Compact song indicator — placed after Distance */}
+                  <th className="text-center p-2 w-8 text-xs font-medium text-gray-200">
+                    🎶
                   </th>
-                  <th className="text-left p-3 font-medium text-gray-200">
-                    Start
-                  </th>
-                  <th className="text-left p-3 font-medium text-gray-200">
-                    End
-                  </th>
-                  <th className="text-left p-3 font-medium text-gray-200">
+
+                  <th className="text-left p-2 text-xs font-medium text-gray-200">
                     Actions
                   </th>
                 </tr>
@@ -407,157 +387,232 @@ function AdminActivityManager() {
               <tbody>
                 {hikes.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center p-6 text-gray-400">
+                    <td colSpan="5" className="text-center p-6 text-gray-400">
                       No activities found.
                     </td>
                   </tr>
                 ) : (
                   paginatedHikes.map((hike) => (
-                    <tr
-                      key={hike.id}
-                      className="border-b border-gray-700 hover:bg-gray-800"
-                    >
-                      <td className="p-3 text-gray-200">
-                        {editingHikeId === hike.id ? (
-                          <input
-                            type="text"
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            className="w-full px-2 py-1 bg-gray-700 text-gray-200 border border-gray-600 rounded"
-                            autoFocus
-                          />
-                        ) : (
-                          hike.name
-                        )}
-                      </td>
-                      <td className="p-3 text-gray-300">
-                        {formatDate(hike.startDate)}
-                      </td>
-                      <td className="p-3 text-gray-300">
-                        {hike.distanceKm ? hike.distanceKm.toFixed(1) : "N/A"}{" "}
-                        km
-                      </td>
-                      <td className="p-3 text-gray-300">
-                        {editingHikeId === hike.id ? (
-                          <input
-                            type="text"
-                            value={editStart}
-                            onChange={(e) => setEditStart(e.target.value)}
-                            className="w-full px-2 py-1 bg-gray-700 text-gray-200 border border-gray-600 rounded"
-                            placeholder="Start location"
-                          />
-                        ) : (
-                          hike.start || "N/A"
-                        )}
-                      </td>
-                      <td className="p-3 text-gray-300">
-                        {editingHikeId === hike.id ? (
-                          <input
-                            type="text"
-                            value={editEnd}
-                            onChange={(e) => setEditEnd(e.target.value)}
-                            className="w-full px-2 py-1 bg-gray-700 text-gray-200 border border-gray-600 rounded"
-                            placeholder="End location"
-                          />
-                        ) : (
-                          hike.end || "N/A"
-                        )}
-                      </td>
-                      <td className="p-3 text-gray-300">
-                        {editingHikeId === hike.id ? (
-                          <input
-                            type="text"
-                            value={editSongOfTheDay}
-                            onChange={(e) =>
-                              setEditSongOfTheDay(e.target.value)
-                            }
-                            className="w-full px-2 py-1 bg-gray-700 text-gray-200 border border-gray-600 rounded"
-                            placeholder="Spotify Song URL"
-                          />
-                        ) : (
-                          hike.songOfTheDay || "N/A"
-                        )}
-                      </td>
-                      <td className="p-3 flex space-x-2">
-                        {editingHikeId === hike.id ? (
-                          <>
-                            <button
-                              onClick={handleSaveEdit}
-                              className="btn btn-success text-sm"
+                    <React.Fragment key={hike.id}>
+                      <tr className="border-b border-gray-700 hover:bg-gray-800">
+                        <td
+                          className="p-2 text-gray-200 max-w-xs md:max-w-sm overflow-hidden"
+                          style={{ maxWidth: "320px" }}
+                        >
+                          {editingHikeId === hike.id ? (
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              className="w-full px-2 py-1 bg-gray-700 text-gray-200 border border-gray-600 rounded"
+                              autoFocus
+                            />
+                          ) : (
+                            <div
+                              className="truncate"
+                              title={hike.name}
+                              style={{ display: "block" }}
                             >
-                              💾 Save
-                            </button>
-                            <button
-                              onClick={handleCancelEdit}
-                              className="btn btn-secondary text-sm"
+                              {hike.name}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-2 text-gray-300">
+                          {formatDate(hike.startDate)}
+                        </td>
+                        <td className="p-2 text-gray-300">
+                          {hike.distanceKm ? hike.distanceKm.toFixed(1) : "N/A"}{" "}
+                          km
+                        </td>
+
+                        {/* Compact song indicator placed immediately after Distance */}
+                        <td className="p-2 text-center text-xs text-gray-300">
+                          {hike.songOfTheDay ? (
+                            <span
+                              className="text-green-300"
+                              title="Song available"
                             >
-                              ❌ Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => handleNotifyUsers(hike)}
-                              className="btn btn-secondary text-sm"
-                              disabled={notifyingHikeId === hike.id}
-                            >
-                              {notifyingHikeId === hike.id
-                                ? "📣 Notifying..."
-                                : hike.notifiedAt
-                                  ? "📣 Notify Again"
-                                  : "📣 Notify Users"}
-                            </button>
-                            <button
-                              onClick={() => handleEditClick(hike)}
-                              className="btn btn-primary text-sm"
-                            >
-                              ✏️ Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteClick(hike)}
-                              className="btn btn-danger text-sm"
-                            >
-                              🗑️ Delete
-                            </button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
+                              ✅
+                            </span>
+                          ) : (
+                            <span className="text-gray-600">&nbsp;</span>
+                          )}
+                        </td>
+
+                        <td className="p-2 flex space-x-2">
+                          {editingHikeId === hike.id ? (
+                            <>
+                              <button
+                                onClick={handleSaveEdit}
+                                className="btn btn-success text-xs px-2 py-1"
+                              >
+                                💾 Save
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                className="btn btn-secondary text-xs px-2 py-1"
+                              >
+                                ❌ Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleEditClick(hike)}
+                                className="btn btn-primary text-xs px-2 py-1"
+                              >
+                                ✏️ Edit
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+
+                      {editingHikeId === hike.id && (
+                        <tr className="bg-gray-800">
+                          <td colSpan="5" className="p-3 text-sm text-gray-300">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-xs text-gray-400">
+                                  Start
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editStart}
+                                  onChange={(e) => setEditStart(e.target.value)}
+                                  className="w-full px-2 py-1 bg-gray-700 text-gray-200 border border-gray-600 rounded mt-1"
+                                  placeholder="Start location"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-xs text-gray-400">
+                                  End
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editEnd}
+                                  onChange={(e) => setEditEnd(e.target.value)}
+                                  className="w-full px-2 py-1 bg-gray-700 text-gray-200 border border-gray-600 rounded mt-1"
+                                  placeholder="End location"
+                                />
+                              </div>
+
+                              <div className="md:col-span-2">
+                                <label className="text-xs text-gray-400">
+                                  Spotify URL
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editSongOfTheDay}
+                                  onChange={(e) =>
+                                    setEditSongOfTheDay(e.target.value)
+                                  }
+                                  className="w-full px-2 py-1 bg-gray-700 text-gray-200 border border-gray-600 rounded mt-1"
+                                  placeholder="Spotify Song URL"
+                                />
+                              </div>
+
+                              <div className="md:col-span-2 flex gap-2 mt-3">
+                                <button
+                                  onClick={handleSaveEdit}
+                                  className="btn btn-success px-2 py-1 text-xs"
+                                >
+                                  💾 Save
+                                </button>
+                                <button
+                                  onClick={handleCancelEdit}
+                                  className="btn btn-secondary px-2 py-1 text-xs"
+                                >
+                                  ❌ Cancel
+                                </button>
+
+                                {/* Moved: Notify + Delete now live inside the edit panel */}
+                                <button
+                                  onClick={() => handleNotifyUsers(hike)}
+                                  className="btn btn-secondary px-2 py-1 text-xs"
+                                  disabled={notifyingHikeId === hike.id}
+                                >
+                                  {notifyingHikeId === hike.id
+                                    ? "📣 Notifying..."
+                                    : hike.notifiedAt
+                                      ? "📣 Notify Again"
+                                      : "📣 Notify Users"}
+                                </button>
+
+                                <button
+                                  onClick={() => handleDeleteClick(hike)}
+                                  className="btn btn-danger px-2 py-1 text-xs"
+                                >
+                                  🗑️ Delete
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))
-                )}
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                  <div className="flex justify-center items-center mt-4 space-x-2">
-                    <button
-                      className="btn btn-secondary px-3 py-1"
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      &lt; Prev
-                    </button>
-                    <span className="text-gray-200 text-sm">
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <button
-                      className="btn btn-secondary px-3 py-1"
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
-                      }
-                      disabled={currentPage === totalPages}
-                    >
-                      Next &gt;
-                    </button>
-                  </div>
                 )}
               </tbody>
             </table>
+
+            {/* Pagination Controls (moved outside table to satisfy valid DOM nesting) */}
+            {hikes.length > 0 && (
+              <div className="flex justify-center items-center mt-4 space-x-2">
+                <button
+                  className="btn btn-secondary px-2 py-1 text-xs"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  aria-label="Previous page"
+                >
+                  &lt; Prev
+                </button>
+                <span className="text-gray-200 text-xs">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  className="btn btn-secondary px-2 py-1 text-xs"
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  aria-label="Next page"
+                >
+                  Next &gt;
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-6 p-4 bg-gray-800 bg-opacity-50 border border-gray-600 rounded-lg">
+            <h3 className="text-base font-medium text-gray-100 mb-3">
+              📤 Upload Activity
+            </h3>
+            <p className="text-gray-300 text-sm mb-4">
+              Import activities from GPX or FIT files (e.g., from Strava).
+              Supported formats: .gpx, .fit
+            </p>
+            <input
+              type="file"
+              accept=".gpx,.fit"
+              onChange={handleFileUpload}
+              disabled={uploading}
+              className="block w-full text-xs text-gray-300 bg-gray-700 border border-gray-600 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {uploading && (
+              <div className="mt-3 flex items-center text-blue-300">
+                <div className="animate-spin rounded-full border-b-2 border-blue-400 h-4 w-4 mr-2"></div>
+                Processing file...
+              </div>
+            )}
           </div>
 
           <div className="mt-6 p-4 bg-blue-900 bg-opacity-30 border border-blue-500 border-opacity-30 rounded-lg">
             <h3 className="font-medium text-blue-200 mb-2">
               ⚠️ Important Notes:
             </h3>
-            <ul className="text-blue-100 text-sm space-y-1">
+            <ul className="text-blue-100 text-xs space-y-1">
               <li>• Deleting an activity is permanent and cannot be undone.</li>
               <li>
                 • All photos associated with the activity will also be removed.
@@ -574,7 +629,7 @@ function AdminActivityManager() {
       {confirmDelete && selectedHike && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="glass-card p-6 max-w-md mx-4">
-            <h2 className="text-xl font-bold text-gray-100 mb-4">
+            <h2 className="text-lg font-bold text-gray-100 mb-4">
               Confirm Deletion
             </h2>
             <p className="text-gray-300 mb-4">

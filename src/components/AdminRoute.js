@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../services/firebase";
 import { Link, useLocation } from "react-router-dom";
@@ -9,6 +9,73 @@ function AdminRoute({ children }) {
   const [user, setUser] = useState(null);
   const [initialized, setInitialized] = useState(false);
   const location = useLocation();
+
+  // Compact dropdown for admin navigation (saves horizontal space)
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  const navItems = [
+    {
+      to: "/admin/manage",
+      label: "Photo Management",
+      icon: "📸",
+      matches: ["/admin/manage", "/admin/upload", "/admin"],
+    },
+    {
+      to: "/admin/notes",
+      label: "Activity Notes",
+      icon: "📝",
+      matches: ["/admin/notes"],
+    },
+    {
+      to: "/admin/activities",
+      label: "Manage Activities",
+      icon: "🗑️",
+      matches: ["/admin/activities"],
+    },
+  ];
+
+  // Return the best matching nav item (prefer longest prefix match).
+  const getActiveItem = () => {
+    const path = location.pathname || "";
+    let best = null;
+    let bestLen = -1;
+    navItems.forEach((item) => {
+      item.matches.forEach((m) => {
+        if (path === m || path.startsWith(m + "/") || path.startsWith(m)) {
+          if (m.length > bestLen) {
+            best = item;
+            bestLen = m.length;
+          }
+        }
+      });
+    });
+    return best;
+  };
+
+  useEffect(() => {
+    // close menu when navigating
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    function onDocClick(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    }
+    function onKey(e) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("touchstart", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("touchstart", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -147,7 +214,7 @@ function AdminRoute({ children }) {
             </div>
           </div>
 
-          {/* Navigation Tabs */}
+          {/* Navigation Tabs (collapsed into a compact dropdown to save horizontal space) */}
           <div
             className="border-t"
             style={{
@@ -155,42 +222,84 @@ function AdminRoute({ children }) {
               marginTop: "10px",
             }}
           >
-            <nav
-              className="flex overflow-x-auto py-2"
-              style={{ gap: "0.25rem" }}
-            >
-              <Link
-                to="/admin/manage"
-                className={`admin-nav-tab ${
-                  location.pathname === "/admin/manage" ||
-                  location.pathname === "/admin/upload" ||
-                  location.pathname === "/admin"
-                    ? "active"
-                    : ""
-                }`}
+            <div className="relative py-2 admin-nav-dropdown" ref={menuRef}>
+              <button
+                type="button"
+                className="admin-nav-tab inline-flex items-center justify-between w-full sm:w-auto"
+                aria-haspopup="true"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((s) => !s)}
               >
-                <span className="text-base">📸</span>
-                <span>Photo Management</span>
-              </Link>
-              <Link
-                to="/admin/notes"
-                className={`admin-nav-tab ${
-                  location.pathname === "/admin/notes" ? "active" : ""
-                }`}
-              >
-                <span className="text-base">📝</span>
-                <span>Activity Notes</span>
-              </Link>
-              <Link
-                to="/admin/activities"
-                className={`admin-nav-tab ${
-                  location.pathname === "/admin/activities" ? "active" : ""
-                }`}
-              >
-                <span className="text-base">🗑️</span>
-                <span>Manage Activities</span>
-              </Link>
-            </nav>
+                {/** compute once so label stays in sync with menu highlighting */}
+                {(() => {
+                  const activeItem = getActiveItem();
+                  return (
+                    <span
+                      className="flex items-center gap-2"
+                      style={{ whiteSpace: "nowrap" }}
+                    >
+                      <span className="text-base">
+                        {activeItem ? activeItem.icon : "🗂️"}
+                      </span>
+                      <span>
+                        {activeItem ? activeItem.label : "Admin Menu"}
+                      </span>
+                      {/* small circular indicator to show this is a dropdown */}
+                      <span className="dropdown-indicator" aria-hidden="true">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          aria-hidden="true"
+                          focusable="false"
+                        >
+                          <path
+                            d="M5 7l5 5 5-5"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </span>
+                    </span>
+                  );
+                })()}
+                <svg
+                  className={`w-4 h-4 ml-2 transform ${menuOpen ? "rotate-180" : ""}`}
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 011.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+
+              {menuOpen && (
+                <div className="absolute left-0 mt-2 admin-nav-dropdown-menu z-50">
+                  {navItems.map((item) => {
+                    const activeItem = getActiveItem();
+                    const isActive = activeItem && activeItem.to === item.to;
+                    return (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        onClick={() => setMenuOpen(false)}
+                        className={`block px-4 py-2 hover:bg-gray-700 ${isActive ? "bg-gray-700 font-semibold text-white" : "text-gray-200"}`}
+                      >
+                        <span className="icon">{item.icon}</span>
+                        <span className="label">{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -974,12 +974,6 @@ function AdminPhotoManager() {
                       Thumbnail
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                      Caption
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       Route
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
@@ -1009,132 +1003,123 @@ function AdminPhotoManager() {
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {(photo.type && photo.type.startsWith("video/")) ||
-                        photo.thumbnail?.includes(".mov") ||
-                        photo.thumbnail?.includes(".mp4") ||
-                        photo.thumbnail?.includes(".avi") ||
-                        photo.thumbnail?.includes(".webm") ? (
-                          <div className="relative">
-                            <video
-                              src={photo.thumbnail || photo.url}
-                              alt={photo.caption || "Video"}
-                              className="photo-thumbnail"
-                              onClick={() => openFullImage(photo)}
-                              muted
-                              onError={(e) => {
-                                console.warn(
-                                  "Table video thumbnail failed to load:",
-                                  photo.url,
-                                );
-                                // Fallback to a play icon overlay on a placeholder
-                                e.target.style.display = "none";
-                                const parent = e.target.parentElement;
-                                const playIcon = document.createElement("div");
-                                playIcon.innerHTML = "▶️";
-                                playIcon.className =
-                                  "absolute inset-0 flex items-center justify-center text-2xl bg-gray-800 bg-opacity-50 rounded";
-                                playIcon.onclick = () => openFullImage(photo);
-                              }}
-                            />
+                        <div className="flex items-start space-x-3">
+                          <div className="w-20 h-20 flex-shrink-0">
+                            {(photo.type && photo.type.startsWith("video/")) ||
+                            photo.thumbnail?.includes(".mov") ||
+                            photo.thumbnail?.includes(".mp4") ||
+                            photo.thumbnail?.includes(".avi") ||
+                            photo.thumbnail?.includes(".webm") ? (
+                              <div className="relative">
+                                <video
+                                  src={photo.thumbnail || photo.url}
+                                  alt={photo.caption || "Video"}
+                                  className="photo-thumbnail"
+                                  onClick={() => openFullImage(photo)}
+                                  muted
+                                  onError={(e) => {
+                                    console.warn(
+                                      "Table video thumbnail failed to load:",
+                                      photo.url,
+                                    );
+                                    e.target.style.display = "none";
+                                    const parent = e.target.parentElement;
+                                    const playIcon =
+                                      document.createElement("div");
+                                    playIcon.innerHTML = "▶️";
+                                    playIcon.className =
+                                      "absolute inset-0 flex items-center justify-center text-2xl bg-gray-800 bg-opacity-50 rounded";
+                                    playIcon.onclick = () =>
+                                      openFullImage(photo);
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <img
+                                src={photo.thumbnail}
+                                alt={photo.caption || "Photo"}
+                                className="photo-thumbnail"
+                                onClick={() => openFullImage(photo)}
+                                onError={(e) => {
+                                  console.warn(
+                                    "Table thumbnail failed to load:",
+                                    photo.url,
+                                  );
+                                  e.target.src = photo.url; // Fallback to original
+                                }}
+                              />
+                            )}
                           </div>
-                        ) : (
-                          <img
-                            src={photo.thumbnail}
-                            alt={photo.caption || "Photo"}
-                            className="photo-thumbnail"
-                            onClick={() => openFullImage(photo)}
-                            onError={(e) => {
-                              console.warn(
-                                "Table thumbnail failed to load:",
-                                photo.url,
-                              );
-                              e.target.src = photo.url; // Fallback to original
-                            }}
-                          />
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-100">
-                          {photo.originalName}
-                        </div>
-                        {photo.size && (
-                          <div className="text-sm text-gray-400">
-                            {(photo.size / 1024 / 1024).toFixed(1)} MB
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        {editingPhoto === photo.id ? (
-                          <div className="space-y-2">
-                            <input
-                              type="text"
-                              value={editForm.name}
-                              onChange={(e) =>
-                                setEditForm({
-                                  ...editForm,
-                                  name: e.target.value,
-                                })
-                              }
-                              className="input"
-                              placeholder="Enter name..."
-                            />
-                            <input
-                              type="text"
-                              value={editForm.caption}
-                              onChange={(e) =>
-                                setEditForm({
-                                  ...editForm,
-                                  caption: e.target.value,
-                                })
-                              }
-                              className="input"
-                              placeholder="Enter caption..."
-                            />
-                            <select
-                              value={editForm.route}
-                              onChange={(e) =>
-                                setEditForm({
-                                  ...editForm,
-                                  route: e.target.value,
-                                })
-                              }
-                              className="input"
-                            >
-                              <option value="" style={{ color: "black" }}>
-                                Select route...
-                              </option>
-                              {hikes.map((hike) => (
-                                <option
-                                  key={hike.id}
-                                  value={hike.id}
-                                  style={{ color: "black" }}
+
+                          <div className="min-w-0">
+                            {editingPhoto === photo.id ? (
+                              <div className="space-y-2">
+                                <input
+                                  type="text"
+                                  value={editForm.name}
+                                  onChange={(e) =>
+                                    setEditForm({
+                                      ...editForm,
+                                      name: e.target.value,
+                                    })
+                                  }
+                                  className="input"
+                                  placeholder="Enter name..."
+                                />
+
+                                <select
+                                  value={editForm.route}
+                                  onChange={(e) =>
+                                    setEditForm({
+                                      ...editForm,
+                                      route: e.target.value,
+                                    })
+                                  }
+                                  className="input"
                                 >
-                                  {hike.name}
-                                </option>
-                              ))}
-                            </select>
-                            <div className="flex space-x-1">
-                              <button
-                                onClick={saveEdit}
-                                className="btn btn-primary text-xs"
-                              >
-                                💾
-                              </button>
-                              <button
-                                onClick={cancelEdit}
-                                className="btn btn-secondary text-xs"
-                              >
-                                ❌
-                              </button>
-                            </div>
+                                  <option value="" style={{ color: "black" }}>
+                                    Select route...
+                                  </option>
+                                  {hikes.map((hike) => (
+                                    <option
+                                      key={hike.id}
+                                      value={hike.id}
+                                      style={{ color: "black" }}
+                                    >
+                                      {hike.name}
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <div className="flex space-x-1">
+                                  <button
+                                    onClick={saveEdit}
+                                    className="btn btn-primary text-xs"
+                                  >
+                                    💾
+                                  </button>
+                                  <button
+                                    onClick={cancelEdit}
+                                    className="btn btn-secondary text-xs"
+                                  >
+                                    ❌
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="text-sm font-medium text-gray-100 truncate">
+                                  {photo.originalName}
+                                </div>
+                                {photo.size && (
+                                  <div className="text-sm text-gray-400">
+                                    {(photo.size / 1024 / 1024).toFixed(1)} MB
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <div>
-                            <div className="text-sm text-gray-200">
-                              {photo.caption || "No caption"}
-                            </div>
-                          </div>
-                        )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">
                         {getHikeName(photo.hikeId)}

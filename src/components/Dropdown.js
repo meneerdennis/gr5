@@ -183,7 +183,7 @@ function Dropdown({
               {selectedHikeId
                 ? hikes.find((h) => h.id === selectedHikeId)?.name ||
                   "Unnamed Activity"
-                : "Travel Journal"}
+                : "Open travel journal"}
             </span>
           </div>
 

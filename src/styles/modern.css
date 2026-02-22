@@ -953,6 +953,96 @@ body.modal-open {
   box-shadow: var(--shadow-md);
 }
 
+/* ===== Admin dropdown fixes (override conflicts / visited link colors) ===== */
+.admin-nav-dropdown .admin-nav-tab {
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.06);
+  padding: 0.45rem 0.75rem;
+  min-width: max-content; /* size to content so label is never clipped */
+  max-width: 100%;
+  align-items: center;
+  white-space: nowrap; /* keep label on one line */
+  overflow: visible;
+}
+
+/* Ensure dropdown menu fits the widest item */
+.admin-nav-dropdown .admin-nav-dropdown-menu {
+  min-width: max-content; /* expand to fit the longest label */
+  max-width: 90vw; /* guard against extremely small screens */
+}
+
+/* small circular dropdown indicator (shows that the control opens a menu) */
+.admin-nav-dropdown .dropdown-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(148, 163, 184, 0.04);
+  color: #94a3b8;
+  margin-left: 0.5rem;
+  font-size: 0.65rem;
+  line-height: 1;
+  transition:
+    transform var(--transition-fast) ease,
+    background-color var(--transition-fast) ease,
+    color var(--transition-fast) ease;
+  pointer-events: none;
+}
+
+.admin-nav-dropdown .admin-nav-tab[aria-expanded="true"] .dropdown-indicator {
+  transform: rotate(180deg);
+  background: rgba(59, 130, 246, 0.06);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.18);
+}
+
+.admin-nav-dropdown .admin-nav-tab:hover .dropdown-indicator {
+  background: rgba(255, 255, 255, 0.03);
+  color: #e2e8f0;
+}
+
+.admin-nav-dropdown .admin-nav-tab:hover {
+  background-color: rgba(55, 65, 81, 0.18);
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.12);
+}
+
+.admin-nav-dropdown .admin-nav-dropdown-menu {
+  min-width: max-content; /* expand to fit the longest label */
+  max-width: 90vw; /* guard against extremely small screens */
+  background: rgba(15, 23, 42, 0.98);
+  border: 1px solid rgba(148, 163, 184, 0.06);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.6);
+  overflow: hidden;
+}
+
+.admin-nav-dropdown .admin-nav-dropdown-menu a,
+.admin-nav-dropdown .admin-nav-dropdown-menu a:visited {
+  color: #cbd5e1 !important;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.admin-nav-dropdown .admin-nav-dropdown-menu a:hover,
+.admin-nav-dropdown .admin-nav-dropdown-menu a:focus {
+  background: rgba(55, 65, 81, 0.18);
+  color: #ffffff !important;
+  outline: none;
+}
+
+.admin-nav-dropdown .admin-nav-dropdown-menu a .icon {
+  width: 1.25rem;
+  text-align: center;
+}
+
 .table-container {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -1978,6 +2068,29 @@ input[type="file"] {
   .full-image-container img {
     max-width: 98vw;
     height: auto;
+  }
+
+  /* Compact table layout on small screens: reduce gaps and allow columns to respect widths */
+  .table-mobile-responsive {
+    min-width: 0 !important; /* allow table to fit viewport */
+    table-layout: fixed; /* enforce column widths set on th */
+  }
+
+  .table-mobile-responsive th,
+  .table-mobile-responsive td {
+    padding: 0.25rem 0.25rem !important; /* tighter cells on mobile */
+  }
+
+  .table-mobile-responsive .photo-thumbnail {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Ensure truncated text behaves correctly inside fixed-layout table */
+  .table-mobile-responsive td .truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* Responsive design for map - taller ratio for small screens */
