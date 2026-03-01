@@ -1,4 +1,9 @@
 /* eslint-disable no-undef */
+// messaging service worker version - bump this value whenever the file changes
+// so that clients re‑download the script (browsers aggressively cache service workers).
+// You can also override via build-time env: REACT_APP_FCM_SW_VERSION
+const FCM_SW_VERSION = "1";
+
 importScripts("/firebase-config.js");
 importScripts(
   "https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js",
