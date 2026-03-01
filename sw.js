@@ -1,6 +1,6 @@
-const CACHE_NAME = "gr5-cache-v3";
-const STATIC_CACHE = "gr5-static-v3";
-const IMAGE_CACHE = "gr5-images-v3";
+const CACHE_NAME = "gr5-cache-v4";
+const STATIC_CACHE = "gr5-static-v4";
+const IMAGE_CACHE = "gr5-images-v4";
 
 // Cache durations (in milliseconds)
 const STATIC_CACHE_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
